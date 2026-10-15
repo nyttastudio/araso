@@ -126,6 +126,10 @@ final class InputController: IMKInputController {
             log.debug("handle masked passed app=\(input.bundleIdentifier() ?? "?", privacy: .public)")
             return false
         }
+        if PasswordPrompt.isWaiting() {
+            log.debug("handle password prompt passed app=\(input.bundleIdentifier() ?? "?", privacy: .public)")
+            return false
+        }
         return MainActor.assumeIsolated {
             if case .shortcut(let shortcut) = Runtime.shared.settings.pauseKey,
                shortcut.matches(keyCode: event.keyCode, modifiers: KeyModifiers(event.modifierFlags)) {

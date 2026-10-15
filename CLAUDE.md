@@ -101,6 +101,11 @@ tests use `FakeTextField`). It owns the preview and hysteresis, commits, Esc rea
   ⇧ was already down) and drops whatever the input method inserts; deciding each key there lost
   letters (`PASSWORD` came out `pASSwrD`). A terminal with Secure Keyboard Entry reports its
   caret, so it isn't affected.
+- While one of the user's ttys reads a line with echo off (sudo's or ssh's password prompt), keys
+  go to the app as typed too, in every app: `PasswordPrompt.isWaiting` (asked by `InputController`)
+  opens each `/dev/ttys*` and checks ICANON on, ECHO off; vim and other full-screen programs read
+  raw keys, so they aren't matched. The input method can't tell which tty the focused terminal tab
+  is on, so a prompt waiting in another tab applies everywhere until it is answered.
 - The pause key (`Settings.pauseKey`: a right modifier tap, by default ⌘, read from flagsChanged, or a
   shortcut caught in keyDown, both in `InputController`) pauses the session until it is pressed again,
   `activate`, or a settings change (a fresh session). The menu icon can't change, so `PauseHUD`
