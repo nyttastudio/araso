@@ -9,6 +9,7 @@ import Testing
         try #require(openpty(&master, &slave, nil, nil, nil) == 0)
         defer { close(master); close(slave) }
         let path = String(cString: ttyname(slave))
+        #expect(PasswordPrompt.terminalDevices().contains(path))
         var t = termios()
         tcgetattr(slave, &t)
         #expect(!PasswordPrompt.isWaiting(devices: [path]))
