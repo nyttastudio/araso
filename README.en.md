@@ -509,7 +509,8 @@ held-out score. Many remaining misses are genuinely ambiguous keys: `so`/내, `g
 
 - Never tested end to end in every app.
 - Secure fields (passwords) bypass input methods. A masked field that still reaches it (KakaoTalk's
-  login, App Store's password sheet) gets the keys as typed, with no word decided.
+  login, App Store's password sheet) gets the keys as typed, with no word decided. So does every app
+  while a terminal asks for a password (sudo, ssh).
 - Undo after commit needs apps that report their caret and text. In a terminal, set
   `"holdSpace": true` to keep the word underlined after Space or punctuation instead.
 - Where Esc is a switch key, Esc right after a word (e.g. to close a popup) changes that word first.
