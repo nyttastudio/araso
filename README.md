@@ -14,6 +14,7 @@
 
 <p align="center">
   <a href="https://github.com/nyttastudio/araso/releases/latest"><img src="https://img.shields.io/github/v/release/nyttastudio/araso?style=flat-square&label=release" alt="최신 릴리스"></a>
+  <a href="https://github.com/nyttastudio/araso/stargazers"><img src="https://img.shields.io/github/stars/nyttastudio/araso?style=flat-square&label=stars" alt="스타"></a>
   <a href="https://github.com/nyttastudio/araso/releases"><img src="https://img.shields.io/github/downloads/nyttastudio/araso/total?style=flat-square" alt="다운로드 수"></a>
   <img src="https://img.shields.io/badge/macOS-13%2B-555?style=flat-square&logo=apple" alt="macOS 13 이상">
   <img src="https://img.shields.io/badge/Apple%20Silicon%20%7C%20Intel-555?style=flat-square" alt="Apple Silicon과 Intel">
