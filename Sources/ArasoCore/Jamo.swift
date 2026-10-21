@@ -73,18 +73,33 @@ public enum DubeolsikLayout {
     /// A capital on a key with no shifted jamo, not counting a lingering Shift: Shift still down
     /// for the one key right after a Korean shift key (어떤 typed fast is djEJs, 바뀌 is qkRNl:
     /// Shift was still down for the vowel after ㄸ or ㄲ). Such keys read as Korean or English by
-    /// their scores; any other capital (Hello, API, dHello) is only ever English. A Shift lingers
-    /// between lowercase keys, so a word typed in capitals throughout (TM, RN, TL: acronyms) gets
-    /// no such allowance, nor does ㅒ/ㅖ with no consonant before it (PDF, OAuth).
+    /// their scores, and so do keys Shift was held over on purpose (`heldOver`); any other capital
+    /// (Hello, API, dHello) is only ever English. A Shift lingers between lowercase keys, so a word
+    /// typed in capitals throughout (TM, RN, TL: acronyms) gets no such allowance, nor does ㅒ/ㅖ
+    /// with no consonant before it (PDF, OAuth).
     public static func hasEnglishOnlyCapital(_ keys: String) -> Bool {
         if KoreanLayout.current == .sebeolsikFinal { return SebeolsikFinal.hasEnglishOnlyCapital(keys) }
         let chars = keys.map(seat)
         let hasLowercase = chars.contains(where: \.isLowercase)
         for (i, key) in chars.enumerated() where key.isUppercase && shifted[key] == nil {
             if hasLowercase, i >= 1, lingers(after: chars[i - 1], twoBack: i >= 2 ? chars[i - 2] : nil, on: key) { continue }
+            if heldOver(i, in: chars, keys: keys) { continue }
             return true
         }
         return false
+    }
+
+    /// Shift held down from a Korean shift key over the keys after it, since Shift doesn't change
+    /// them: 깔끔하다 as RKFRMAgkek (held from ㄲ to ㄲ and on through 끔), 빨리 as QKFfl. The run of
+    /// capitals has to start on a Korean shift key, end before the word does (a word in capitals
+    /// throughout is an acronym: RKFRMA, QUICK), and the keys have to spell whole Hangul, so
+    /// TFxla, PCqkd and OAuth stay English. Takes seats.
+    private static func heldOver(_ i: Int, in chars: [Character], keys: String) -> Bool {
+        var start = i, end = i
+        while start > 0, chars[start - 1].isUppercase { start -= 1 }
+        while end < chars.count, chars[end].isUppercase { end += 1 }
+        guard shifted[chars[start]] != nil, end < chars.count, chars[end].isLowercase else { return false }
+        return HangulComposer.compose(keys: keys).map { !$0.isBroken } == true
     }
 
     /// Shift still down for `key`, right after `shiftKey`, a Korean shift key that needed it. After

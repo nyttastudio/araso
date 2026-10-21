@@ -65,6 +65,25 @@ let splitting = SplittingEngine(base: sharedEngine, english: sharedEngine.englis
         #expect(d.output == expected)
     }
 
+    // Shift held on from ㄲ through two syllables (깔끔 of 깔끔하다 as RKFRMA) isn't an acronym
+    // before 하다, nor a name when it starts mid-word (것뿐 as rjtQNS): no split.
+    @Test(arguments: [("RKFRMAgkek", "깔끔하다"), ("RKFRMAgo", "깔끔해"), ("RKFRMAgks", "깔끔한"),
+                      ("TMFTMFgkek", "쓸쓸하다"), ("rjtQNSdldpdy", "것뿐이에요"), ("dkwjTLGKSxp", "아저씨한테")])
+    func heldShiftIsNotAnAcronym(keys: String, expected: String) {
+        let d = splitting.decide(keys, context: DecisionContext())
+        #expect(d.language == .korean, "\(keys) → \(d.output) \(d.explanation)")
+        #expect(d.output == expected)
+    }
+
+    // One syllable held is still an acronym (RNA, not 꿈), and so are capitals whose syllables
+    // nobody writes (TOEIC, not 썌땿).
+    @Test(arguments: [("RNAfmf", "RNA를"), ("RNArk", "RNA가"), ("TOEICdms", "TOEIC은")])
+    func acronymsShapedLikeHeldShiftSplit(keys: String, expected: String) {
+        let d = splitting.decide(keys, context: DecisionContext())
+        #expect(d.language == .mixed, "\(keys) → \(d.output) \(d.explanation)")
+        #expect(d.output == expected)
+    }
+
     // Fast-typed Korean whose first two keys spell an acronym stays Korean: it reads as Korean
     // throughout (따라서 as EKfktj); its first syllable is rare but has been seen (삐졌어 as QLwuTdj,
     // 쭈그리고 as WNrmflrh, from the word lists); or no known Korean word follows (뾰족한 as QYwhrgks).

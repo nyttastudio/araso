@@ -480,6 +480,10 @@ in as typed, in English with half-width symbols, until the next space (`https://
 - Shift on a letter with no shifted jamo (`Hello`, `API`) is English.
 - The exception is a Shift that lingers from a double consonant or ㅒ/ㅖ onto the one key right after
   (`djEJs` → `어떤`, `dlTDj` → `있어`, `dPFmf` → `예를`): those go by the scores.
+- So does Shift held down from a double consonant over keys it doesn't change and let go before the
+  word ends (`RKFRMAgkek` → `깔끔하다`, `QKFfl` → `빨리`), when the keys spell whole Hangul. Before a
+  particle or ending the held part has to be two syllables people use; one is an acronym
+  (`RNAfmf` → `RNA를`).
 - An acronym typed in capitals throughout (`TM`, `RN`) or a word starting on O or P (`PDFvkdlf` →
   `PDF파일`, `OAuth`) stays English.
 - A word with a capital in it is never read as Japanese: as in macOS's Japanese input method, a
