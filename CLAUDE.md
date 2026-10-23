@@ -42,6 +42,13 @@ scripts/record-demo/render.sh                # → docs/media/demo.gif and build
 **Targets.** `ArasoCore` holds all the typing logic and is what the tests cover. `Araso`
 is a thin IMK layer over it. `araso-cli` is for tuning and evaluation.
 
+**Norwegian** (`Settings.norwegian`, off by default): `EnglishModel.shared` is `norwegianModel`
+(`useNorwegian`, set by `Runtime`; `EnglishModel.$override` in tests) instead of `english`:
+english_words.txt and norwegian_words.txt merged (lower level wins), æ ø å as three more trigram
+symbols (`LatinLayout.extraLetters`), Norwegian inflections (en, et, ene, te, de) and short words.
+Off, `english` is exactly the old model. `LatinLayout.norwegian` puts ø æ å on the ; ' [ keys.
+Tests: `NorwegianTests.swift`.
+
 **Decision chain** (built in `Runtime.makeEngine`): `DictionaryEngine` (`UserDictionary.swift`,
 dictionary.json: a correction made twice or a word added by hand wins; one correction is `weak`,
 passed down as `DecisionContext.nudge` and worth `correctionBias`, and expires after 30 days unless

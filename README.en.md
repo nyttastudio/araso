@@ -343,7 +343,7 @@ The settings window has these panes, and changes apply at once.
 
 | Pane | What's there |
 | --- | --- |
-| Languages | converting words on or off, Japanese on or off, the Layouts card (Hangul: 2-set, 3-set final; English and romaji: QWERTY, Colemak, Colemak-DH), Japanese input and its options, resetting the kanji candidate order |
+| Languages | converting words on or off, Japanese on or off, Norwegian on or off, the Layouts card (Hangul: 2-set, 3-set final; English and romaji: QWERTY, Colemak, Colemak-DH, Norwegian), Japanese input and its options, resetting the kanji candidate order |
 | Keys | the language switch keys, Return, the pause key |
 | Apps | how sure a word must be to convert (Normal, Strict) and per-app behavior (`apps.json`) |
 | Dictionary | words you added and words learned, in one list (`dictionary.json`): **+** to type keys and pick their reading (English, Korean, Japanese) and app; from a row's ⋯, keep a learned word for good or remove it. A word corrected once shows how long until it's forgotten |
@@ -368,12 +368,13 @@ restart the input method: `pkill -x Araso`.
 | Key | Default | What it does |
 | --- | --- | --- |
 | `japanese` | **off** | Detect romaji Japanese and convert it. |
+| `norwegian` | off | Norwegian (bokmål) words stay as typed, as English ones do (`jeg`, `ikke`, `kjøpte`; `kjøp에` splits off its particle). Turned on in Settings from QWERTY, it moves `latinLayout` to `"norwegian"`. Off, English is decided as before. |
 | `liveConversion` | off | While you type a Japanese phrase, show its top kanji candidate (`今日はいい天気でs`); Return commits it as shown. Like macOS Live Conversion. |
 | `returnConfirmsOnly` | on | Return on an underlined word only confirms it. Off, the app gets that Return too (a Japanese phrase is still only confirmed). |
 | `pauseKey` | `"rightCommand"` | The pause key (see [Pause](#pause)): `"rightCommand"`, `"rightOption"`, `"rightShift"` or `"rightControl"` tapped alone, `"off"`, or a shortcut such as `{ "keyCode": 35, "modifiers": ["control", "option"], "key": "P" }`. The older `"rightCommandPause": false` reads as `"off"`. |
 | `fullWidthDigits` | off | Numbers after Japanese come out full-width (`１２３`, `０３－１２３４` in addresses and phone numbers), underlined, with Space offering `123` (half-width) or conversions like `三月`. |
 | `fullWidthSpace` | off | Space after Japanese types a full-width space (`　`). ⇧Space types the other width (full-width while this is off). |
-| `latinLayout` | `"qwerty"` | The layout English and romaji are typed on; also `"colemak"` or `"colemakDH"`. Korean stays on its usual keys (QWERTY's) whatever the layout. Words learned on one layout are learned again on another: their keys differ. |
+| `latinLayout` | `"qwerty"` | The layout English and romaji are typed on; also `"colemak"` or `"colemakDH"`, or `"norwegian"`: QWERTY with ø æ å on the `;` `'` `[` keys as on a Norwegian Mac keyboard (those keys have no jamo, so such a word is always Latin). Korean stays on its usual keys (QWERTY's) whatever the layout. Words learned on one layout are learned again on another: their keys differ. |
 | `japaneseLayout` | none | The layout romaji is typed on (`"qwerty"`, `"colemak"`, `"colemakDH"`); without it, `latinLayout`'s. English on Colemak with romaji on QWERTY, for one. |
 | `koreanLayout` | `"dubeolsik"` | The Korean layout; `"sebeolsikFinal"` is 3-set final (세벌식 최종). Jamo on digit and symbol keys (ㅆ of 갔 on 2, ㅂ of 밥 on ;) read as jamo inside a word where they fit, and as the symbol where they don't (the ! of 안녕!). Digits alone stay a number, so ㅋㅋ (00) and ㅠㅠ (55) take a switch key. Shifted keys that type a digit or symbol in Korean (⇧H 0, ⇧B ?) type as on QWERTY. |
 | `japaneseEngine` | `"apple"` | Kanji conversion: `"apple"` uses the engine of macOS's Japanese input, `"azooKey"` the AzooKey converter in the app. |
@@ -588,8 +589,11 @@ or copied into it in `Contents/Resources/ThirdPartyNotices.txt`, collected by
   evaluation): CC-BY 2.0 FR, https://tatoeba.org.
 - English words and how common they are: [SCOWL](http://wordlist.aspell.net) (permissive,
   notice in the app). macOS's `/usr/share/dict/words` trains the letter trigrams at runtime.
-- English/Korean frequency lists:
-  [hermitdave/FrequencyWords](https://github.com/hermitdave/FrequencyWords), CC-BY-SA 4.0. Used
+- English/Korean/Norwegian frequency lists:
+  [hermitdave/FrequencyWords](https://github.com/hermitdave/FrequencyWords), CC-BY-SA 4.0. The
+  Norwegian list (OpenSubtitles, words seen at least five times) ships as `norwegian_words.txt`,
+  its ranks turned into levels (`tools/build_norwegian_words.py`), under the same license with its
+  notice in the app; it is read only with Norwegian on. Used
   for evaluation; the full Korean list (words seen at least twice) also ships as
   `korean_vocabulary.txt` (for splitting an English word from a Korean one, and for Korean words
   Tatoeba's sentences lack: 혜택, 닥터, 촉매), under the same license, with its notice in the app.

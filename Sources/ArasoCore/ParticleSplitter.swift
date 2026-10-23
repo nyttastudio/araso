@@ -200,7 +200,7 @@ public struct ParticleSplitter: Sendable {
 
     /// `frontScore`, and whether the front is an acronym or a name typed with its capitals.
     func frontReading(_ front: String) -> (score: Double, capitals: Bool)? {
-        guard front.count >= 2, front.allSatisfy({ $0.isASCII && $0.isLetter }) else { return nil }
+        guard front.count >= 2, front.allSatisfy(EnglishModel.isLatinLetter) else { return nil }
         // Capitals that are all shifted jamo in keys that spell clean Hangul are Korean typed
         // with shift (akffkRod: 말라깽, tkrlRns: 사기꾼), not an acronym or a name.
         let korean = front.allSatisfy { !$0.isUppercase || DubeolsikLayout.isKoreanShiftKey($0) }

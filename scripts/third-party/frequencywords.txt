@@ -5,3 +5,9 @@ https://creativecommons.org/licenses/by-sa/4.0/). Changes: only words
 of two or more Hangul syllables seen at least twice were kept, with their counts
 (tools/build_korean_vocabulary.py).
 korean_vocabulary.txt itself is distributed under the same license, CC BY-SA 4.0.
+
+norwegian_words.txt is derived from the full Norwegian list of FrequencyWords by Hermit Dave
+(https://github.com/hermitdave/FrequencyWords, content/2018/no/no_full.txt), under the same
+license. Changes: lowercased words of the letters a–z, æ, ø, å seen at least five times were kept,
+their frequency rank turned into a level from 10 to 60 (tools/build_norwegian_words.py).
+norwegian_words.txt itself is distributed under the same license, CC BY-SA 4.0.

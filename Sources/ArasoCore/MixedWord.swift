@@ -73,7 +73,7 @@ public struct MixedWord: Equatable, Sendable {
     /// A single letter and a particle: `xdp` → `x에`, `Xfmf` → `X를`. One key on its own can't
     /// make a Hangul syllable before another consonant, so the keys never read as Korean.
     public static func splitSingleLetter(_ keys: String) -> MixedWord? {
-        guard keys.count >= 2, let first = keys.first, first.isASCII, first.isLetter else { return nil }
+        guard keys.count >= 2, let first = keys.first, EnglishModel.isLatinLetter(first) else { return nil }
         let suffixKeys = String(keys.dropFirst())
         guard suffixKeys.first.map(DubeolsikLayout.startsSyllable) == true,
               let composed = HangulComposer.compose(keys: suffixKeys), composed.strayJamo.isEmpty,

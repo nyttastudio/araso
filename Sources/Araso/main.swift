@@ -67,8 +67,11 @@ if CommandLine.arguments.contains("--selftest") {
         let lists = EnglishModel.shared.wordCount > 100_000 && KoreanModel().isKnownWord("나는")
         print("english/korean: \(english && korean && lists ? "ok" : "FAILED")")
         ok = ok && english && korean && lists
+        let norwegian = EnglishModel.norwegianModel.isKnownWord("kjøpe") && !EnglishModel.english.isKnownWord("kjøpe")
+        print("norwegian: \(norwegian ? "ok" : "FAILED")")
+        ok = ok && norwegian
         // Must come from the bundle, not the source-tree fallback used in development.
-        let resources = [Resources.kanaModel, Resources.textModel, Resources.englishWords, Resources.koreanWords,
+        let resources = [Resources.kanaModel, Resources.textModel, Resources.englishWords, Resources.norwegianWords, Resources.koreanWords,
                          Resources.koreanSyllables, Resources.koreanVocabulary, Resources.japaneseDictionary]
         let bundled = resources.allSatisfy { $0?.path.hasPrefix(Bundle.main.bundlePath) == true }
         print("resources in bundle: \(bundled ? "ok" : "FAILED")")

@@ -11,10 +11,14 @@ import Foundation
 // ARASO_LAYOUT=colemak (or colemakDH): keys are that layout's letters, as settings.json's latinLayout.
 // ARASO_KOREAN_LAYOUT=sebeolsikFinal: Korean is read as 3-set, as settings.json's koreanLayout.
 // ARASO_JAPANESE_LAYOUT=qwerty (or colemak, colemakDH): romaji's own layout, as japaneseLayout.
+// ARASO_NORWEGIAN=1: Norwegian words count on the Latin side, as settings.json's norwegian.
 
 var args = Array(CommandLine.arguments.dropFirst())
 if let name = ProcessInfo.processInfo.environment["ARASO_LAYOUT"], let layout = LatinLayout(rawValue: name) {
     LatinLayout.active = layout
+}
+if ProcessInfo.processInfo.environment["ARASO_NORWEGIAN"] == "1" {
+    EnglishModel.useNorwegian = true
 }
 if let name = ProcessInfo.processInfo.environment["ARASO_JAPANESE_LAYOUT"], let layout = LatinLayout(rawValue: name) {
     LatinLayout.activeRomaji = layout

@@ -586,6 +586,13 @@ private struct GeneralPane: View {
                 SeamToggleRow(title: L("Japanese"),
                               detail: L("Type Japanese with romaji; Space converts to kanji."),
                               isOn: binding(\.japanese))
+                // On from QWERTY moves English letters to the Norwegian layout, where æ ø å are.
+                SeamToggleRow(title: L("Norwegian"),
+                              detail: L("Norwegian words stay as typed next to English; æ ø å on the Norwegian layout."),
+                              isOn: Binding(get: { model.settings.norwegian }, set: { value in
+                                  model.set(\.norwegian, value)
+                                  if value, model.settings.latinLayout == .qwerty { model.set(\.latinLayout, .norwegian) }
+                              }))
             }
             // The layouts together: each language reads every key through its own.
             SeamCard(title: L("Layouts")) {

@@ -9,6 +9,9 @@ import Foundation
 public struct Settings: Codable, Equatable, Sendable {
     /// Detect romaji Japanese and convert it (kana preview, Space for kanji).
     public var japanese: Bool = false
+    /// Norwegian (bokmål) on the Latin side with English: Norwegian words and inflections count,
+    /// and æ ø å are letters (typed on the "norwegian" layout, `latinLayout`).
+    public var norwegian: Bool = false
     /// With Japanese on: show (and commit) the top kanji candidate while typing, like macOS
     /// Live Conversion. Space opens the other candidates, Esc shows the kana.
     public var liveConversion: Bool = false
@@ -28,7 +31,8 @@ public struct Settings: Codable, Equatable, Sendable {
     public var fullWidthDigits: Bool = false
     /// With Japanese on: a space after Japanese text is full-width (⇧Space types the other width).
     public var fullWidthSpace: Bool = false
-    /// The layout English and romaji are typed on: "qwerty", "colemak" or "colemakDH". Korean
+    /// The layout English and romaji are typed on: "qwerty", "colemak", "colemakDH" or
+    /// "norwegian" (QWERTY with ø æ å on the ; ' [ keys). Korean
     /// 2-set stays on its keys either way (`LatinLayout`).
     public var latinLayout: LatinLayout = .qwerty
     /// The layout Korean is typed on: "dubeolsik" or "sebeolsikFinal" (`KoreanLayout`).
@@ -39,7 +43,9 @@ public struct Settings: Codable, Equatable, Sendable {
     public init(japanese: Bool = false, liveConversion: Bool = false, pauseKey: PauseKey = .standard,
                 returnConfirmsOnly: Bool = true, checkForUpdates: Bool = true, japaneseEngine: String = "apple",
                 fullWidthDigits: Bool = false, fullWidthSpace: Bool = false, latinLayout: LatinLayout = .qwerty,
-                koreanLayout: KoreanLayout = .dubeolsik, japaneseLayout: LatinLayout? = nil) {
+                koreanLayout: KoreanLayout = .dubeolsik, japaneseLayout: LatinLayout? = nil,
+                norwegian: Bool = false) {
+        self.norwegian = norwegian
         self.latinLayout = latinLayout
         self.koreanLayout = koreanLayout
         self.japaneseLayout = japaneseLayout
@@ -60,6 +66,7 @@ public struct Settings: Codable, Equatable, Sendable {
             ((try? c.decodeIfPresent(T.self, forKey: key)) ?? nil) ?? fallback
         }
         japanese = value(.japanese, false)
+        norwegian = value(.norwegian, false)
         liveConversion = value(.liveConversion, false)
         let legacy = try? decoder.container(keyedBy: LegacyKeys.self)
         let rightCommandPause = ((try? legacy?.decodeIfPresent(Bool.self, forKey: .rightCommandPause)) ?? nil) ?? true

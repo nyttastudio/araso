@@ -15,6 +15,10 @@ public enum LatinLayout: String, Codable, CaseIterable, Sendable {
     case colemak
     /// Colemak Mod-DH, ANSI rows (no angle mod): D and H move to the bottom row.
     case colemakDH
+    /// Norwegian (bokmål): QWERTY's letters, with ø, æ and å on the ; ' [ keys as on a Norwegian
+    /// Mac keyboard. Those three keys type letters here, so a word with one of them is Latin,
+    /// never Korean (2-set has no jamo on them).
+    case norwegian
 
     /// How the settings show it.
     public var name: String {
@@ -22,8 +26,12 @@ public enum LatinLayout: String, Codable, CaseIterable, Sendable {
         case .qwerty: return "QWERTY"
         case .colemak: return "Colemak"
         case .colemakDH: return "Colemak-DH"
+        case .norwegian: return "Norsk (QWERTY + æøå)"
         }
     }
+
+    /// The letters outside a–z this layout types: the Latin model's extra symbols.
+    public static let extraLetters: [Character] = ["æ", "ø", "å"]
 
     /// What the input controllers type with: set from the settings when they load.
     nonisolated(unsafe) public static var active: LatinLayout = .qwerty
@@ -45,14 +53,16 @@ public enum LatinLayout: String, Codable, CaseIterable, Sendable {
         return String(keys.map { romaji.character(onSeat: english.seat(of: $0)) })
     }
 
-    /// QWERTY's character on each key, unshifted, in the order of `rows`.
-    private static let qwertyRows = ["qwertyuiop", "asdfghjkl;", "zxcvbnm"]
+    /// QWERTY's character on each key, unshifted, in the order of `rows`. The [ and ' keys are
+    /// in because the Norwegian layout has letters on them (å, æ); elsewhere they type themselves.
+    private static let qwertyRows = ["qwertyuiop[", "asdfghjkl;'", "zxcvbnm"]
 
     private var rows: [String] {
         switch self {
         case .qwerty: return Self.qwertyRows
-        case .colemak: return ["qwfpgjluy;", "arstdhneio", "zxcvbkm"]
-        case .colemakDH: return ["qwfpbjluy;", "arstgmneio", "zxcdvkh"]
+        case .colemak: return ["qwfpgjluy;[", "arstdhneio'", "zxcvbkm"]
+        case .colemakDH: return ["qwfpbjluy;[", "arstgmneio'", "zxcdvkh"]
+        case .norwegian: return ["qwertyuiopå", "asdfghjkløæ", "zxcvbnm"]
         }
     }
 
@@ -83,7 +93,8 @@ public enum LatinLayout: String, Codable, CaseIterable, Sendable {
     /// word too, and so is QWERTY's `;` when romaji is on Colemak (its o).
     public func isLetterSeat(_ character: Character) -> Bool {
         let seat = seat(of: character)
-        return seat.isASCII && seat.isLetter || Self.romaji.character(onSeat: seat).isLetter
+        return seat.isASCII && seat.isLetter || self.character(onSeat: seat).isLetter
+            || Self.romaji.character(onSeat: seat).isLetter
     }
 
     private static func position(of seat: Character) -> (Int, Int, Bool)? {
@@ -94,12 +105,15 @@ public enum LatinLayout: String, Codable, CaseIterable, Sendable {
         return nil
     }
 
+    private static let shiftedSymbols: [Character: Character] = [";": ":", "'": "\"", "[": "{"]
+    private static let unshiftedSymbols: [Character: Character] = [":": ";", "\"": "'", "{": "["]
+
     private static func shift(_ ch: Character) -> Character {
-        ch == ";" ? ":" : Character(ch.uppercased())
+        shiftedSymbols[ch] ?? Character(ch.uppercased())
     }
 
     private static func unshift(_ ch: Character) -> Character {
-        ch == ":" ? ";" : Character(ch.lowercased())
+        unshiftedSymbols[ch] ?? Character(ch.lowercased())
     }
 
     /// The character a key types on this layout, from its virtual key code (ANSI positions), with
@@ -113,7 +127,7 @@ public enum LatinLayout: String, Codable, CaseIterable, Sendable {
 
     private static let seatsByKeyCode: [UInt16: Character] = [
         12: "q", 13: "w", 14: "e", 15: "r", 17: "t", 16: "y", 32: "u", 34: "i", 31: "o", 35: "p",
-        0: "a", 1: "s", 2: "d", 3: "f", 5: "g", 4: "h", 38: "j", 40: "k", 37: "l", 41: ";",
-        6: "z", 7: "x", 8: "c", 9: "v", 11: "b", 45: "n", 46: "m",
+        0: "a", 1: "s", 2: "d", 3: "f", 5: "g", 4: "h", 38: "j", 40: "k", 37: "l", 41: ";", 39: "'",
+        6: "z", 7: "x", 8: "c", 9: "v", 11: "b", 45: "n", 46: "m", 33: "[",
     ]
 }

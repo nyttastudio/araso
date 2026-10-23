@@ -212,6 +212,8 @@
 /* 언어 */
 "Off: keys go to the app as typed, as with the ABC layout. Apps can differ, under Apps." = "끄면 ABC 자판처럼 친 그대로 앱에 갑니다. 앱별로 다르게 할 수 있습니다.";
 "Type Japanese with romaji; Space converts to kanji." = "로마자로 일본어를 치고, Space로 한자로 바꿉니다.";
+"Norwegian" = "노르웨이어";
+"Norwegian words stay as typed next to English; æ ø å on the Norwegian layout." = "노르웨이어 단어도 영어처럼 친 그대로 둡니다. æ ø å는 노르웨이 자판으로 칩니다.";
 "Kanji candidate order" = "한자 후보 순서";
 "Kanji you pick come first next time." = "고른 한자가 다음에 앞에 나옵니다.";
 "Reset…" = "초기화…";

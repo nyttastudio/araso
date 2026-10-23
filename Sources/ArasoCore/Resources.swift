@@ -35,6 +35,12 @@ public enum Resources {
         url("english_words.txt", development: packageRoot.appendingPathComponent("Sources/ArasoCore/Data/english_words.txt"))
     }
 
+    /// Norwegian (bokmål) words with a level by frequency, 10 to 60, for Norwegian on
+    /// (build_norwegian_words.py, from FrequencyWords' no_full.txt).
+    public static var norwegianWords: URL? {
+        url("norwegian_words.txt", development: packageRoot.appendingPathComponent("Sources/ArasoCore/Data/norwegian_words.txt"))
+    }
+
     /// Korean words seen in sentences, with counts (Tatoeba; build_korean_words.py).
     public static var koreanWords: URL? {
         url("korean_words.txt", development: packageRoot.appendingPathComponent("Sources/ArasoCore/Data/korean_words.txt"))

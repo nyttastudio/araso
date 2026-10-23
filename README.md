@@ -319,7 +319,7 @@ vim이 모드가 바뀔 때마다 Araso에 알려 주므로, 입력 모드에서
 
 | 탭 | 내용 |
 | --- | --- |
-| 언어 | 단어 변환 켜고 끄기, 일본어 켜고 끄기, 자판 카드(한글: 두벌식·세벌식 최종, 영문·로마자: QWERTY·Colemak·Colemak-DH), 일본어 입력과 그 옵션, 한자 후보 순서 초기화 |
+| 언어 | 단어 변환 켜고 끄기, 일본어 켜고 끄기, 노르웨이어 켜고 끄기, 자판 카드(한글: 두벌식·세벌식 최종, 영문·로마자: QWERTY·Colemak·Colemak-DH·노르웨이), 일본어 입력과 그 옵션, 한자 후보 순서 초기화 |
 | 키 | 언어 바꾸기 키, Return, 일시정지 키 |
 | 앱별 | 변환 기준(보통·엄격하게)과 앱마다 다른 동작 (`apps.json`) |
 | 사전 | 등록한 단어와 학습한 단어를 한 목록으로 (`dictionary.json`): **+**로 키를 쳐서 영어·한국어·일본어 중 읽기와 앱을 정해 추가하고, 학습한 단어는 줄 끝의 ⋯에서 등록으로 고정하거나 지우기. 한 번 고친 단어는 잊힐 때까지 남은 기간도 보여 줌 |
@@ -343,12 +343,13 @@ vim이 모드가 바뀔 때마다 Araso에 알려 주므로, 입력 모드에서
 | 항목 | 기본값 | 내용 |
 | --- | --- | --- |
 | `japanese` | **꺼짐** | 로마자 일본어를 알아보고 변환합니다. |
+| `norwegian` | 꺼짐 | 노르웨이어(bokmål) 단어도 영어처럼 친 그대로 둡니다(`jeg`, `ikke`, `kjøpte`, `kjøp에`처럼 조사도 나눔). 설정 창에서 QWERTY일 때 켜면 `latinLayout`이 `"norwegian"`으로 바뀝니다. 켜지 않으면 영어 판단은 그대로입니다. |
 | `liveConversion` | 꺼짐 | 일본어 구절을 치는 동안 가장 앞선 한자 후보를 보여 주고(`今日はいい天気でs`), Return을 누르면 보이는 대로 확정합니다. macOS의 실시간 변환과 같습니다. |
 | `returnConfirmsOnly` | 켜짐 | 밑줄 친 단어에서 누른 Return은 확정만 합니다. 끄면 앱도 그 Return을 받습니다(일본어 구절은 그대로 확정만). |
 | `pauseKey` | `"rightCommand"` | 일시정지 키([일시정지](#일시정지) 참고). `"rightCommand"`·`"rightOption"`·`"rightShift"`·`"rightControl"`은 그 키 단독, `"off"`는 끔, 단축키는 `{ "keyCode": 35, "modifiers": ["control", "option"], "key": "P" }`처럼 씁니다. 예전의 `"rightCommandPause": false`는 `"off"`로 읽습니다. |
 | `fullWidthDigits` | 꺼짐 | 일본어 뒤의 숫자를 전각으로 씁니다(`１２３`, 주소·전화번호의 `０３－１２３４`). 밑줄 친 채 남고, Space로 `123`(반각)이나 `三月` 같은 변환을 고릅니다. |
 | `fullWidthSpace` | 꺼짐 | 일본어 뒤의 Space를 전각 공백(`　`)으로 씁니다. ⇧Space는 설정과 반대 폭의 공백을 넣습니다(꺼져 있으면 전각). |
-| `latinLayout` | `"qwerty"` | 영어와 일본어 로마자를 치는 자판. `"colemak"`·`"colemakDH"`도 됩니다. 한글은 영문 자판과 상관없이 늘 같은 자리(QWERTY의 키)에 있습니다. 자판을 바꾸면 학습한 단어는 키가 달라져 새로 익힙니다. |
+| `latinLayout` | `"qwerty"` | 영어와 일본어 로마자를 치는 자판. `"colemak"`·`"colemakDH"`도 됩니다. `"norwegian"`은 QWERTY에 노르웨이 Mac 자판처럼 `;` `'` `[` 키로 ø æ å를 칩니다(그 키는 한글 자모가 없어 이런 단어는 늘 라틴 문자). 한글은 영문 자판과 상관없이 늘 같은 자리(QWERTY의 키)에 있습니다. 자판을 바꾸면 학습한 단어는 키가 달라져 새로 익힙니다. |
 | `japaneseLayout` | 없음 | 일본어 로마자를 치는 자판(`"qwerty"`·`"colemak"`·`"colemakDH"`). 없으면 `latinLayout`을 따릅니다. 예를 들어 영어는 Colemak, 로마자는 QWERTY로 칠 수 있습니다. |
 | `koreanLayout` | `"dubeolsik"` | 한글 자판. `"sebeolsikFinal"`은 세벌식 최종입니다. 숫자·기호 키의 자모(갔의 ㅆ은 2, 밥의 ㅂ은 ;)는 단어 안에서 글자에 맞을 때만 자모로 읽고, 아니면 그 기호를 넣습니다(안녕! 의 !). 숫자만 친 것은 숫자로 두므로 ㅋㅋ(00)·ㅠㅠ(55)는 전환 키로 바꿉니다. ⇧로 숫자·기호가 나오는 자리(⇧H 0, ⇧B ?)는 QWERTY대로 칩니다. |
 | `japaneseEngine` | `"apple"` | 한자 변환 엔진. `"apple"`은 macOS 일본어 입력기의 엔진을, `"azooKey"`는 앱에 든 AzooKey를 씁니다. |
@@ -547,7 +548,9 @@ Araso는 MIT 라이선스입니다([LICENSE](LICENSE)). 앱에 컴파일되거�
 - Tatoeba 문장(가나·일본어 문어 모델, 한국어 음절·단어 빈도, 평가): CC-BY 2.0 FR, https://tatoeba.org.
 - 영어 단어와 빈도: [SCOWL](http://wordlist.aspell.net) (자유 라이선스, 고지는 앱에 포함).
   macOS의 `/usr/share/dict/words`로 실행할 때 글자 3-그램을 학습합니다.
-- 영어·한국어 빈도 목록: [hermitdave/FrequencyWords](https://github.com/hermitdave/FrequencyWords), CC-BY-SA 4.0.
+- 영어·한국어·노르웨이어 빈도 목록: [hermitdave/FrequencyWords](https://github.com/hermitdave/FrequencyWords), CC-BY-SA 4.0.
+  노르웨이어 목록(OpenSubtitles, 다섯 번 이상 나온 단어)은 빈도 순위를 등급으로 바꿔 `norwegian_words.txt`로
+  같은 라이선스로 앱에 들어갑니다(`tools/build_norwegian_words.py`, 고지는 앱에 포함). 노르웨이어를 켰을 때만 읽습니다.
   평가에 쓰고, 한국어 전체 목록(두 번 이상 나온 단어)은 `korean_vocabulary.txt`로도 같은 라이선스로 앱에
   들어갑니다(고지는 앱에 포함). 영어 + 한국어 단어 나누기와, Tatoeba 문장에 없는 한국어 단어(혜택, 닥터,
   촉매)를 알아보는 데 씁니다.

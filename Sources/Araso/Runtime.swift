@@ -25,6 +25,7 @@ final class Runtime {
         LatinLayout.active = settings.latinLayout
         KoreanLayout.active = settings.koreanLayout
         LatinLayout.activeRomaji = settings.japaneseLayout
+        EnglishModel.useNorwegian = settings.norwegian
         engine = Self.makeEngine(japanese: settings.japanese)
         converter = settings.japanese ? Self.makeConverter(settings) : nil
         let center = DistributedNotificationCenter.default()
@@ -114,7 +115,8 @@ final class Runtime {
     }
 
     private func apply(_ new: Settings) {
-        if new.japanese != settings.japanese {
+        if new.japanese != settings.japanese || new.norwegian != settings.norwegian {
+            EnglishModel.useNorwegian = new.norwegian
             engine = Self.makeEngine(japanese: new.japanese)
         }
         if new.japanese, converter == nil || new.japaneseEngine != settings.japaneseEngine {
