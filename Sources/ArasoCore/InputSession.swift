@@ -41,7 +41,7 @@ public protocol TextClient: AnyObject {
 ///   Return         commit the word as shown, and nothing else (the next Return is the app's);
 ///                  with `returnConfirmsOnly` off the app gets it too, except after Japanese
 ///   anything else  commit and let the app handle the key
-///   ⌘ going down   a held word goes in with its boundary before the shortcut (`commandPressed`)
+///   ⌘ going down   the word goes in (a held one with its boundary) before the shortcut (`commandPressed`)
 /// While converting to kanji (candidate window open):
 ///   Space / ↓      next candidate          ↑      previous candidate
 ///   1–9            commit that candidate   Return commit the selected candidate
@@ -500,14 +500,14 @@ public final class InputSession {
         }
     }
 
-    /// The ⌘ key went down. A held word goes in with its boundary now, before the shortcut: an
-    /// app that acts on the shortcut itself never shows the input method the key (Ghostty's
-    /// ⌘V is its own keybinding) and would paste over the underlined text. A word without a
-    /// boundary keeps composing: a ⌘ pressed and let go must not split the next letters off
-    /// into a new word. As after any shortcut, what comes next isn't known (the paste never
-    /// reaches the input method either), so the run is read again from the field.
+    /// The ⌘ key went down. The word being typed goes in now, a held word with its boundary,
+    /// before the shortcut: an app that acts on the shortcut itself never shows the input method
+    /// the key (Ghostty's ⌘V and ⌘⌫ are its own keybindings), so it pasted over the underlined
+    /// word, and its word-delete took the word before it (the underlined one wasn't text to it
+    /// yet). The price is a ⌘ pressed and let go mid-word: the letters after it start a new word.
+    /// As after any shortcut, what comes next isn't known (the paste never reaches the input
+    /// method either), so the run is read again from the field.
     public func commandPressed(client: TextClient) {
-        guard heldBoundary != nil else { return }
         commit(client: client)
         previousLanguage = nil
         resetRun()

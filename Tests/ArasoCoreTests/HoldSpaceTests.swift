@@ -201,14 +201,15 @@ import Testing
         #expect(field.text == "안녕" + symbol && marked == nil)
     }
 
-    /// A word without a boundary keeps composing: a ⌘ pressed and let go must not split the next
-    /// letters off into a new word.
-    @Test func commandGoingDownLeavesAWordWithoutABoundaryComposing() {
-        type("dkss")
+    /// A word without a boundary goes in too (Ghostty's ⌘⌫ and ⌘V act on the text as it is); the
+    /// letters after a ⌘ let go mid-word start a new word.
+    @Test func commandGoingDownCommitsAWordWithoutABoundaryToo() {
+        type("dkssud")
         session.commandPressed(client: field)
-        #expect(marked != nil && field.insertions.isEmpty)
-        type("ud ")
-        #expect(field.text == "안녕 " && marked == "안녕 ")
+        #expect(field.text == "안녕" && marked == nil)
+        #expect(field.insertions == ["안녕"])
+        type("gktpdy ")
+        #expect(field.text == "안녕하세요 " && marked == "하세요 ")
     }
 
     /// Ghostty's ⌘V reaches the input method only as ⌘ going down, so the pasted text is read
