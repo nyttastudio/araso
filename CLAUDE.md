@@ -130,11 +130,13 @@ tests use `FakeTextField`). It owns the preview and hysteresis, commits, Esc rea
   its boundary in one `insertText`. Ghostty sends text committed on a letter key as text and
   encodes nothing for a key the IME consumed while composing, which is what makes this work there;
   it reports its mouse selection as the caret, so the post-commit flip window can't.
-- ⌘ going down (`commandPressed`, from flagsChanged) commits a held word too, and resets the run
-  as a shortcut does: Ghostty acts on ⌘V itself without showing the input method the key, and
-  pasted over the marked text. A word without a boundary isn't committed by ⌘ (the next letters
-  would start a new word). A Hyper key (⌃⌥⇧⌘ at once), which the switch and pause taps ignore,
-  counts as ⌘ here.
+- ⌘ going down (`commandPressed`, from flagsChanged) commits the word being typed, in every app and
+  with or without a boundary (a held word goes in with its boundary), and resets the run as a
+  shortcut does: Ghostty acts on ⌘V and ⌘⌫ itself without showing the input method the key, so the
+  paste replaced the marked text and the word-delete took the word before it (the marked word
+  wasn't text to it yet). The cost is that a ⌘ let go mid-word starts a new word with the next
+  letters (`CommandWhileComposingTests`). A Hyper key (⌃⌥⇧⌘ at once), which the switch and pause
+  taps ignore, counts as ⌘ here.
 
 **Windows** (docs/windows-port.md): `ArasoService` (Swift, portable, tested on macOS too) is
 what InputMethodKit and `Runtime` are here: a session per text service over a snapshot of the field
