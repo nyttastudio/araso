@@ -202,9 +202,15 @@ public struct ParticleSplitter: Sendable {
     func frontReading(_ front: String) -> (score: Double, capitals: Bool)? {
         guard front.count >= 2, front.allSatisfy({ $0.isASCII && $0.isLetter }) else { return nil }
         // Capitals that are all shifted jamo in keys that spell clean Hangul are Korean typed
-        // with shift (akffkRod: 말라깽, tkrlRns: 사기꾼), not an acronym or a name.
-        let korean = front.allSatisfy { !$0.isUppercase || DubeolsikLayout.isKoreanShiftKey($0) }
-            && HangulComposer.compose(keys: front).map { $0.strayJamo.isEmpty } == true
+        // with shift (akffkRod: 말라깽, tkrlRns: 사기꾼), not an acronym or a name. So are capitals
+        // in runs that each start on a Korean shift key, in two syllables or more people use:
+        // Shift held on (RKFRMA, 깔끔 of 깔끔하다; rjtQNS, 것뿐). One syllable is still an acronym
+        // (RNA, not 꿈), and so is one whose syllables nobody writes (TOEIC, not 썌땿).
+        let composed = HangulComposer.compose(keys: front)
+        let held = Self.capitalRunsStartOnShiftKeys(front) && (composed?.syllables.count ?? 0) >= 2
+            && readsAsKorean(front)
+        let korean = (held || front.allSatisfy { !$0.isUppercase || DubeolsikLayout.isKoreanShiftKey($0) })
+            && composed.map { $0.strayJamo.isEmpty } == true
         if !korean, Self.isAcronym(front) { return (weights.acronym, true) }
         // A name scores lower the rarer its last part: macOS + 문서에서, not macOSans (Sans) + 서에서.
         if !korean, let level = nameLevel(front) {
@@ -237,6 +243,17 @@ public struct ParticleSplitter: Sendable {
         let part = String(chars[last...])
         guard part.count >= 3, english.isKnownWord(part) else { return nil }
         return english.level(part)
+    }
+
+    /// Every run of capitals begins on a Korean shift key (RKFRMA, rjtQNS), as when Shift is held
+    /// on from a double consonant; not Hello, OpenAI or TypeScript.
+    private static func capitalRunsStartOnShiftKeys(_ front: String) -> Bool {
+        var previous: Character?
+        for c in front {
+            if c.isUppercase, previous?.isUppercase != true, !DubeolsikLayout.isKoreanShiftKey(c) { return false }
+            previous = c
+        }
+        return true
     }
 
     /// API, UI, PR: 2 to 6 capitals.
