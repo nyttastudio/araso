@@ -49,7 +49,9 @@ new. This file maps each macOS piece to its Windows one and says where the two d
   still change), so in such a context (TSF marks it transitory, or the app was seen ending a
   composition at once) the text service keeps the word itself, shows it to the session as if
   composed at the caret, and the host draws it there underlined (`WordWindow`); it goes in whole
-  when the word ends. TSF apps (WPF, Windows 11's Notepad, browsers, Office) compose it in the text.
+  when the word ends. TSF apps (WPF, Windows 11's Notepad, Office) compose it in the text. Chrome
+  and Edge mark every field transitory as well (Chromium's text store, for Korean input methods),
+  so there too the word is kept and goes in whole: a page sees it only when it ends.
 
 ## macOS → Windows
 
@@ -95,7 +97,10 @@ new. This file maps each macOS piece to its Windows one and says where the two d
   `VK_HANGUL`/`VK_HANJA`, and 한/영's own scan code); a process in an AppContainer, as a Store
   app's text service runs, attaching to the host (`ArasoHost.exe --appcontainer-test`); and on
   ARM64, where the runner has no desktop to type into, the text service created through COM in an
-  ARM64 and an x64 process (`ArasoHost.exe --load-text-service`).
+  ARM64 and an x64 process (`ArasoHost.exe --load-text-service`). `windows/scripts/browser-test.ps1`
+  types into Chrome and Edge: a plain field, one the page draws again on every input with a tag
+  list, and Lexical's hashtags (what Threads' composer is built on), and fails when a browser or
+  its page goes down; the same pages with Microsoft's Korean input method for comparison.
   Not yet checked: a real Korean keyboard, and typing on ARM64 hardware.
 - In a classic app, the word and its Space reach the Edit control a moment after they go in
   (CUAS posts them), so a switch key pressed within a few tens of milliseconds of the Space finds

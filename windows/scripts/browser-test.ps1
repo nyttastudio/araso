@@ -240,7 +240,12 @@ $sequences = [ordered]@{
 }
 foreach ($browser in $browsers.Keys) {
     foreach ($page in "plain", "rerender", "lexical") {
-        foreach ($label in $sequences.Keys) { Case $browser $page $label $sequences[$label][0] $sequences[$label][1] }
+        # The page that draws its field again mid-word doubles the word with any input method
+        # (Microsoft's as well, below): only whether it stays up counts there.
+        foreach ($label in $sequences.Keys) {
+            $expected = if ($page -eq "rerender") { $null } else { $sequences[$label][1] }
+            Case $browser $page $label $sequences[$label][0] $expected
+        }
     }
 }
 
