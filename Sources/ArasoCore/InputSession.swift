@@ -625,6 +625,34 @@ public final class InputSession {
         resetRun()
     }
 
+    /// Replace the raw letter that opened an accent hold, only while that same word is
+    /// still composing. A synthetic Delete would instead remove a Korean jamo or syllable.
+    @discardableResult
+    public func replaceLastLetterWithAccent(_ accent: Character, original: Character,
+                                           expectedKeys: String, client: TextClient) -> Bool {
+        guard policy.enabled, !paused, !inVimNormalMode, conversion == nil, heldBoundary == nil,
+              keys == expectedKeys, keys.last == original, AccentRule.isCandidate(accent) else { return false }
+        keys.removeLast()
+        insertAccent(accent, client: client)
+        return true
+    }
+
+    /// An explicit Latin accent keeps the current word literal, including its following
+    /// letters. It is not a learned correction to Korean or Japanese detection.
+    public func insertAccent(_ accent: Character, client: TextClient) {
+        guard AccentRule.isCandidate(accent), policy.enabled, !paused, !inVimNormalMode else { return }
+        if conversion != nil || heldBoundary != nil { commit(client: client) }
+        readings = nil
+        learned = nil
+        closeFlipWindow()
+        forced = .english
+        forcedByUser = false
+        pinned = nil
+        addedNMarker = false
+        keys.append(accent)
+        updatePreview(client)
+    }
+
     /// Commits whatever is in progress as-is (focus change, shortcut, deactivation).
     public func commit(client: TextClient?) {
         closeFlipWindow()

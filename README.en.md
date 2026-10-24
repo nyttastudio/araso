@@ -190,7 +190,15 @@ Does what the settings window does. Add `--delete-data` only to drop settings an
 
 </details>
 
+Pass `--check-server` to the installed app to check whether its input server responds. A settings window alone or an unresponsive server fails the check. It does not change the input source or replace a real typing test. If typing stops, switch to a built-in source such as 2-Set Korean or U.S.; if necessary, remove and re-add Araso in Keyboard settings or log out and back in. See [launch and switching checks](docs/input-server-checks.md).
+
 ## Keys
+
+**Press-and-hold characters**: by default, hold `a/o/u/s` until macOS starts key repeat to offer `ä/ö/ü/ß`. The original letter is composed immediately. Pausing after releasing a key does not open the menu; opening follows the macOS keyboard repeat delay. Shift/Caps Lock offers `Ä/Ö/Ü/ẞ`. A compact horizontal panel fits the candidate count. Move with arrows; choose with `1–9`, Return, Space, or a click. More than nine candidates use pages. Esc/Delete keeps the original letter; another key keeps it and continues typing.
+
+In **Settings → Accent Characters**, add, edit, delete, enable, or disable language groups. Start with French, Spanish, Portuguese, or Nordic presets, or enter your own name and lowercase/uppercase candidates for each key. Enter characters in display order without spaces (for example `e` → `éèêë` / `ÉÈÊË`). Enabled groups are combined and duplicates removed. Disabling or deleting every group restores normal key repeats. Changes apply on the next input; any outstanding accent choice is cancelled.
+
+A word containing a selected character stays literal. The next word resumes normal Korean/English/Japanese detection. Holds are inactive while paused, in apps with conversion disabled, in Vim normal mode, or while choosing kanji.
 
 While a word is being typed it is underlined and shows the language Araso expects.
 
@@ -406,6 +414,7 @@ The settings window has these panes, and changes apply at once.
 | --- | --- |
 | Languages | converting words on or off, Japanese on or off, the Layouts card (Hangul: 2-set, 3-set final, 3-set 390; English and romaji: QWERTY, Colemak, Colemak-DH), Japanese input and its options, resetting the kanji candidate order |
 | Keys | the language switch keys, Return, the pause key |
+| Accent Characters | add, edit, delete, enable, and disable language groups and their accent candidates |
 | Apps | how sure a word must be to convert (Normal, Strict) and per-app behavior (`apps.json`) |
 | Dictionary | words you added and words learned, in one list (`dictionary.json`): **+** to type keys and pick their reading (English, Korean, Japanese) and app; from a row's ⋯, keep a learned word for good or remove it. A word corrected once shows how long until it's forgotten |
 | Try Typing | how each word was decided, with scores, and adding its keys to the dictionary |

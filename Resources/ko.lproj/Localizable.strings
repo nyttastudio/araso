@@ -267,3 +267,25 @@
 "Reset" = "원래대로";
 "%@, %ld of %ld" = "%1$@, %3$ld개 중 %2$ld번째";
 "Candidates, %@ selected" = "후보, %@ 선택됨";
+
+/* Editable press-and-hold characters */
+"Accent Characters" = "길게 누르기 문자";
+"Hold a letter to choose a character. Enabled languages are combined; duplicate characters appear once." = "글자 키를 길게 눌러 문자를 선택합니다. 켜 둔 언어의 후보를 합치며 같은 문자는 한 번만 표시합니다.";
+"Add Language" = "언어 추가";
+"Add Preset" = "기본 목록 추가";
+"Delete Language" = "언어 삭제";
+"No languages added. Long presses use normal typing." = "등록된 언어가 없습니다. 길게 눌러도 일반 입력으로 처리합니다.";
+"Use arrows to select, 1–9 for the current page, or Return / Space / click to confirm. Esc keeps the original letter." = "방향키로 이동하고 현재 페이지의 1–9, Return, Space 또는 클릭으로 선택합니다. Esc는 원래 글자를 유지합니다.";
+"Could Not Save" = "저장하지 못했습니다";
+"Edit Accent Characters" = "길게 누르기 문자 편집";
+"Language Name" = "언어 이름";
+"Enter a lowercase a–z key and characters in display order, without spaces. Uppercase candidates are entered separately (for example ß / ẞ)." = "소문자 a–z 키와 후보 문자를 원하는 순서대로 공백 없이 적으세요. 대문자 후보는 따로 지정합니다(예: ß / ẞ).";
+"Lowercase" = "소문자 후보";
+"Uppercase" = "대문자 후보";
+"Remove Key" = "키 삭제";
+"Add Key" = "키 추가";
+"A name and at least one valid row are required. Keys must be unique lowercase a–z letters; candidates cannot contain spaces or control characters." = "이름과 올바른 행이 하나 이상 필요합니다. 키는 중복 없는 소문자 a–z여야 하며 후보에는 공백이나 제어 문자를 넣을 수 없습니다.";
+"Selected" = "선택됨";
+"Key" = "키";
+"Delete" = "삭제";
+"Characters offered when you hold a letter, grouped by language." = "키를 길게 눌렀을 때 나오는 문자를 언어별로 관리합니다.";
