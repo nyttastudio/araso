@@ -1,0 +1,100 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>lexical</title>
+<style>
+  body { margin: 0; font: 20px "Malgun Gothic", sans-serif; }
+  #field { margin: 20px; min-height: 260px; padding: 12px; border: 1px solid #888; outline: none; white-space: pre-wrap; }
+  .tag { color: #0a66c2; }
+  #menu { position: absolute; left: 40px; top: 120px; background: #fff; border: 1px solid #aaa; box-shadow: 0 4px 12px #0003; }
+  #menu div { padding: 4px 12px; }
+  #menu .active { background: #def; }
+</style>
+<!-- Lexical, the editor Threads' composer is built on, with its hashtag nodes (a #tag becomes a node
+     of its own as it is typed) and a tag search under it: a list a moment later, ↓ and Return pick. -->
+<div id="field"></div>
+<div id="menu" hidden></div>
+<script src="report.js"></script>
+<script type="module">
+  import {
+    createEditor, $getRoot, $getSelection, $isRangeSelection, $createTextNode,
+    KEY_ENTER_COMMAND, KEY_ARROW_DOWN_COMMAND, COMMAND_PRIORITY_LOW,
+  } from "https://cdn.jsdelivr.net/npm/lexical@0.17.1/+esm";
+  import { registerPlainText } from "https://cdn.jsdelivr.net/npm/@lexical/plain-text@0.17.1/+esm";
+  import { HashtagNode, $createHashtagNode, $isHashtagNode } from "https://cdn.jsdelivr.net/npm/@lexical/hashtag@0.17.1/+esm";
+  import { registerLexicalTextEntity } from "https://cdn.jsdelivr.net/npm/@lexical/text@0.17.1/+esm";
+
+  const field = document.getElementById("field");
+  const menu = document.getElementById("menu");
+  field.contentEditable = "true";
+  watchEvents(field);
+  keepFocus(field);
+  const editor = createEditor({
+    namespace: "araso-test",
+    nodes: [HashtagNode],
+    theme: { hashtag: "tag" },
+    onError: (error) => console.log("araso-test lexical error " + error.message),
+  });
+  editor.setRootElement(field);
+  registerPlainText(editor);
+  registerLexicalTextEntity(editor, (text) => {
+    const match = /(^|\s)(#[^\s#.,!?]+)/.exec(text);
+    if (!match) return null;
+    const start = match.index + match[1].length;
+    return { start, end: start + match[2].length };
+  }, HashtagNode, (node) => $createHashtagNode(node.getTextContent()));
+
+  let items = [], active = 0, timer = 0;
+  function showMenu(query) {
+    menu.textContent = "";
+    if (query === null) { items = []; menu.hidden = true; return; }
+    items = [query, query + "스타그램", query + "일상", query + "맛집"].map((t) => "#" + t);
+    items.forEach((item, k) => {
+      const row = document.createElement("div");
+      row.textContent = item;
+      if (k === active) row.className = "active";
+      menu.append(row);
+    });
+    menu.hidden = false;
+  }
+  editor.registerUpdateListener(({ editorState }) => {
+    editorState.read(() => {
+      reportText($getRoot().getTextContent());
+      const selection = $getSelection();
+      let query = null;
+      if ($isRangeSelection(selection) && selection.isCollapsed()) {
+        const node = selection.anchor.getNode();
+        if ($isHashtagNode(node) && selection.anchor.offset === node.getTextContentSize()) {
+          query = node.getTextContent().slice(1);
+        }
+      }
+      active = 0;
+      clearTimeout(timer);
+      timer = setTimeout(() => showMenu(query), 150);
+    });
+  });
+  editor.registerCommand(KEY_ARROW_DOWN_COMMAND, (event) => {
+    if (!items.length) return false;
+    event.preventDefault();
+    active = (active + 1) % items.length;
+    menu.querySelectorAll("div").forEach((row, k) => row.className = k === active ? "active" : "");
+    return true;
+  }, COMMAND_PRIORITY_LOW);
+  editor.registerCommand(KEY_ENTER_COMMAND, (event) => {
+    if (!items.length) return false;
+    if (event) event.preventDefault();
+    const choice = items[active];
+    const selection = $getSelection();
+    if (!$isRangeSelection(selection)) return false;
+    const node = selection.anchor.getNode();
+    if (!$isHashtagNode(node)) return false;
+    const tag = $createHashtagNode(choice);
+    node.replace(tag);
+    const space = $createTextNode(" ");
+    tag.insertAfter(space);
+    space.select(1, 1);
+    items = [];
+    menu.hidden = true;
+    return true;
+  }, COMMAND_PRIORITY_LOW);
+  console.log("araso-test lexical ready");
+</script>

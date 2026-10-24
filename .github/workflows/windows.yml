@@ -218,6 +218,29 @@ jobs:
           path: build/screenshots
           if-no-files-found: ignore
 
+  browser:
+    # Real key events into Chrome and Edge (windows/scripts/browser-test.ps1): a plain field, one a
+    # page draws again on every input with a tag list, and Lexical's hashtags, as on Threads (#36).
+    needs: package
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Araso-Setup
+          path: build
+      - name: Install and type into browsers
+        shell: pwsh
+        run: windows/scripts/browser-test.ps1 build/Araso-Setup.exe build/browser
+      - name: Logs, screenshots and dumps
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser
+          path: build/browser
+          if-no-files-found: ignore
+
   cross:
     runs-on: ubuntu-latest
     steps:

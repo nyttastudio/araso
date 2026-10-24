@@ -1,0 +1,16 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>plain</title>
+<style>
+  body { margin: 0; font: 20px "Malgun Gothic", sans-serif; }
+  #field { margin: 20px; min-height: 260px; padding: 12px; border: 1px solid #888; outline: none; white-space: pre-wrap; }
+</style>
+<!-- A contenteditable the page leaves alone: the baseline. -->
+<div id="field" contenteditable="true"></div>
+<script src="report.js"></script>
+<script>
+  const field = document.getElementById("field");
+  watchEvents(field);
+  keepFocus(field);
+  field.addEventListener("input", () => reportText(field.innerText));
+</script>

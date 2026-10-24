@@ -1,0 +1,97 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>rerender</title>
+<style>
+  body { margin: 0; font: 20px "Malgun Gothic", sans-serif; }
+  #field { margin: 20px; min-height: 260px; padding: 12px; border: 1px solid #888; outline: none; white-space: pre-wrap; }
+  .tag { color: #0a66c2; }
+  #menu { position: absolute; left: 40px; top: 120px; background: #fff; border: 1px solid #aaa; box-shadow: 0 4px 12px #0003; }
+  #menu div { padding: 4px 12px; }
+  #menu .active { background: #def; }
+</style>
+<!-- A tag search as a social site does it, by hand: on every input, the composition's included, the
+     field is drawn again with each #tag in a span and the caret put back; a list of tags matching
+     the one before the caret comes up a moment later (as from the network), and ↓ and Return pick one. -->
+<div id="field" contenteditable="true"></div>
+<div id="menu" hidden></div>
+<script src="report.js"></script>
+<script>
+  const field = document.getElementById("field");
+  const menu = document.getElementById("menu");
+  watchEvents(field);
+  keepFocus(field);
+  let items = [], active = 0, query = null, timer = 0;
+
+  function caretOffset() {
+    const selection = getSelection();
+    if (!selection.rangeCount) return field.innerText.length;
+    const range = selection.getRangeAt(0).cloneRange();
+    range.selectNodeContents(field);
+    range.setEnd(selection.getRangeAt(0).endContainer, selection.getRangeAt(0).endOffset);
+    return range.toString().length;
+  }
+  function placeCaret(offset) {
+    const walker = document.createTreeWalker(field, NodeFilter.SHOW_TEXT);
+    let node, left = offset;
+    while ((node = walker.nextNode())) {
+      if (left <= node.length) {
+        getSelection().collapse(node, left);
+        return;
+      }
+      left -= node.length;
+    }
+    getSelection().collapse(field, field.childNodes.length);
+  }
+  function draw(text, caret) {
+    field.textContent = "";
+    for (const part of text.split(/(#[^\s#]+)/)) {
+      if (!part) continue;
+      if (part.startsWith("#")) {
+        const span = document.createElement("span");
+        span.className = "tag";
+        span.textContent = part;
+        field.append(span);
+      } else {
+        field.append(part);
+      }
+    }
+    placeCaret(caret);
+  }
+  function showMenu() {
+    menu.textContent = "";
+    if (query === null) { menu.hidden = true; return; }
+    items = [query, query + "스타그램", query + "일상", query + "맛집"].map((t) => "#" + t);
+    items.forEach((item, k) => {
+      const row = document.createElement("div");
+      row.textContent = item;
+      if (k === active) row.className = "active";
+      menu.append(row);
+    });
+    menu.hidden = false;
+  }
+  field.addEventListener("input", () => {
+    const text = field.textContent;
+    const caret = caretOffset();
+    draw(text, caret);
+    reportText(text);
+    const match = /#([^\s#]+)$/.exec(text.slice(0, caret));
+    query = match ? match[1] : null;
+    active = 0;
+    clearTimeout(timer);
+    timer = setTimeout(showMenu, 150);
+  });
+  field.addEventListener("keydown", (e) => {
+    if (menu.hidden || e.isComposing) return;
+    if (e.key === "ArrowDown") { e.preventDefault(); active = (active + 1) % items.length; showMenu(); }
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const text = field.textContent, caret = caretOffset();
+      const start = text.slice(0, caret).lastIndexOf("#");
+      const next = text.slice(0, start) + items[active] + " " + text.slice(caret);
+      draw(next, start + items[active].length + 1);
+      reportText(next);
+      query = null;
+      showMenu();
+    }
+  });
+</script>
