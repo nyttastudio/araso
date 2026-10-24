@@ -35,8 +35,9 @@ std::wstring PipeName() {
 
 namespace {
 
-bool Wait(HANDLE pipe, OVERLAPPED &overlapped, DWORD &transferred, DWORD timeoutMs, bool &moreData) {
+bool Wait(HANDLE pipe, OVERLAPPED &overlapped, DWORD &transferred, DWORD timeoutMs, bool &moreData, bool &timedOut) {
     moreData = false;
+    timedOut = false;
     DWORD error = GetLastError();
     if (error == ERROR_MORE_DATA) {
         moreData = true;
@@ -45,7 +46,10 @@ bool Wait(HANDLE pipe, OVERLAPPED &overlapped, DWORD &transferred, DWORD timeout
     if (error != ERROR_IO_PENDING) return false;
     if (WaitForSingleObject(overlapped.hEvent, timeoutMs) != WAIT_OBJECT_0) {
         CancelIo(pipe);
-        GetOverlappedResult(pipe, &overlapped, &transferred, TRUE);
+        // It may have finished just before the cancel: then the answer is here.
+        if (GetOverlappedResult(pipe, &overlapped, &transferred, TRUE)) return true;
+        if (GetLastError() == ERROR_MORE_DATA) { moreData = true; return true; }
+        timedOut = true;
         return false;
     }
     if (GetOverlappedResult(pipe, &overlapped, &transferred, FALSE)) return true;
@@ -53,35 +57,67 @@ bool Wait(HANDLE pipe, OVERLAPPED &overlapped, DWORD &transferred, DWORD timeout
     return false;
 }
 
+/// The rest of a message longer than the buffer.
+bool ReadRest(HANDLE pipe, OVERLAPPED &overlapped, std::vector<char> &buffer, std::string &answer, DWORD timeoutMs,
+              bool moreData) {
+    bool ok = true, timedOut = false;
+    while (ok && moreData) {
+        ResetEvent(overlapped.hEvent);
+        DWORD transferred = 0;
+        if (ReadFile(pipe, buffer.data(), static_cast<DWORD>(buffer.size()), &transferred, &overlapped)) {
+            moreData = false;
+        } else {
+            ok = Wait(pipe, overlapped, transferred, timeoutMs, moreData, timedOut);
+        }
+        if (ok) answer.append(buffer.data(), transferred);
+    }
+    return ok;
+}
+
 }  // namespace
 
-bool Transact(HANDLE pipe, const std::string &request, std::string &answer, DWORD timeoutMs) {
+bool Transact(HANDLE pipe, const std::string &request, std::string &answer, DWORD timeoutMs, bool *timedOut) {
     answer.clear();
+    if (timedOut) *timedOut = false;
     OVERLAPPED overlapped = {};
     overlapped.hEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
     if (!overlapped.hEvent) return false;
     std::vector<char> buffer(64 * 1024);
     DWORD transferred = 0;
-    bool moreData = false;
+    bool moreData = false, late = false;
     bool ok;
     if (TransactNamedPipe(pipe, const_cast<char *>(request.data()), static_cast<DWORD>(request.size()), buffer.data(),
                           static_cast<DWORD>(buffer.size()), &transferred, &overlapped)) {
         ok = true;
     } else {
-        ok = Wait(pipe, overlapped, transferred, timeoutMs, moreData);
+        ok = Wait(pipe, overlapped, transferred, timeoutMs, moreData, late);
     }
     if (ok) answer.append(buffer.data(), transferred);
     // A long answer (a menu, a settings model) comes in more than one read.
-    while (ok && moreData) {
-        ResetEvent(overlapped.hEvent);
-        transferred = 0;
-        if (ReadFile(pipe, buffer.data(), static_cast<DWORD>(buffer.size()), &transferred, &overlapped)) {
-            moreData = false;
-        } else {
-            ok = Wait(pipe, overlapped, transferred, timeoutMs, moreData);
-        }
-        if (ok) answer.append(buffer.data(), transferred);
+    ok = ok && ReadRest(pipe, overlapped, buffer, answer, timeoutMs, moreData);
+    if (timedOut) *timedOut = late;
+    CloseHandle(overlapped.hEvent);
+    return ok;
+}
+
+bool Receive(HANDLE pipe, std::string &answer, DWORD timeoutMs, bool *timedOut) {
+    answer.clear();
+    if (timedOut) *timedOut = false;
+    OVERLAPPED overlapped = {};
+    overlapped.hEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    if (!overlapped.hEvent) return false;
+    std::vector<char> buffer(64 * 1024);
+    DWORD transferred = 0;
+    bool moreData = false, late = false;
+    bool ok;
+    if (ReadFile(pipe, buffer.data(), static_cast<DWORD>(buffer.size()), &transferred, &overlapped)) {
+        ok = true;
+    } else {
+        ok = Wait(pipe, overlapped, transferred, timeoutMs, moreData, late);
     }
+    if (ok) answer.append(buffer.data(), transferred);
+    ok = ok && ReadRest(pipe, overlapped, buffer, answer, timeoutMs, moreData);
+    if (timedOut) *timedOut = late;
     CloseHandle(overlapped.hEvent);
     return ok;
 }

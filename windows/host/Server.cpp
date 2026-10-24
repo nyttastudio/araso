@@ -14,6 +14,7 @@ namespace {
 constexpr UINT kRequestMessage = WM_APP + 1;
 constexpr UINT kDisconnectMessage = WM_APP + 2;
 constexpr UINT kReleaseMessage = WM_APP + 3;
+constexpr UINT kDrawMessage = WM_APP + 4;
 constexpr UINT_PTR kUpdateTimer = 1;
 
 Server *g_server = nullptr;
@@ -212,14 +213,14 @@ std::string Server::Handle(const std::string &text, int &connectionClient) {
         const Json &ui = response["ui"];
         if (op == "place") {
             client.preview = Wide(request["preview"].asString());
-            Draw(id);
+            DrawSoon(id);
         } else if (ui.isObject()) {
             client.ui = ui;
             const Json &tab = ui["openSettings"];
             if (tab.isString()) OpenSettings(tab.asString());
             if (ui["settingsChanged"].asBool()) SendToSettings(kCopyFilesChanged, "");
             // A key's answer is drawn once the text service says where the word went (`place`).
-            if (op != "key" && op != "keyUp" && op != "pending" && op != "blur") Draw(id);
+            if (op != "key" && op != "keyUp" && op != "pending" && op != "blur") DrawSoon(id);
         } else if (op == "key" || op == "keyUp" || op == "pending" || op == "blur" || op == "terminated") {
             client.ui = Json();
             if (stripFor_ == id) strip_.Hide();
@@ -227,6 +228,13 @@ std::string Server::Handle(const std::string &text, int &connectionClient) {
     }
     Notify(response);
     return answer;
+}
+
+/// Draws once the answer is on its way: the text service waits for it (200 ms for `place`), and
+/// drawing can take longer, the first time above all (the window, its fonts). An answer too late
+/// left the text service without one.
+void Server::DrawSoon(int id) {
+    if (drawPending_.insert(id).second) PostMessageW(window_, kDrawMessage, static_cast<WPARAM>(id), 0);
 }
 
 void Server::Draw(int id) {
@@ -346,6 +354,10 @@ LRESULT CALLBACK Server::Proc(HWND window, UINT message, WPARAM wParam, LPARAM l
         work->answer = self->Handle(work->request, work->client);
         return 0;
     }
+    case kDrawMessage:
+        self->drawPending_.erase(static_cast<int>(wParam));
+        self->Draw(static_cast<int>(wParam));
+        return 0;
     case kDisconnectMessage:
         self->Disconnected(static_cast<int>(wParam));
         return 0;

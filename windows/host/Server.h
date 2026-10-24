@@ -9,6 +9,7 @@
 #include "Ui.h"
 
 #include <map>
+#include <set>
 #include <string>
 
 namespace araso {
@@ -46,6 +47,8 @@ private:
     int wordFor_ = 0;
     int stripFor_ = 0;
     UINT pendingMessage_ = 0;
+    /// Clients whose UI is drawn as soon as the answer has gone (`DrawSoon`).
+    std::set<int> drawPending_;
 
     static LRESULT CALLBACK Proc(HWND window, UINT message, WPARAM wParam, LPARAM lParam);
     static DWORD WINAPI Listen(LPVOID server);
@@ -56,6 +59,7 @@ private:
     void Disconnected(int client);
     void Notify(const Json &response);
     void Draw(int client);
+    void DrawSoon(int client);
     void HideAll();
     void SendToSettings(ULONG_PTR kind, const std::string &data);
     void CheckForUpdates(bool always);

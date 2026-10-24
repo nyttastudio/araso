@@ -59,6 +59,30 @@ Json RectJson(const RECT &rect) {
     return out;
 }
 
+std::string Span(const Json &pair) {
+    if (!pair.isArray() || pair.size() != 2) return "-";
+    return std::to_string(pair[0].asInt()) + "+" + std::to_string(pair[1].asInt());
+}
+
+/// What a request saw of the field and what came back, for the typing test's log (`ARASO_LOG`):
+/// positions and lengths, never the text.
+void LogExchange(const Json &request, const Json &reply, bool floats) {
+    const Json &context = request["context"];
+    std::string line = request["op"].asString() + ": field from " + std::to_string(context["start"].asInt()) + ", " +
+                       std::to_string(Wide(context["text"].asString()).size()) + " units, selection " +
+                       Span(context["selection"]) + ", marked " + Span(context["marked"]);
+    if (context["unreadable"].asBool()) line += ", unreadable";
+    if (floats) line += ", kept here";
+    line += "; ";
+    line += reply["handled"].asBool() ? "handled" : "passed";
+    if (reply["replay"].asBool()) line += ", replay";
+    for (const Json &op : reply["ops"].items()) {
+        line += ", " + op["kind"].asString() + " " + std::to_string(Wide(op["text"].asString()).size());
+        if (op["replace"].isArray()) line += " at " + Span(op["replace"]);
+    }
+    Log("%s", line.c_str());
+}
+
 template <typename T> void SafeRelease(T *&pointer) {
     if (pointer) {
         pointer->Release();
@@ -427,6 +451,7 @@ bool TextService::Exchange(TfEditCookie cookie, ITfContext *context, Json reques
     Json response;
     if (!host_.Request(request, response)) return false;
     const Json &reply = response["reply"];
+    if (Verbose()) LogExchange(request, reply, Floats(context));
     handled = reply["handled"].asBool();
     if (replay) *replay = reply["replay"].asBool();
     ApplyOps(cookie, context, reply["ops"], reply["converting"].asBool());

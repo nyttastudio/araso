@@ -10,6 +10,7 @@ void HostConnection::Close() {
     if (pipe_ != INVALID_HANDLE_VALUE) CloseHandle(pipe_);
     pipe_ = INVALID_HANDLE_VALUE;
     client_ = 0;
+    late_ = false;
 }
 
 bool HostConnection::Connect() {
@@ -66,17 +67,36 @@ void HostConnection::LaunchHost() {
     }
 }
 
-bool HostConnection::Send(const Json &request, Json &response, DWORD timeoutMs) {
-    if (!Connect()) return false;
+HostConnection::Sent HostConnection::Send(const Json &request, Json &response, DWORD timeoutMs) {
+    if (!Connect()) return Sent::failed;
     std::string answer;
-    if (!Transact(pipe_, request.dump(), answer, timeoutMs)) {
+    // An answer that came too late for its request is still on its way: it goes first, unread.
+    if (late_) {
+        bool timedOut = false;
+        if (!Receive(pipe_, answer, timeoutMs, &timedOut)) {
+            if (timedOut) return Sent::slow;
+            Log("host went away (%lu)", GetLastError());
+            Close();
+            return Sent::failed;
+        }
+        late_ = false;
+    }
+    bool timedOut = false;
+    if (!Transact(pipe_, request.dump(), answer, timeoutMs, &timedOut)) {
+        if (timedOut) {
+            // The host is busy, not gone: its answer comes later. The connection, and with it the
+            // session and the word being typed, stays.
+            Log("host didn't answer in time");
+            late_ = true;
+            return Sent::slow;
+        }
         Log("host didn't answer (%lu)", GetLastError());
         Close();
-        return false;
+        return Sent::failed;
     }
     bool ok = false;
     response = Json::parse(answer, &ok);
-    return ok;
+    return ok ? Sent::ok : Sent::failed;
 }
 
 void HostConnection::Attach(const std::wstring &app, HWND window) {
@@ -92,7 +112,7 @@ bool HostConnection::AttachNow() {
     request.set("window", static_cast<double>(reinterpret_cast<uintptr_t>(window_)));
     request.set("pid", static_cast<double>(GetCurrentProcessId()));
     Json response;
-    if (!Send(request, response, 2000)) return false;
+    if (Send(request, response, 2000) != Sent::ok) return false;
     client_ = response["reply"]["client"].asInt();
     return client_ != 0;
 }
@@ -111,7 +131,9 @@ bool HostConnection::Request(Json request, Json &response, DWORD timeoutMs) {
     for (int attempt = 0; attempt < 2; attempt++) {
         if (!client_ && !AttachNow()) return false;
         request.set("client", client_);
-        if (!Send(request, response, timeoutMs)) {
+        Sent sent = Send(request, response, timeoutMs);
+        if (sent == Sent::slow) return false;
+        if (sent == Sent::failed) {
             client_ = 0;
             continue;
         }

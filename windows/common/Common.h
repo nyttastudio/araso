@@ -41,8 +41,13 @@ enum CopyDataKind : ULONG_PTR {
 };
 
 /// One request/answer over a pipe in message mode, with a timeout so a hung host never hangs the
-/// app being typed in. The handle must be opened with FILE_FLAG_OVERLAPPED.
-bool Transact(HANDLE pipe, const std::string &request, std::string &answer, DWORD timeoutMs);
+/// app being typed in. The handle must be opened with FILE_FLAG_OVERLAPPED. `timedOut`: the request
+/// went out and no answer had started when the time was up; it will still come (`Receive` it).
+bool Transact(HANDLE pipe, const std::string &request, std::string &answer, DWORD timeoutMs,
+              bool *timedOut = nullptr);
+
+/// Reads the next message, waiting at most `timeoutMs` for it to start (`timedOut` as above).
+bool Receive(HANDLE pipe, std::string &answer, DWORD timeoutMs, bool *timedOut = nullptr);
 
 /// Reads one whole message (blocking, for the host's per-client threads).
 bool ReadMessage(HANDLE pipe, std::string &message);

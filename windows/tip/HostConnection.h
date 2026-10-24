@@ -19,7 +19,8 @@ public:
     void Detach();
 
     /// Sends `request` with this client's id; the answer, or false when the host can't be reached
-    /// (after one reconnect: a host that restarted gives new client ids).
+    /// (after one reconnect: a host that restarted gives new client ids) or is too busy to answer in
+    /// time (no reconnect: that would end the session).
     bool Request(Json request, Json &response, DWORD timeoutMs = 1500);
 
     int client() const { return client_; }
@@ -30,11 +31,15 @@ private:
     std::wstring app_;
     HWND window_ = nullptr;
     DWORD lastLaunch_ = 0;
+    /// A request timed out and its answer hasn't been read yet.
+    bool late_ = false;
+
+    enum class Sent { ok, slow, failed };
 
     bool Connect();
     void Close();
     bool AttachNow();
-    bool Send(const Json &request, Json &response, DWORD timeoutMs);
+    Sent Send(const Json &request, Json &response, DWORD timeoutMs);
     void LaunchHost();
 };
 
