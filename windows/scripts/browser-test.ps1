@@ -49,6 +49,17 @@ public static class Keys {
         input[0].ki.dwFlags = up ? KEYUP : 0;
         SendInput(1, input, Marshal.SizeOf(typeof(INPUT)));
     }
+    [StructLayout(LayoutKind.Sequential)] struct COPYDATASTRUCT { public IntPtr dwData; public int cbData; public IntPtr lpData; }
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern IntPtr FindWindow(string cls, string title);
+    [DllImport("user32.dll")] static extern IntPtr SendMessage(IntPtr window, uint message, IntPtr w, ref COPYDATASTRUCT data);
+    /// Has the host read its files again, as the settings window does after a change (kCopyReload).
+    public static bool Reload() {
+        IntPtr host = FindWindow("ArasoHostWindow", null);
+        if (host == IntPtr.Zero) return false;
+        var data = new COPYDATASTRUCT { dwData = (IntPtr)1, cbData = 0, lpData = IntPtr.Zero };
+        SendMessage(host, 0x4A /* WM_COPYDATA */, IntPtr.Zero, ref data);
+        return true;
+    }
     public static void Click(int x, int y) {
         SetCursorPos(x, y);
         mouse_event(0x2, 0, 0, 0, IntPtr.Zero);
@@ -154,6 +165,10 @@ $pages = Join-Path $PSScriptRoot "browser"
 $results = @()
 function Case([string]$browser, [string]$page, [string]$label, [string]$keys, [string]$expected, [string]$ime = "araso") {
     $name = if ($ime -eq "araso") { "$browser-$page-$label" } else { "$ime-$browser-$page-$label" }
+    # Every case from what Araso knows out of the box: a switch is a correction, and the cases
+    # before would have taught it hello (the third would start in Korean).
+    Remove-Item (Join-Path $env:APPDATA "Araso\dictionary.json") -ErrorAction SilentlyContinue
+    if (-not [Keys]::Reload()) { Write-Host "${name}: no host window to reload" }
     $userData = Join-Path $env:TEMP "araso-$name"
     Remove-Item -Recurse -Force $userData -ErrorAction SilentlyContinue
     $url = "file:///" + ((Join-Path $pages "$page.html") -replace '\\', '/')
