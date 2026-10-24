@@ -42,6 +42,13 @@ public static class Keys {
         input[0].ki.dwFlags = SCANCODE | (up ? KEYUP : 0) | (extended ? EXTENDED : 0);
         SendInput(1, input, Marshal.SizeOf(typeof(INPUT)));
     }
+    public static void Virtual(ushort vk, bool up) {
+        var input = new INPUT[1];
+        input[0].type = 1;
+        input[0].ki.wVk = vk;
+        input[0].ki.dwFlags = up ? KEYUP : 0;
+        SendInput(1, input, Marshal.SizeOf(typeof(INPUT)));
+    }
     public static void Click(int x, int y) {
         SetCursorPos(x, y);
         mouse_event(0x2, 0, 0, 0, IntPtr.Zero);
@@ -145,8 +152,8 @@ function Shot([string]$name, [IntPtr]$window) {
 
 $pages = Join-Path $PSScriptRoot "browser"
 $results = @()
-function Case([string]$browser, [string]$page, [string]$label, [string]$keys) {
-    $name = "$browser-$page-$label"
+function Case([string]$browser, [string]$page, [string]$label, [string]$keys, [string]$expected, [string]$ime = "araso") {
+    $name = if ($ime -eq "araso") { "$browser-$page-$label" } else { "$ime-$browser-$page-$label" }
     $userData = Join-Path $env:TEMP "araso-$name"
     Remove-Item -Recurse -Force $userData -ErrorAction SilentlyContinue
     $url = "file:///" + ((Join-Path $pages "$page.html") -replace '\\', '/')
@@ -175,7 +182,11 @@ function Case([string]$browser, [string]$page, [string]$label, [string]$keys) {
     $layout = "{0:X8}" -f [Keys]::GetKeyboardLayout($thread).ToInt64()
     $loaded = $null
     try { $loaded = $process.Modules | Where-Object { $_.ModuleName -like "ArasoTip*.dll" } | Select-Object -First 1 } catch {}
-    Write-Host "${name}: front $([Keys]::GetForegroundWindow() -eq $window), layout $layout, ArasoTip $(if ($loaded) { 'loaded' } else { 'not loaded' })"
+    $microsoft = $null
+    try { $microsoft = $process.Modules | Where-Object { $_.ModuleName -like "imkr*.dll" } | Select-Object -First 1 } catch {}
+    Write-Host "${name}: front $([Keys]::GetForegroundWindow() -eq $window), layout $layout, ArasoTip $(if ($loaded) { 'loaded' } else { 'not loaded' }), Microsoft's $(if ($microsoft) { $microsoft.ModuleName } else { 'not loaded' })"
+    # Microsoft's Korean input method starts in English: 한/영 once.
+    if ($ime -eq "microsoft") { [Keys]::Virtual(0x15, $false); Start-Sleep -Milliseconds 60; [Keys]::Virtual(0x15, $true); Start-Sleep -Milliseconds 300 }
 
     Send-Keys $keys
     Start-Sleep -Milliseconds 1500
@@ -193,28 +204,48 @@ function Case([string]$browser, [string]$page, [string]$label, [string]$keys) {
     if (Test-Path $debugLog) { Copy-Item $debugLog (Join-Path $Out "$name.chrome_debug.log") }
     $reports = Get-ChildItem -Recurse -Path (Join-Path $userData "Crashpad") -Filter *.dmp -ErrorAction SilentlyContinue
     foreach ($dump in $reports) { Copy-Item $dump.FullName (Join-Path $dumps "$name-$($dump.Name)"); Write-Host "${name}: crash report $($dump.Name)" }
-    $script:results += [pscustomobject]@{ case = $name; ok = $running -and -not $reports; verdict = $verdict; text = $second.text }
+    $as = if (-not $expected) { "" } elseif ($second.text -eq $expected) { "as expected" } else { "EXPECTED '$expected'" }
+    if ($as) { Write-Host "${name}: $as" }
+    $script:results += [pscustomobject]@{ case = $name; ok = $running -and -not $reports; verdict = $verdict; text = $second.text; as = $as }
 }
 
+# Keys, and the text they should leave where the page leaves the field alone (Return on a word
+# being typed only puts it in, `returnConfirmsOnly`).
 $sequences = [ordered]@{
     # #한글, the list comes up, Space.
-    "space" = "#gksrmf{wait}{wait} "
-    # #한글, the list comes up, Return picks the first tag.
-    "enter" = "#gksrmf{wait}{wait}{enter}"
+    "space" = @("#gksrmf{wait}{wait} ", "#한글 ")
+    # #한글, the list comes up, Return.
+    "enter" = @("#gksrmf{wait}{wait}{enter}", "#한글")
     # 안녕 #태그 with letters taken back and typed again, then ↓ Return.
-    "edit" = "dkssud #xorm{wait}{back}{back}rmf{wait}{down}{enter}"
+    "edit" = @("dkssud #xorm{wait}{back}{back}rmf{wait}{down}{enter}", $null)
     # #hello switched to Korean by the switch key while the list is up, then Space.
-    "switch" = "#hello{wait}{ralt}{wait} "
+    "switch" = @("#hello{wait}{ralt}{wait} ", "#ㅗ디ㅣㅐ ")
     # One tag after another, without waiting.
-    "fast" = "#gksrmf #dlftkd #ajrwkd "
+    "fast" = @("#gksrmf #dlftkd #ajrwkd ", "#한글 #일상 #먹장 ")
 }
 foreach ($browser in $browsers.Keys) {
     foreach ($page in "plain", "rerender", "lexical") {
-        foreach ($label in $sequences.Keys) { Case $browser $page $label $sequences[$label] }
+        foreach ($label in $sequences.Keys) { Case $browser $page $label $sequences[$label][0] $sequences[$label][1] }
     }
 }
 
-$results | Format-Table -AutoSize | Out-String -Width 200 | Write-Host
+# The same pages with Microsoft's Korean input method, for what a page does to any input method
+# (the field drawn again while a word is composed): not required to pass.
+$microsoftTip = "0412:{A028AE76-01B1-46C2-99C4-ACD9858AE02F}{B5FE1F02-D5F2-4445-9C03-C568F23C99A1}"
+$required = $results.Count
+if ($browsers.Contains("chrome") -and [Keys]::InstallLayoutOrTip($microsoftTip, 0)) {
+    [Keys]::SetDefaultLayoutOrTip($microsoftTip, 0) | Out-Null
+    Set-WinDefaultInputMethodOverride -InputTip $microsoftTip
+    foreach ($page in "plain", "rerender", "lexical") {
+        foreach ($label in "space", "enter", "fast") { Case "chrome" $page $label $sequences[$label][0] $null "microsoft" }
+    }
+    [Keys]::SetDefaultLayoutOrTip($tip, 0) | Out-Null
+    Set-WinDefaultInputMethodOverride -InputTip $tip
+} else {
+    Write-Host "Microsoft's Korean input method: not here"
+}
+
+$results | Format-Table -AutoSize | Out-String -Width 240 | Write-Host
 Get-WinEvent -FilterHashtable @{ LogName = "Application"; StartTime = $started } -ErrorAction SilentlyContinue |
     Where-Object { $_.ProviderName -in "Application Error", "Windows Error Reporting", "Application Hang" } |
     ForEach-Object { Write-Host "--- event $($_.Id) $($_.ProviderName)"; Write-Host $_.Message }
@@ -229,5 +260,5 @@ foreach ($dump in Get-ChildItem $dumps -Filter *.dmp) {
 }
 
 if (Test-Path $log) { Write-Host "--- araso.log"; Get-Content $log | Select-String -NotMatch "scan code" | Select-Object -Last 300 | Out-Host }
-if ($results | Where-Object { -not $_.ok }) { throw "browser test: a browser or its page went down" }
+if ($results | Select-Object -First $required | Where-Object { -not $_.ok }) { throw "browser test: a browser or its page went down" }
 Write-Host "browser test: ok"
