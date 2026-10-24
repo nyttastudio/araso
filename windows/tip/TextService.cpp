@@ -15,6 +15,9 @@ namespace {
 /// How far back the field is read: InputSession reads up to 256 UTF-16 units before the word.
 constexpr LONG kLookBehind = 256;
 
+/// TF_E_SYNCHRONOUS: the app holds its document just now and can't grant an edit session at once.
+constexpr HRESULT kNotNow = static_cast<HRESULT>(0x80040209L);
+
 UINT PendingMessage() {
     static UINT message = RegisterWindowMessageW(kPendingMessage);
     return message;
@@ -422,10 +425,8 @@ Json TextService::KeyJson(WPARAM wParam, LPARAM lParam) const {
 void TextService::HandleKey(ITfContext *context, WPARAM wParam, LPARAM lParam, const char *op, BOOL *eaten) {
     Json key = KeyJson(wParam, lParam);
     std::string name = op;
-    bool handled = false;
-    bool replay = false;
-    bool sent = false;
-    HRESULT hr = Edit(context, true, [&](TfEditCookie cookie) {
+    // The key's exchange with the host, in an edit session; whether the app should get it after all.
+    auto exchange = [this, context, key, name](TfEditCookie cookie, bool &handled, bool &replay) {
         bool masked = false;
         Json request = Json::object();
         request.set("op", name);
@@ -433,12 +434,44 @@ void TextService::HandleKey(ITfContext *context, WPARAM wParam, LPARAM lParam, c
         request.set("claimed", true);
         request.set("context", Snapshot(cookie, context, masked));
         request.set("rects", Rects(cookie, context));
-        sent = Exchange(cookie, context, request, handled, &replay);
+        bool sent = Exchange(cookie, context, request, handled, &replay);
+        // Nothing reached the host: the app gets the key after all.
+        if (!sent) replay = name == "key";
+        return sent;
+    };
+    bool handled = false;
+    bool replay = false;
+    HRESULT hr = Edit(context, true, [&](TfEditCookie cookie) {
+        exchange(cookie, handled, replay);
         return S_OK;
     });
-    if (FAILED(hr)) Log("no edit session for a key (0x%08lx)", static_cast<unsigned long>(hr));
-    // Nothing reached the host (it went away, or no edit session): the app gets the key after all.
-    if (FAILED(hr) || !sent) replay = name == "key";
+    if (hr == kNotNow) {
+        // The app is busy with its document (Chrome, as a field comes and goes): the key waits its
+        // turn. Sent to the app as typed instead, it went in before the word being typed, or not
+        // at all (#gksrmf came out ksrmf in Lexical).
+        context->AddRef();
+        HRESULT queued = Edit(context, false, [this, context, exchange, wParam, lParam, name](TfEditCookie cookie) {
+            bool handledLater = false, replayLater = false;
+            exchange(cookie, handledLater, replayLater);
+            if (replayLater) Replay(wParam, lParam);
+            if (Verbose()) {
+                Log("%s, waited for the app: %s%s, composing %d", name.c_str(), handledLater ? "handled" : "passed",
+                    replayLater ? ", sent again" : "", composition_ ? 1 : 0);
+            }
+            context->Release();
+            return S_OK;
+        });
+        if (SUCCEEDED(queued)) {
+            *eaten = TRUE;
+            return;
+        }
+        context->Release();
+        hr = queued;
+    }
+    if (FAILED(hr)) {
+        Log("no edit session for a key (0x%08lx)", static_cast<unsigned long>(hr));
+        replay = name == "key";
+    }
     if (replay) Replay(wParam, lParam);
     if (Verbose()) {
         Log("%s: %s%s, composing %d", name.c_str(), handled ? "handled" : "passed", replay ? ", sent again" : "",
