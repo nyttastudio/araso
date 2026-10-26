@@ -26,6 +26,7 @@ public static class Keys {
     [DllImport("user32.dll")] public static extern IntPtr FindWindowEx(IntPtr parent, IntPtr after, string cls, string title);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern IntPtr SendMessage(IntPtr window, uint message, IntPtr w, StringBuilder l);
     [DllImport("user32.dll")] public static extern IntPtr SendMessage(IntPtr window, uint message, IntPtr w, IntPtr l);
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)] public static extern bool WaitNamedPipe(string name, uint timeout);
     [DllImport("input.dll", CharSet = CharSet.Unicode)] public static extern bool InstallLayoutOrTip(string profile, uint flags);
     [DllImport("input.dll", CharSet = CharSet.Unicode)] public static extern bool SetDefaultLayoutOrTip(string profile, uint flags);
     [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr window, IntPtr process);
@@ -106,10 +107,30 @@ if (-not (Test-Path "$folder\ArasoTip.dll")) { throw "not installed in $folder" 
 if (-not [Keys]::SetDefaultLayoutOrTip($tip, 0)) { Write-Host "SetDefaultLayoutOrTip failed" }
 # A new window starts in the default input method only when it overrides the language list's first.
 Set-WinDefaultInputMethodOverride -InputTip $tip
+# The host warms its models up before it opens its pipe (\\.\pipe\Araso.<session>.<user>, as
+# PipeName() in Common.cpp names it): wait for the pipe, not a fixed time. A host started while
+# another is still exiting (the installer's, just killed) finds the single-instance mutex taken and
+# quits at once, leaving none: wait for the old one to go, and start it again if it quit.
+function Start-Host {
+    Get-Process ArasoHost -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+    $clock = [Diagnostics.Stopwatch]::StartNew()
+    while ((Get-Process ArasoHost -ErrorAction SilentlyContinue) -and $clock.Elapsed.TotalSeconds -lt 10) { Start-Sleep -Milliseconds 100 }
+    $pipe = "\\.\pipe\Araso.$((Get-Process -Id $PID).SessionId).$env:USERNAME"
+    $starts = 0
+    $clock.Restart()
+    # WaitNamedPipe doesn't connect; it fails with ERROR_FILE_NOT_FOUND (2) only while there's no pipe.
+    while (-not [Keys]::WaitNamedPipe($pipe, 1) -and [Runtime.InteropServices.Marshal]::GetLastWin32Error() -eq 2) {
+        if ($clock.Elapsed.TotalSeconds -ge 60) { Write-Host "host: no pipe after 60 s ($starts starts)"; return }
+        if (-not (Get-Process ArasoHost -ErrorAction SilentlyContinue)) {
+            Start-Process -FilePath "$folder\ArasoHost.exe" -ArgumentList "--server"
+            $starts++
+        }
+        Start-Sleep -Milliseconds 250
+    }
+    Write-Host "host: pipe open after $([Math]::Round($clock.Elapsed.TotalSeconds, 1)) s ($starts starts)"
+}
 # A host started by the installer doesn't have ARASO_LOG: start it afresh.
-Get-Process ArasoHost -ErrorAction SilentlyContinue | Stop-Process -Force
-Start-Process -FilePath "$folder\ArasoHost.exe" -ArgumentList "--server"
-Start-Sleep -Seconds 8   # the host warms its models up
+Start-Host
 
 # The text service created as TSF creates it, in an x64 process (ArasoHost.exe) and in one of this
 # machine's own (PowerShell): on ARM64 Windows the forwarder must hand each its own build.
@@ -315,9 +336,7 @@ if ($env:ARASO_SCREENSHOTS -and $env:PROCESSOR_ARCHITECTURE -ne "ARM64") {
     $settings = Join-Path $env:APPDATA "Araso\settings.json"
     New-Item -ItemType Directory -Force (Split-Path $settings) | Out-Null
     [IO.File]::WriteAllText($settings, '{ "japanese": true, "liveConversion": false }')
-    Get-Process ArasoHost -ErrorAction SilentlyContinue | Stop-Process -Force
-    Start-Process -FilePath "$folder\ArasoHost.exe" -ArgumentList "--server"
-    Start-Sleep -Seconds 8
+    Start-Host
     $f = Kept "wpf"
     Send-Keys "kyouhaiitenki"; Start-Sleep -Milliseconds 700
     Shot "5-japanese-kana" $f.window 40
