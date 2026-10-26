@@ -111,7 +111,7 @@
 ## 문서
 
 README.md, README.en.md, 웹사이트의 "확정한 뒤에 고치기와 학습", 키 대치 절, 설정 창 설명,
-CLAUDE.md의 Decision chain과 Key replacements 항목을 함께 고친다.
+AGENTS.md의 Decision chain과 Key replacements 항목을 함께 고친다.
 
 ## 순서
 

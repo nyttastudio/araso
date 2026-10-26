@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 질문, 설치 문제 / Questions, install problems
+    url: https://github.com/nyttastudio/araso/discussions/categories/q-a
+    about: 사용법이나 설치 문제는 Discussions에서 / Usage and install help in Discussions
+  - name: 보안 문제 / Security issue
+    url: https://github.com/nyttastudio/araso/security/advisories/new
+    about: 공개 이슈 대신 비공개로 신고 / Report privately, not in a public issue

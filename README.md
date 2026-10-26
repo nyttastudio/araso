@@ -569,6 +569,8 @@ SCOWL 목록, 한국어 단어 목록, 언어 전환을 고려한 기울기를 �
 
 ## 개발
 
+기여하려면 [CONTRIBUTING.md](CONTRIBUTING.md)를 먼저 읽어 주세요. 빌드에는 Xcode 26 이상(Swift 6.2 이상)이 필요합니다.
+
 ```sh
 swift test                     # 테스트: 조합기, 엔진, 세션, 설정, 처음부터 끝까지
 scripts/install.sh             # 빌드하고 자체 점검한 뒤 ~/Library/Input Methods에 설치(개발용; pkg 사본이 있으면 멈춤)

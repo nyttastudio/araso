@@ -1,0 +1,30 @@
+name: 제안 / Suggestion
+description: 새 기능이나 동작 변경 / A new feature or a change in behavior
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        PR은 이 이슈에서 메인테이너가 방향에 답한 뒤에 시작해 주세요([CONTRIBUTING.md](https://github.com/nyttastudio/araso/blob/main/CONTRIBUTING.md)).
+        Start a PR once the maintainer has answered on the direction here ([CONTRIBUTING.en.md](https://github.com/nyttastudio/araso/blob/main/CONTRIBUTING.en.md)).
+  - type: textarea
+    id: problem
+    attributes:
+      label: 어떤 상황에서 불편한가요 / What's the problem
+      description: 무엇을 하려다 막혔는지, 지금은 어떻게 되는지 / What you were trying to do and what happens now
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 제안 / Proposal
+      description: 어떻게 동작하면 좋을지. 키와 결과의 예가 있으면 좋습니다. / How it should work, ideally with keys and results.
+    validations:
+      required: true
+  - type: dropdown
+    id: pr
+    attributes:
+      label: 직접 구현할 생각이 있나요 / Would you implement it
+      options:
+        - 아니요 / No
+        - 네, 방향이 정해지면 / Yes, once the direction is agreed
