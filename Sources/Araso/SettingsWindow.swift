@@ -7,13 +7,14 @@ import SwiftUI
 /// files in the support folder and tells the input method to read them again.
 enum SettingsTab: String, CaseIterable, Identifiable {
     // The settings first, then trying them out and the app itself.
-    case general, keys, apps, learning, typing, about
+    case general, keys, accents, apps, learning, typing, about
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
         case .general: return L("Languages")
+        case .accents: return L("Accent Characters")
         case .keys: return L("Keys")
         case .typing: return L("Try Typing")
         case .apps: return L("Apps")
@@ -26,6 +27,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
     var subtitle: String {
         switch self {
         case .general: return L("Which languages each word is decided between, the layouts they are typed on, and how Japanese types.")
+        case .accents: return L("Characters offered when you hold a letter, grouped by language.")
         case .keys: return L("The keys that change a word's language, and a few more.")
         case .apps: return L("How sure a word must be to convert, and apps that work differently.")
         case .learning: return L("Keys that always come out one way.")
@@ -35,7 +37,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
     }
 
     /// Where the sidebar draws a line: after the settings.
-    static let settings: [SettingsTab] = [.general, .keys, .apps, .learning]
+    static let settings: [SettingsTab] = [.general, .keys, .accents, .apps, .learning]
     static let more: [SettingsTab] = [.typing, .about]
 }
 
@@ -205,6 +207,16 @@ final class SettingsModel: ObservableObject {
         var new = ArasoCore.Settings.load()
         new[keyPath: key] = value
         do { try new.save() } catch { NSLog("Araso: could not save settings: %@", error.localizedDescription) }
+        changed()
+    }
+
+    func saveAccentProfile(_ profile: AccentProfile, deleting: Bool = false) throws {
+        var new = ArasoCore.Settings.load()
+        if deleting { new.accentProfiles.removeAll { $0.id == profile.id } }
+        else if let index = new.accentProfiles.firstIndex(where: { $0.id == profile.id }) {
+            new.accentProfiles[index] = profile
+        } else { new.accentProfiles.append(profile) }
+        try new.save()
         changed()
     }
 
@@ -476,6 +488,7 @@ struct SettingsView: View {
                 switch model.tab {
                 case .general: GeneralPane(model: model)
                 case .keys: KeysPane(model: model)
+                case .accents: AccentSettingsPane(model: model)
                 case .typing: TypingPane(model: model)
                 case .apps: AppsPane(model: model)
                 case .learning: DictionaryPane(model: model)

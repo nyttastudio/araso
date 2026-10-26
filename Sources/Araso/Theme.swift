@@ -109,6 +109,12 @@ private struct HeaderArt: View {
                     Keycap(key: .rightShift, on: true)
                     Keycap(key: .shiftEscape, on: true)
                 }
+            case .accents:
+                HStack(spacing: 8) {
+                    Text(verbatim: "a").font(.system(size: 15, weight: .semibold))
+                    Image(systemName: "arrow.right").font(.system(size: 11))
+                    Underlined(text: "ä", color: Seam.blue)
+                }.foregroundStyle(Seam.ink2)
             case .apps:
                 HStack(spacing: 8) {
                     Text(verbatim: "gst").font(.system(size: 15, weight: .semibold, design: .monospaced))

@@ -100,6 +100,14 @@ id=com.nyttastudio.inputmethod.Araso
 enabled=false
 # Registering also forgets other copies LaunchServices knows.
 "$dest/Araso.app/Contents/MacOS/Araso" --register
+# LaunchServices, not a shell-owned executable, must own the long-lived input server. A raw
+# executable can appear to work until its parent/session ends, hiding a broken system launch.
+# Registration and a running settings window are not evidence that this server is responsive.
+if ! open -g -a "$dest/Araso.app" || ! "$dest/Araso.app/Contents/MacOS/Araso" --check-server; then
+  echo "Installed, but the input server could not be verified. Keep using another input source." >&2
+  echo "Remove and re-add Araso in Keyboard settings, or log out and back in, then check again." >&2
+  exit 1
+fi
 # Two copies make two input methods, and macOS may launch the wrong one: a reinstall the user
 # chose in the terminal takes the pkg's copy out (with its receipt). Only after this copy is
 # registered: removed first, it takes the input source (and the user's choice to use it) along.

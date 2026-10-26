@@ -3,6 +3,14 @@ import Cocoa
 import InputMethodKit
 import Carbon
 
+// Registration and a settings window do not establish that the input server can accept work.
+// This command only checks the installed server; it must not create a server of its own.
+if CommandLine.arguments.contains("--check-server") {
+    let ready = InputServerHealth.check()
+    print(ready ? "input server ready" : "input server did not respond (this is not a typing test)")
+    exit(ready ? 0 : 1)
+}
+
 // `Araso --vim insert|normal|off [--app <bundle id>]`: vim tells the input method which mode
 // it is in, and in which app (see README, "vim"), so normal-mode keys go straight through without
 // guessing. Runs before anything else loads: it is started on every mode change.
@@ -19,7 +27,7 @@ if let flag = CommandLine.arguments.firstIndex(of: "--vim") {
     exit(0)
 }
 
-// `Araso --settings [general|keys|apps|typing|learning|about]`: the settings window, started from the input menu.
+// `Araso --settings [general|keys|accents|apps|typing|learning|about]`: the settings window, started from the input menu.
 if let flag = CommandLine.arguments.firstIndex(of: "--settings") {
     let next = CommandLine.arguments.dropFirst(flag + 1).first
     MainActor.assumeIsolated { runSettingsApp(tab: next.flatMap(SettingsTab.init(rawValue:)) ?? .general) }
@@ -106,6 +114,7 @@ MainActor.assumeIsolated {
     Updater.shared.startDailyChecks()
 }
 
-withExtendedLifetime(server) {
+let healthObserver = InputServerHealth.respond()
+withExtendedLifetime((server, healthObserver)) {
     NSApplication.shared.run()
 }

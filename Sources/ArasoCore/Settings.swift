@@ -8,6 +8,7 @@ import Foundation
 /// are ignored (and kept on save). A file that isn't JSON is set aside as settings.json.unreadable.
 public struct Settings: Codable, Equatable, Sendable {
     /// Detect romaji Japanese and convert it (kana preview, Space for kanji).
+    public var accentProfiles: [AccentProfile] = [.german]
     public var japanese: Bool = false
     /// With Japanese on: show (and commit) the top kanji candidate while typing, like macOS
     /// Live Conversion. Space opens the other candidates, Esc shows the kana.
@@ -59,6 +60,7 @@ public struct Settings: Codable, Equatable, Sendable {
         func value<T: Decodable>(_ key: CodingKeys, _ fallback: T) -> T {
             ((try? c.decodeIfPresent(T.self, forKey: key)) ?? nil) ?? fallback
         }
+        accentProfiles = value(.accentProfiles, [.german])
         japanese = value(.japanese, false)
         liveConversion = value(.liveConversion, false)
         let legacy = try? decoder.container(keyedBy: LegacyKeys.self)
