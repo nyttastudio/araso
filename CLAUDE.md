@@ -86,6 +86,13 @@ tests use `FakeTextField`). It owns the preview and hysteresis, commits, Esc rea
   `~/`, `x@`…, never a lone `.` or `/`), segments go in as typed English before the engine or
   dictionary is asked, symbols stay half-width, and a switch there isn't learned. Where the run
   isn't known (a click, ⌘V, a new field) it is read from the text before the caret. `tools/eval_urls.py`.
+- A run with an `_` (`hasIdentifierMarker`: en_s2c, src_dir) is a name in code: its segments,
+  the one before the `_` too, go in as typed unless they spell a Korean word of two syllables or
+  more (`spellsKoreanWord`: a word list's, or the engine's at Strict confidence), since Korean file
+  names join parts with one (보고서_최종). Not learned either. A word ended by a digit (cmd0, v2;
+  `beforeNumber`) goes in as typed the same way, unless it is such a Korean word or one of
+  `beforeNumberSyllables` (제1장, 표1; from Tatoeba, plus document numbering), and not when the word
+  started right after a number (`afterNumber`: 3개, 3월5일). `IdentifierRunTests`.
 - In a Strict app, a token of 3 keys or fewer kept English by the threshold wins over a Korean
   preview shown along the way (`gst` stays `gst`); longer words keep the preview's hysteresis.
 - The keys that switch a word's reading are per app (`AppPolicy.switchKeys`; default right ⌥ tap

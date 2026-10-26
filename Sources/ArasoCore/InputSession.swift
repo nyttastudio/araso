@@ -263,6 +263,14 @@ public final class InputSession {
     private var runKnown = false
     /// The word being typed is a segment of a URL or path (`hasURLMarker`): it goes in as typed.
     private var inURLRun = false
+    /// The word being typed is a segment of an identifier (`hasIdentifierMarker`: en_s2c,
+    /// src_dir): it goes in as typed unless it spells a Korean word (보고서_최종).
+    private var inIdentifierRun = false
+    /// The word being typed ended on a digit (cmd0, v2, rst3): a name in code too, unless it spells a
+    /// Korean word or one written before a number (제1장, 주3회). Not when the word itself started
+    /// right after a number, which makes it a counter (3개, 2020년3월).
+    private var beforeNumber = false
+    private var afterNumber = false
     /// Live conversion: a Japanese phrase is shown as its top kanji candidate while it is typed,
     /// and committed that way.
     public let liveConversion: Bool
@@ -435,6 +443,9 @@ public final class InputSession {
                 let before = run(client)
                 inURLRun = Self.hasURLMarker(before)
                 startsAfterHangul = before.last.map(Self.isHangul) ?? true
+                inIdentifierRun = Self.hasIdentifierMarker(before)
+                beforeNumber = false
+                afterNumber = before.last.map { $0.isASCII && $0.isNumber } ?? false
             }
             addedNMarker = false
             pinned = nil
@@ -544,6 +555,8 @@ public final class InputSession {
             }
             // A symbol that makes the run a URL or path (ho@, www.) ends the word, half-width.
             let endsInURL = inURLRun || Self.hasURLMarker(run(client) + keys + String(ch))
+            // The word before an underscore is a segment of the identifier too (en of en_s2c).
+            if Self.hasIdentifierMarker(String(ch)) { inIdentifierRun = true }
             if japaneseEnabled, !endsInURL, belongsToJapanesePhrase(ch) {
                 keys.append(ch)
                 // Digits don't read as anything: the phrase stays Japanese, as it was shown.
@@ -551,6 +564,7 @@ public final class InputSession {
                 updatePreview(client)
                 return true
             }
+            if ch.isASCII, ch.isNumber, !afterNumber { beforeNumber = true }
             if ch == " ", currentLanguage() == .japanese, converter != nil {
                 startConversion(client)
                 return true
@@ -586,7 +600,7 @@ public final class InputSession {
             client.insertText(word.text, replacing: nil)
             lastCommit = Committed(keys: word.keys, decided: word.decided, committedAs: word.language,
                                    language: word.language, text: word.text + String(ch), boundary: String(ch),
-                                   location: location, previous: previous, learns: !inURLRun)
+                                   location: location, previous: previous, learns: !inURLRun && !inIdentifierRun && !beforeNumber)
             noteRun(word.text + String(ch))
             afterKoreanSymbol = KoreanLayout.current.isSebeolsik && word.language.sentenceLanguage == .korean
                 && ch != " " && !inURLRun
@@ -740,6 +754,35 @@ public final class InputSession {
             || (run.hasPrefix("/") && run.dropFirst().contains("/"))
             || run.dropFirst().contains("@")
     }
+
+    /// Whether a run of text without spaces is an identifier from here on: it has an underscore
+    /// (en_s2c, src_dir, __init__). Korean doesn't use one except to join the parts of a file
+    /// name (보고서_최종, 회의록_1023), which `spellsKoreanWord` keeps.
+    static func hasIdentifierMarker(_ run: String) -> Bool {
+        run.contains("_")
+    }
+
+    /// Keys that spell a Korean word of two syllables or more, as a whole: one of the word lists,
+    /// or one the engine is sure of (회의록). One syllable never is: short segments (en, dir, fn)
+    /// make one easily (두, 약, 루).
+    private func spellsKoreanWord(_ keys: String) -> Bool {
+        guard let composed = HangulComposer.compose(keys: keys), composed.strayJamo.isEmpty,
+              composed.syllables.count >= 2 else { return false }
+        if Self.koreanModel.isVocabularyWord(composed.text) { return true }
+        let decision = engine.decide(keys, context: DecisionContext(app: app))
+        return decision.language == .korean && decision.confidence >= AppPolicy.strictThreshold
+    }
+
+    /// Before a number, Korean is a word of two syllables or more (옵션1, 버전2), or one of the few
+    /// single syllables written straight before one: 제 most of all in Tatoeba, 주 (주3회), and what
+    /// numbers a document's parts (표1, 제3조). Not 층 or 약, whose keys are cmd and dir.
+    private func spellsKoreanWordBeforeNumber(_ keys: String) -> Bool {
+        if spellsKoreanWord(keys) { return true }
+        guard let composed = HangulComposer.compose(keys: keys), composed.strayJamo.isEmpty else { return false }
+        return Self.beforeNumberSyllables.contains(composed.text)
+    }
+
+    static let beforeNumberSyllables: Set<String> = ["제", "주", "표", "장", "절", "항", "조", "호"]
 
     /// The run of text before the word being typed: what went in since the last space, with
     /// what the field had before the caret when that isn't known (a pasted URL, a click).
@@ -1394,6 +1437,17 @@ public final class InputSession {
             lastTrace = Trace(keys: keys, previous: previousLanguage, decision: decision, partial: partial)
             return decision
         }
+        // A segment of an identifier (en_s2c, src_dir) goes in as typed too, unless it spells a
+        // Korean word of two syllables or more: file names join Korean with underscores (보고서_최종).
+        // So does a word ended by a digit (cmd0), unless it is Korean written before a number (제1장).
+        let identifier = inIdentifierRun && !spellsKoreanWord(keys)
+        if identifier || beforeNumber && !spellsKoreanWordBeforeNumber(keys) {
+            keptEnglishByStrict = false
+            let decision = Decision(language: .english, confidence: 1, output: keys,
+                                    explanation: identifier ? "inside an identifier" : "before a number")
+            lastTrace = Trace(keys: keys, previous: previousLanguage, decision: decision, partial: partial)
+            return decision
+        }
         if let shortcut = shortcutReading(partial: partial) {
             // As sure as a split word, so a Strict app shows it too.
             keptEnglishByStrict = false
@@ -1497,7 +1551,7 @@ public final class InputSession {
             previewLanguage = forced
             show(rendering(as: forced), client)
         } else {
-            if !inURLRun {
+            if !inURLRun, !inIdentifierRun {
                 splitOffKoreanBeforeOther(client)
                 splitOffJapaneseBeforeKorean(client)
             }
@@ -1677,9 +1731,9 @@ public final class InputSession {
     /// The word being typed ends as `language`: it goes in, or its conversion, kana forms or a
     /// shortcut's phrases start. A correction the user made to it is learned; otherwise it was
     /// typed again (a weak entry saying so stays) and, when its dictionary entry decided it, it
-    /// is listed. Inside a URL or path it isn't a word: neither.
+    /// is listed. Inside a URL or path, an identifier or before a number it isn't a word: neither.
     private func wordEnds(as language: Language, engineChoice: Language) {
-        guard !inURLRun else { return }
+        guard !inURLRun, !inIdentifierRun, !beforeNumber else { return }
         if forced != nil, forcedByUser {
             record(keys, as: language, engineChoice: engineChoice)
         } else {
