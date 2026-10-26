@@ -112,12 +112,12 @@ Set-WinDefaultInputMethodOverride -InputTip $tip
 # another is still exiting (the installer's, just killed) finds the single-instance mutex taken and
 # quits at once, leaving none: wait for the old one to go, and start it again if it quit.
 # Only this session's host counts: the mutex and the pipe are per session, as a host is.
-function Session-Host { Get-Process ArasoHost -ErrorAction SilentlyContinue | Where-Object SessionId -eq $script:session }
+function Get-SessionHost { Get-Process ArasoHost -ErrorAction SilentlyContinue | Where-Object SessionId -eq $script:session }
 function Start-Host {
     $script:session = (Get-Process -Id $PID).SessionId
-    Session-Host | Stop-Process -Force -ErrorAction SilentlyContinue
+    Get-SessionHost | Stop-Process -Force -ErrorAction SilentlyContinue
     $clock = [Diagnostics.Stopwatch]::StartNew()
-    while ((Session-Host) -and $clock.Elapsed.TotalSeconds -lt 10) { Start-Sleep -Milliseconds 100 }
+    while ((Get-SessionHost) -and $clock.Elapsed.TotalSeconds -lt 10) { Start-Sleep -Milliseconds 100 }
     $pipe = "\\.\pipe\Araso.$script:session.$env:USERNAME"
     $starts = 0
     $clock.Restart()
@@ -127,7 +127,7 @@ function Start-Host {
         $code = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
         if ($code -ne 2 -and $code -ne 121) { throw "host: waiting for its pipe failed ($code)" }
         if ($clock.Elapsed.TotalSeconds -ge 60) { throw "host: no pipe after 60 s ($starts starts)" }
-        if (-not (Session-Host)) {
+        if (-not (Get-SessionHost)) {
             Start-Process -FilePath "$folder\ArasoHost.exe" -ArgumentList "--server"
             $starts++
         }
