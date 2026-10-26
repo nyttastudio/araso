@@ -118,9 +118,12 @@ function Start-Host {
     $pipe = "\\.\pipe\Araso.$((Get-Process -Id $PID).SessionId).$env:USERNAME"
     $starts = 0
     $clock.Restart()
-    # WaitNamedPipe doesn't connect; it fails with ERROR_FILE_NOT_FOUND (2) only while there's no pipe.
-    while (-not [Keys]::WaitNamedPipe($pipe, 1) -and [Runtime.InteropServices.Marshal]::GetLastWin32Error() -eq 2) {
-        if ($clock.Elapsed.TotalSeconds -ge 60) { Write-Host "host: no pipe after 60 s ($starts starts)"; return }
+    # WaitNamedPipe doesn't connect. It fails with ERROR_FILE_NOT_FOUND (2) while there's no pipe and
+    # ERROR_SEM_TIMEOUT (121) while every instance is busy; anything else is no host to type through.
+    while (-not [Keys]::WaitNamedPipe($pipe, 1)) {
+        $code = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+        if ($code -ne 2 -and $code -ne 121) { throw "host: waiting for its pipe failed ($code)" }
+        if ($clock.Elapsed.TotalSeconds -ge 60) { throw "host: no pipe after 60 s ($starts starts)" }
         if (-not (Get-Process ArasoHost -ErrorAction SilentlyContinue)) {
             Start-Process -FilePath "$folder\ArasoHost.exe" -ArgumentList "--server"
             $starts++
