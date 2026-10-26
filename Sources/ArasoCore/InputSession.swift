@@ -241,6 +241,9 @@ public final class InputSession {
     /// The user paused Araso in this text field (the pause key): keys go through as typed
     /// until the next tap or another text field.
     public private(set) var paused = false
+    /// Caps Lock was on when the word being typed (or the one just committed) started: the field
+    /// is seen through `CapsLockClient` (`cased`), English going in in capitals.
+    public private(set) var capsWord = false
     /// Language of the current preview, so in-phrase symbols know where they belong.
     private var previewLanguage: Language?
     /// The last key passed to the app was a digit (so "." there is a decimal point).
@@ -340,6 +343,23 @@ public final class InputSession {
     public var inVimNormalMode: Bool { vimMode == .normal }
 
     /// Returns true when the key was consumed.
+    /// `handle` for a key typed with Caps Lock on or off. The letter comes in the case Shift alone
+    /// gives it (the controller's job), so a word reads the same either way (GKAUS is 하면); what
+    /// the word puts in the field goes through `cased`. Caps Lock changing inside a word commits
+    /// what came before, and a new word starts.
+    public func handle(_ key: Key, client: TextClient, capsLock: Bool) -> Bool {
+        if case .letter = key, capsLock != capsWord {
+            if !keys.isEmpty, conversion == nil { commit(client: cased(client)) }
+            if keys.isEmpty { capsWord = capsLock }
+        }
+        return handle(key, client: cased(client))
+    }
+
+    /// The field as the word being typed sees it: through `CapsLockClient` when Caps Lock was on.
+    public func cased(_ client: TextClient) -> TextClient {
+        capsWord ? CapsLockClient(client) : client
+    }
+
     public func handle(_ key: Key, client: TextClient) -> Bool {
         readings = nil
         learned = nil
@@ -1433,6 +1453,15 @@ public final class InputSession {
         if partial, d.language == .korean, d.confidence < policy.conversionThreshold {
             let now = engine.decide(keys, context: DecisionContext(previousLanguage: previousLanguage, partial: false, app: app))
             if now.language == .korean, now.confidence >= policy.conversionThreshold { d = now }
+        }
+        // Typed with Caps Lock, keys that break into loose jamo are an acronym (RST, RD, DDR): the
+        // capitals that made them English without Caps Lock are gone, and as lowercase they read
+        // as chat jamo (ㄱㄴㅅ). While typing, a last consonant may still start a syllable (ㅎ of 하면).
+        // English the engine chose by a hair gets the same certainty, so the Korean shown on the
+        // first key (ㄱ of RD) doesn't hold on through the preview's hysteresis.
+        if capsWord, d.language == .korean || d.language == .english, let composed = HangulComposer.compose(keys: keys),
+           partial ? composed.isBroken : !composed.strayJamo.isEmpty {
+            d = Decision(language: .english, confidence: 1, output: keys, explanation: "Caps Lock: loose jamo")
         }
         let kept = d.language != .english && d.confidence < policy.conversionThreshold
         keptEnglishByStrict = kept && policy.conversionThreshold >= AppPolicy.strictThreshold && keys.count <= 3
