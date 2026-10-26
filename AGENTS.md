@@ -120,9 +120,12 @@ tests use `FakeTextField`). It owns the preview and hysteresis, commits, Esc rea
   Shift alone gives (macOS types capitals with Caps Lock, Shift or not), `handle(_:client:capsLock:)`
   notes it per word (`capsWord`; a toggle inside a word commits what came before), and every client
   the session writes to goes through `cased`, so English goes in in capitals (`CapsLockClient`).
-  Keys that would make loose jamo are English in such a word (the capitals that made RST English
-  are gone, and rst reads as chat jamo); while typing, one last consonant may still start a
-  syllable, so the preview matches typing without Caps Lock. `CapsLockTests`.
+  Keys that are loose jamo throughout, two or more, are English in such a word (the capitals that
+  made RST English are gone, and rst reads as chat jamo), the same while typing and at Space; a
+  word with a syllable in it (안녕ㄱ) or one jamo reads as without Caps Lock. English the engine
+  chose by a hair over Korean gets that certainty too, not over Japanese (hon stays ほん), and a
+  word the dictionary remembers keeps its language. `CapsLockTests`; `ARASO_CAPS_LOCK=1` for
+  `araso-cli --type`.
 - The pause key (`Settings.pauseKey`: a right modifier tap, by default ⌘, read from flagsChanged, or a
   shortcut caught in keyDown, both in `InputController`) pauses the session until it is pressed again,
   `activate`, or a settings change (a fresh session). The menu icon can't change, so `PauseHUD`

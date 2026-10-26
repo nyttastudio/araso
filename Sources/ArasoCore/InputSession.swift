@@ -342,7 +342,6 @@ public final class InputSession {
     /// Whether keys currently go straight to vim (normal, visual or command-line mode).
     public var inVimNormalMode: Bool { vimMode == .normal }
 
-    /// Returns true when the key was consumed.
     /// `handle` for a key typed with Caps Lock on or off. The letter comes in the case Shift alone
     /// gives it (the controller's job), so a word reads the same either way (GKAUS is 하면); what
     /// the word puts in the field goes through `cased`. Caps Lock changing inside a word commits
@@ -360,6 +359,7 @@ public final class InputSession {
         capsWord ? CapsLockClient(client) : client
     }
 
+    /// Returns true when the key was consumed.
     public func handle(_ key: Key, client: TextClient) -> Bool {
         readings = nil
         learned = nil
@@ -1454,13 +1454,17 @@ public final class InputSession {
             let now = engine.decide(keys, context: DecisionContext(previousLanguage: previousLanguage, partial: false, app: app))
             if now.language == .korean, now.confidence >= policy.conversionThreshold { d = now }
         }
-        // Typed with Caps Lock, keys that break into loose jamo are an acronym (RST, RD, DDR): the
-        // capitals that made them English without Caps Lock are gone, and as lowercase they read
-        // as chat jamo (ㄱㄴㅅ). While typing, a last consonant may still start a syllable (ㅎ of 하면).
-        // English the engine chose by a hair gets the same certainty, so the Korean shown on the
-        // first key (ㄱ of RD) doesn't hold on through the preview's hysteresis.
-        if capsWord, d.language == .korean || d.language == .english, let composed = HangulComposer.compose(keys: keys),
-           partial ? composed.isBroken : !composed.strayJamo.isEmpty {
+        // Typed with Caps Lock, keys that are loose jamo throughout, two or more, are an acronym
+        // (RST, RD, DDR): the capitals that made them English without Caps Lock are gone, and as
+        // lowercase they read as chat jamo (ㄱㄴㅅ). The same while typing and at Space, so what is
+        // shown goes in; a word with a syllable in it (안녕ㄱ) and one jamo alone (ㅎ, on its way
+        // to 하면) read as without Caps Lock. English the engine chose by a hair over Korean gets the
+        // same certainty, so the ㄱ shown on RD's first key doesn't hold on through the hysteresis;
+        // over Japanese it stays as it was (hon is ほん). A word the dictionary remembers keeps its
+        // language.
+        if capsWord, d.language == .korean || d.language == .english && d.runnerUp == .korean,
+           engine.rememberedLanguage(keys, app: app) == nil,
+           let composed = HangulComposer.compose(keys: keys), composed.units.count >= 2, composed.syllables.isEmpty {
             d = Decision(language: .english, confidence: 1, output: keys, explanation: "Caps Lock: loose jamo")
         }
         let kept = d.language != .english && d.confidence < policy.conversionThreshold

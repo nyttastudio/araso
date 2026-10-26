@@ -121,7 +121,10 @@ case "--decide":
 case "--type":
     // Each line's keys and a Space through a fresh InputSession (real engines, no converter):
     // what ends up in the field, as typed. ARASO_THRESHOLD=0.97: as in a Strict app.
+    // ARASO_CAPS_LOCK=1: typed with Caps Lock on (the keys as Shift alone types them), and the
+    // keys passed on go in in capitals, as macOS types them.
     let withJapanese = args.count > 1 && args[1] == "--japanese"
+    let capsLock = ProcessInfo.processInfo.environment["ARASO_CAPS_LOCK"] == "1"
     let heuristic = HeuristicEngine(japanese: withJapanese ? JapaneseModel.shared : nil)
     let threshold = ProcessInfo.processInfo.environment["ARASO_THRESHOLD"].flatMap(Double.init)
     let policies = AppPolicies(overrides: threshold.map { ["*": AppPolicy.Override(conversionThreshold: $0)] } ?? [:])
@@ -132,8 +135,8 @@ case "--type":
             let field = PlainTextField()
             let session = InputSession(engine: engine, policies: policies, japaneseEnabled: withJapanese)
             for ch in keys + " " {
-                let handled = ch.isLetter ? session.handle(.letter(ch), client: field) : session.handle(.printable(ch), client: field)
-                if !handled { field.insertText(String(ch), replacing: nil) } // the app types keys passed on
+                let handled = session.handle(ch.isLetter ? .letter(ch) : .printable(ch), client: field, capsLock: capsLock)
+                if !handled { field.insertText(capsLock ? String(ch).uppercased() : String(ch), replacing: nil) } // the app types keys passed on
             }
             print("\(keys)\t\(field.text)")
         }

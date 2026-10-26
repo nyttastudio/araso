@@ -29,7 +29,7 @@ final class InputController: IMKInputController {
         if let current, current.generation == runtime.generation { return current.session }
         let fresh = runtime.makeSession()
         if let old = current?.session {
-            old.commit(client: client().map { old.cased(textClient($0 as IMKTextInput)) })
+            old.commit(client: client().map { old.cased(IMKClient($0 as IMKTextInput, marks: self)) })
             fresh.activate(app: old.app)
         }
         current = (fresh, runtime.generation)
@@ -75,13 +75,13 @@ final class InputController: IMKInputController {
     @MainActor func vimChanged(to signal: VimSignal, from app: String?) {
         let session = session
         guard app.map({ $0 == session.app }) ?? !session.policy.switchKeys.contains(.escape) else { return }
-        session.vimChanged(to: signal, client: client().map { session.cased(textClient($0 as IMKTextInput)) })
+        session.vimChanged(to: signal, client: client().map { textClient($0 as IMKTextInput) })
         log.debug("vim \(signal.rawValue, privacy: .public)")
     }
 
     override func deactivateServer(_ sender: Any!) {
         MainActor.assumeIsolated {
-            session.commit(client: textInput(sender).map { session.cased(textClient($0)) })
+            session.commit(client: textInput(sender).map(textClient))
             StripHUD.hide(force: true)
             Runtime.shared.converter?.save()
         }
@@ -90,7 +90,7 @@ final class InputController: IMKInputController {
 
     override func commitComposition(_ sender: Any!) {
         MainActor.assumeIsolated {
-            session.commitForNewContext(client: textInput(sender).map { session.cased(textClient($0)) })
+            session.commitForNewContext(client: textInput(sender).map(textClient))
             StripHUD.hide(force: true)
         }
     }
@@ -102,7 +102,9 @@ final class InputController: IMKInputController {
     }
 
     /// The session's view of a client; this controller gives it the system's clause underlines.
-    private func textClient(_ input: IMKTextInput) -> IMKClient { IMKClient(input, marks: self) }
+    /// The field as the session writes to it: through `cased`, so a word typed with Caps Lock
+    /// goes in in capitals wherever the session is handed the field.
+    @MainActor private func textClient(_ input: IMKTextInput) -> TextClient { session.cased(IMKClient(input, marks: self)) }
 
     override func recognizedEvents(_ sender: Any!) -> Int {
         Int(NSEvent.EventTypeMask.keyDown.rawValue | NSEvent.EventTypeMask.flagsChanged.rawValue)
@@ -120,7 +122,7 @@ final class InputController: IMKInputController {
                 // the shortcut without showing it to the input method (Ghostty pastes on ⌘V itself).
                 if event.keyCode == KeyCode.leftCommand || event.keyCode == KeyCode.rightCommand,
                    event.modifierFlags.contains(.command) {
-                    session.commandPressed(client: session.cased(textClient(input)))
+                    session.commandPressed(client: textClient(input))
                 }
                 pauseTapChanged(event, client: input)
                 switchTapChanged(event, client: input)
@@ -146,7 +148,8 @@ final class InputController: IMKInputController {
             }
             let key = key(for: event)
             noteWordRect(input)
-            let handled = session.handle(key, client: textClient(input), capsLock: event.modifierFlags.contains(.capsLock))
+            // The raw field: this `handle` notes Caps Lock for the word first, then applies `cased`.
+            let handled = session.handle(key, client: IMKClient(input, marks: self), capsLock: event.modifierFlags.contains(.capsLock))
             syncStrip(input)
             // The settings window's typing test shows how each word was decided; only there.
             if session.app == Bundle.main.bundleIdentifier, let trace = session.lastTrace {
@@ -219,7 +222,7 @@ final class InputController: IMKInputController {
         switchTapDown = nil
         guard !session.inVimNormalMode else { return } // vim's own keys
         noteWordRect(client)
-        let handled = session.handle(.cycle, client: session.cased(textClient(client)))
+        let handled = session.handle(.cycle, client: textClient(client))
         syncStrip(client)
         log.debug("handle switchTap handled=\(handled) app=\(self.session.app ?? "?", privacy: .public)")
     }
@@ -232,7 +235,7 @@ final class InputController: IMKInputController {
         if let conversion = session.conversion {
             StripHUD.show(conversion, clause: caretRect(client)) { [weak self] index in
                 guard let self, let input: IMKTextInput = self.client() else { return }
-                self.session.choose(index, client: self.session.cased(self.textClient(input)))
+                self.session.choose(index, client: self.textClient(input))
                 self.syncStrip(input)
             }
         } else if let readings = session.readings {
@@ -255,7 +258,7 @@ final class InputController: IMKInputController {
         for _ in 0..<4 {
             guard let readings = session.readings, readings.languages[readings.selected] != language else { break }
             noteWordRect(input)
-            _ = session.handle(.cycle, client: session.cased(textClient(input)))
+            _ = session.handle(.cycle, client: textClient(input))
         }
         syncStrip(input)
     }
@@ -311,7 +314,7 @@ final class InputController: IMKInputController {
 
     /// Pauses or resumes this text field, and says so under the caret.
     @MainActor private func togglePause(client: IMKTextInput?) {
-        session.togglePause(client: client.map { session.cased(textClient($0)) })
+        session.togglePause(client: client.map(textClient))
         StripHUD.hide(force: true)
         PauseHUD.show(paused: session.paused, caret: client.map(caretRect) ?? .zero)
         log.info("paused=\(self.session.paused) app=\(self.session.app ?? "?", privacy: .public)")
