@@ -12,6 +12,9 @@ final class CapsLockClient: TextClient {
 
     func setMarkedText(_ text: String) { base.setMarkedText(Self.capitals(text)) }
     func setMarkedText(_ text: String, replacing range: NSRange) { base.setMarkedText(Self.capitals(text), replacing: range) }
+    func setMarkedText(_ text: String, selectedClause: NSRange, replacing range: NSRange?) {
+        base.setMarkedText(Self.capitals(text), selectedClause: selectedClause, replacing: range)
+    }
     func insertText(_ text: String, replacing range: NSRange?) { base.insertText(Self.capitals(text), replacing: range) }
     func selectedRange() -> NSRange { base.selectedRange() }
     func markedRange() -> NSRange { base.markedRange() }

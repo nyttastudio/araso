@@ -111,6 +111,58 @@ import Testing
         #expect(field.text == "아ㄴ녕 ")
     }
 
+    /// The clause being converted keeps its highlight: the clause goes through with the text.
+    @Test func theSelectedClauseGoesThrough() {
+        final class Recorder: TextClient {
+            var marked: (text: String, clause: NSRange)?
+            func setMarkedText(_ text: String) {}
+            func setMarkedText(_ text: String, replacing range: NSRange) {}
+            func insertText(_ text: String, replacing range: NSRange?) {}
+            func selectedRange() -> NSRange { NSRange(location: 0, length: 0) }
+            func markedRange() -> NSRange { NSRange(location: NSNotFound, length: 0) }
+            func text(in range: NSRange) -> String? { nil }
+            func setMarkedText(_ text: String, selectedClause: NSRange, replacing range: NSRange?) { marked = (text, selectedClause) }
+        }
+        let recorder = Recorder()
+        CapsLockClient(recorder).setMarkedText("今日はtest", selectedClause: NSRange(location: 0, length: 3), replacing: nil)
+        #expect(recorder.marked?.text == "今日はTEST")
+        #expect(recorder.marked?.clause == NSRange(location: 0, length: 3))
+    }
+
+    /// A candidate being chosen goes in under the Caps Lock it was typed with, when Caps Lock
+    /// changes before the next word.
+    @Test func aCandidateGoesInAsItWasTyped() {
+        @MainActor final class Converter: JapaneseConverter {
+            func candidates(for kana: String) -> [ConversionCandidate] { [.init(text: "test", kanaCount: kana.count)] }
+            func learn(_ candidate: ConversionCandidate, for kana: String) {}
+            func save() {}
+            func moreCandidates(for kana: String) -> [ConversionCandidate] { [] }
+        }
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("araso-caps-\(UUID().uuidString).json")
+        let session = InputSession(engine: DictionaryEngine(base: SplittingEngine(base: trilingual, english: trilingual.english,
+                                                                                  japanese: trilingual.segmenter), storeURL: url),
+                                   converter: Converter(), japaneseEnabled: true)
+        Self.type("tesuto ", caps: false, into: session, field: field)
+        #expect(session.conversion != nil)
+        Self.type("a", caps: true, into: session, field: field)
+        #expect(field.text.hasPrefix("test"))
+    }
+
+    /// On 3-set a symbol key whose jamo goes on with the word counts as a letter: Caps Lock
+    /// changed on it starts a new word, as on a letter.
+    @Test func sebeolsikJamoKeysStartANewWordToo() {
+        let (whole, split) = KoreanLayout.$override.withValue(.sebeolsikFinal) { () -> (String, String) in
+            let one = FakeTextField(), two = FakeTextField()
+            Self.type("kf2 ", caps: true, into: Self.freshSession(), field: one)
+            let session = Self.freshSession()
+            Self.type("kf", caps: true, into: session, field: two)
+            Self.type("2 ", caps: false, into: session, field: two)
+            return (one.text, two.text)
+        }
+        #expect(whole == "갔 ")
+        #expect(split != whole && split.hasPrefix("가"))
+    }
+
     @Test func capsLockOffKeepsTheCase() {
         type("Hello ", caps: false)
         #expect(field.text == "Hello ")

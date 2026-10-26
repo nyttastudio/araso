@@ -347,11 +347,32 @@ public final class InputSession {
     /// the word puts in the field goes through `cased`. Caps Lock changing inside a word commits
     /// what came before, and a new word starts.
     public func handle(_ key: Key, client: TextClient, capsLock: Bool) -> Bool {
-        if case .letter = key, capsLock != capsWord {
-            if !keys.isEmpty, conversion == nil { commit(client: cased(client)) }
-            if keys.isEmpty { capsWord = capsLock }
+        if capsLock != capsWord, startsOrExtendsWord(key, client) {
+            // What came before goes in as it was shown, a candidate being chosen too, under the old
+            // state; then the new word takes the new one.
+            if !keys.isEmpty || conversion != nil { commit(client: cased(client)) }
+            if keys.isEmpty, conversion == nil { capsWord = capsLock }
         }
         return handle(key, client: cased(client))
+    }
+
+    /// A letter, or a 3-set digit or symbol key whose jamo goes on with the word (`handle` makes
+    /// it a letter).
+    private func startsOrExtendsWord(_ key: Key, _ client: TextClient) -> Bool {
+        switch key {
+        case .letter: return true
+        case .printable(let ch): return printableContinuesWord(ch, client)
+        default: return false
+        }
+    }
+
+    /// On 3-set a digit or symbol key with a jamo goes on with the word where the jamo fits
+    /// (갔 is kf2, 밥 starts on ;); elsewhere it is the symbol. Not in a URL or path, though the
+    /// word itself doesn't make one: 밝 is ;f@, not an address.
+    private func printableContinuesWord(_ ch: Character, _ client: TextClient) -> Bool {
+        heldBoundary == nil && (keys.isEmpty || !inURLRun)
+            && KoreanLayout.current.continuesWord(keys, with: ch, afterDigit: afterDigit, knows: Self.koreanModel.knowsSyllableIncludingRare)
+            && !Self.hasURLMarker(run(client))
     }
 
     /// The field as the word being typed sees it: through `CapsLockClient` when Caps Lock was on.
@@ -386,12 +407,7 @@ public final class InputSession {
             return true
         }
         if conversion != nil { return handleConverting(key, client: client) }
-        // On 3-set a digit or symbol key with a jamo goes on with the word where the jamo fits
-        // (갔 is kf2, 밥 starts on ;); elsewhere it is the symbol. Not in a URL or path, though the
-        // word itself doesn't make one: 밝 is ;f@, not an address.
-        if case .printable(let ch) = key, heldBoundary == nil, keys.isEmpty || !inURLRun,
-           KoreanLayout.current.continuesWord(keys, with: ch, afterDigit: afterDigit, knows: Self.koreanModel.knowsSyllableIncludingRare),
-           !Self.hasURLMarker(run(client)) {
+        if case .printable(let ch) = key, printableContinuesWord(ch, client) {
             return handle(.letter(ch), client: client)
         }
         // On 3-set a key with a digit or symbol there (⇧B ?, ⇧/ !, ⇧L 3, [ () types it right after
