@@ -1,6 +1,6 @@
 <!--
 Release notes: the draft release starts from this file. Settings → About shows the items of the
-first section (## 바뀐 것) in the app, so follow the rules in CLAUDE.md (Releases):
+first section (## 바뀐 것) in the app, so follow the rules in AGENTS.md (Releases):
 - One item per change: - **제목**: 설명
 - 제목: a short noun phrase (about 10 characters), no period.
 - 설명: the first sentence says what changed (About cuts it at two lines, about 70–80 characters);

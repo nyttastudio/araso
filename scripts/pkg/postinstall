@@ -3,7 +3,7 @@
 # into the existing Araso.app here, each written aside and renamed over the old one (the folder
 # stays, and a running Araso keeps its old files). A first install just moves it into place.
 # This was meant to avoid imklaunchagent's LaunchInputMethod -50 after an upgrade; that turned out
-# to hit only ad hoc signed copies (see CLAUDE.md), and the Developer ID copy starts again either way.
+# to hit only ad hoc signed copies (see AGENTS.md), and the Developer ID copy starts again either way.
 #
 # The old Araso keeps running while that happens (no preinstall stops it: macOS would only
 # start the old code again). Stop it after, then register the new copy for the logged-in user (the

@@ -1,0 +1,76 @@
+name: 버그 / Bug
+description: 잘못 입력되거나, 판단이 틀리거나, 동작하지 않을 때 / Something types wrong, reads wrong or doesn't work
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        설치 문제나 사용법 질문은 [Discussions](https://github.com/nyttastudio/araso/discussions)에 올려 주세요. 보안 문제는 [비공개로 신고](https://github.com/nyttastudio/araso/security/advisories/new)해 주세요.
+        For install problems and questions, use [Discussions](https://github.com/nyttastudio/araso/discussions). Report security issues [privately](https://github.com/nyttastudio/araso/security/advisories/new).
+  - type: textarea
+    id: what
+    attributes:
+      label: 무슨 일이 있었나요 / What happened
+      description: |
+        친 키, 기대한 결과, 실제 결과를 적어 주세요. 예: `dkssud` → `안녕` 기대, `dkssud`로 들어감.
+        The keys you typed, what you expected and what came out. E.g. `dkssud` → expected `안녕`, got `dkssud`.
+    validations:
+      required: true
+  - type: input
+    id: app
+    attributes:
+      label: 앱 / App
+      description: 문제가 생긴 앱과, 다른 앱에서도 그런지 / The app it happens in, and whether other apps do it too
+      placeholder: Safari (TextEdit에서는 괜찮음 / fine in TextEdit)
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Araso 버전 / Araso version
+      description: 입력 메뉴 → Araso 설정… → 정보 / Input menu → Araso Settings… → About
+      placeholder: "0.3.0"
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: OS 버전 / OS version
+      placeholder: macOS 26.1 (Apple silicon) / Windows 11 24H2
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: 설치 방법 / How you installed it
+      options:
+        - Araso.pkg (웹사이트 / the website, GitHub Releases)
+        - scripts/get.sh
+        - scripts/install.sh (소스에서 빌드 / built from source)
+        - Araso-Setup.exe (Windows)
+    validations:
+      required: true
+  - type: textarea
+    id: settings
+    attributes:
+      label: 바꾼 설정 / Settings you changed
+      description: |
+        언어 바꾸기 키, 자판(콜맥, 세벌식…), Strict 앱 등. 도움이 되면 `~/Library/Application Support/Araso/`(Windows: `%APPDATA%\Araso`)의 `settings.json`과 `apps.json`을 붙여 주세요(`dictionary.json`은 친 단어가 들어 있으니 붙이지 마세요).
+        Switch keys, layouts (Colemak, 3-set…), Strict apps. If it helps, paste `settings.json` and `apps.json` from `~/Library/Application Support/Araso/` (Windows: `%APPDATA%\Araso`) (not `dictionary.json`: it holds words you typed).
+  - type: dropdown
+    id: pr
+    attributes:
+      label: 직접 고칠 생각이 있나요 / Would you fix it
+      description: PR은 메인테이너가 이 이슈에 답한 뒤에 시작해 주세요. / Start a PR once the maintainer has answered here.
+      options:
+        - 아니요 / No
+        - 네, 방향이 정해지면 / Yes, once the direction is agreed
+  - type: textarea
+    id: log
+    attributes:
+      label: 로그 / Log
+      description: |
+        macOS에서 멈추거나 입력이 안 될 때는 문제가 생긴 직후 터미널에서 아래 명령을 실행해 결과를 붙여 주세요. 친 글자는 기록되지 않습니다.
+        On macOS, if it hangs or stops typing, run this in Terminal right after it happens and paste the output. It never contains typed text.
+        `/usr/bin/log show --last 10m --predicate 'subsystem == "com.nyttastudio.inputmethod.Araso"' --info --debug`
+      render: text

@@ -618,6 +618,8 @@ held-out score. Many remaining misses are genuinely ambiguous keys: `so`/내, `g
 
 ## Develop
 
+To contribute, start with [CONTRIBUTING.en.md](CONTRIBUTING.en.md). Building needs Xcode 26 or later (Swift 6.2 or later).
+
 ```sh
 swift test                     # tests: composers, engines, sessions, settings, end to end
 scripts/install.sh             # build, self-test and install into ~/Library/Input Methods (development; stops if the pkg's copy is there)
