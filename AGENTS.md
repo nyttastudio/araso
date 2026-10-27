@@ -64,7 +64,8 @@ guards; an entry limited to apps applies to the keys as a whole, by `DecisionCon
 (`MixedWord.swift`) → `HeuristicEngine`. Plan for the rest of the dictionary: `docs/user-dictionary.md`.
 - `SplittingEngine` handles English + Korean particle (`github에`), a single letter + particle
   (`xdp` → `x에`, not 도/나 after a lowercase letter), English + whole Korean word (`hello월드`,
-  using `Data/korean_vocabulary.txt`, which `HeuristicEngine` also uses for its Korean word floor;
+  using `Data/korean_vocabulary.txt` plus `KoreanModel.loanwords` (developer and product words the
+  2018 subtitles lack: 깃허브, 노션), which `HeuristicEngine` also uses for its Korean word floor;
   its words seen under 10 times, `isRareVocabularyWord`, count for that floor only) and English + Japanese particle
   (`githubで`). Its decisions have confidence 0.98 (`SplittingEngine.confidence`), above Strict
   (0.97), so they split in a strict app too.

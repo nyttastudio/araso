@@ -96,6 +96,24 @@ let sharedEngine = HeuristicEngine()
         #expect(d.confidence >= AppPolicy.strictThreshold, "\(keys) \(d.explanation)")
     }
 
+    /// Developer and product words the subtitles lack (`KoreanModel.loanwords`) get the word floor
+    /// too: after English, and sure enough for a Strict app.
+    @Test(arguments: [("rltgjqm", "깃허브"), ("fldorxm", "리액트"), ("ehzj", "도커"), ("tmffor", "슬랙"), ("cotwlvlxl", "챗지피티")])
+    func loanwordsAfterEnglish(keys: String, expected: String) {
+        #expect(sharedEngine.korean.isVocabularyWord(expected))
+        let d = sharedEngine.decide(keys, context: DecisionContext(previousLanguage: .english))
+        #expect(d.language == .korean && d.output == expected, "\(keys) → \(d.output) \(d.explanation)")
+        #expect(d.confidence >= AppPolicy.strictThreshold, "\(keys) \(d.explanation)")
+    }
+
+    /// Short ones whose keys read as English letters too (shtus, aor) are Korean after English
+    /// by the floor, if not as surely.
+    @Test(arguments: [("shtus", "노션"), ("aor", "맥"), ("shem", "노드")])
+    func shortLoanwordsAfterEnglish(keys: String, expected: String) {
+        let d = sharedEngine.decide(keys, context: DecisionContext(previousLanguage: .english))
+        #expect(d.language == .korean && d.output == expected, "\(keys) → \(d.output) \(d.explanation)")
+    }
+
     /// A noun too rare for the syllable counts (촉 is seen twice) is Korean once the subtitles
     /// list it, even with no previous word to lean on.
     @Test func rareNounFromTheFullList() {

@@ -599,7 +599,9 @@ in as typed, in English with half-width symbols, until the next space (`https://
 - English: character trigrams, and a floor for words in the SCOWL list, by how common they are. A
   word with a capital after its first letter (`wOrk`) isn't how anyone types English, so it gets no
   floor and competes with `쟤가` on scores.
-- Korean: 2-set syllable frequencies, and a floor for words seen in Korean text
+- Korean: 2-set syllable frequencies, and a floor for words seen in Korean text. Developer and
+  product words the subtitle corpus (2018) lacks (깃허브, 리액트, 노션, 도커: about 220) come from a
+  list in the app and get the same floor.
 - Japanese: romaji → kana trigrams, with English words inside the phrase split out
 - The nudge is weaker when the keys are a word of another language and not of the previous one
   (`내가` after English, or clean kana of four or more: `inumanisentaku`), which is someone switching
