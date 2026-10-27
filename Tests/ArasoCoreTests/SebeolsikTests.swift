@@ -63,7 +63,13 @@ import Testing
             let session = InputSession(engine: engine, policies: AppPolicies(overrides: [:]))
             for ch in text {
                 let key: InputSession.Key = ch == "⎋" ? .cycle : ch == "⌫" ? .delete : ch.isLetter ? .letter(ch) : .printable(ch)
-                if !session.handle(key, client: field), key != .cycle, key != .delete { field.insertText(String(ch), replacing: nil) }
+                guard !session.handle(key, client: field), key != .cycle else { continue }
+                // A key the session passes on is the app's: Delete takes the character before the caret.
+                if key == .delete {
+                    if field.cursor > 0 { field.insertText("", replacing: NSRange(location: field.cursor - 1, length: 1)) }
+                } else {
+                    field.insertText(String(ch), replacing: nil)
+                }
             }
             return field.text
         }
@@ -163,6 +169,8 @@ import Testing
         #expect(Self.type("jfs⌫shea") == "안녕")
         #expect(Self.type("mf⌫f") == "하")
         #expect(Self.type("jfshea⌫a") == "안녕")
+        // Nothing being typed: the app deletes, here the space after 안.
+        #expect(Self.type("jfs ⌫") == "안")
     }
 
     @Test func symbolsThatDontFitEndTheWord() {
