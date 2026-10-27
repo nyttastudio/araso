@@ -1,6 +1,9 @@
 add_executable(araso-document-tests DocumentTests.cpp)
 target_link_libraries(araso-document-tests PRIVATE araso_core)
 add_test(NAME document COMMAND araso-document-tests)
+add_executable(araso-keys-tests KeysTests.cpp)
+target_link_libraries(araso-keys-tests PRIVATE araso_core)
+add_test(NAME keys COMMAND araso-keys-tests)
 
 # Typing through a fcitx5 Instance with the addon built here and the Swift bridge given by
 # ARASO_BRIDGE (swift build's libArasoBridge.so); the kanji dictionary from ARASO_RESOURCES.

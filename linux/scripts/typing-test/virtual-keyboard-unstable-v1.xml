@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- wlroots' virtual keyboard protocol (MIT, Copyright © 2008-2011 Kristian Høgsberg, © 2010-2013
+     Intel Corporation, © 2012-2013 Collabora, Ltd., © 2018 Purism SPC), the requests vkbd.c uses. -->
+<protocol name="virtual_keyboard_unstable_v1">
+  <interface name="zwp_virtual_keyboard_v1" version="1">
+    <request name="keymap">
+      <arg name="format" type="uint"/>
+      <arg name="fd" type="fd"/>
+      <arg name="size" type="uint"/>
+    </request>
+    <enum name="error">
+      <entry name="no_keymap" value="0"/>
+    </enum>
+    <request name="key">
+      <arg name="time" type="uint"/>
+      <arg name="key" type="uint"/>
+      <arg name="state" type="uint"/>
+    </request>
+    <request name="modifiers">
+      <arg name="mods_depressed" type="uint"/>
+      <arg name="mods_latched" type="uint"/>
+      <arg name="mods_locked" type="uint"/>
+      <arg name="group" type="uint"/>
+    </request>
+    <request name="destroy" type="destructor"/>
+  </interface>
+  <interface name="zwp_virtual_keyboard_manager_v1" version="1">
+    <enum name="error">
+      <entry name="unauthorized" value="0"/>
+    </enum>
+    <request name="create_virtual_keyboard">
+      <arg name="seat" type="object" interface="wl_seat"/>
+      <arg name="id" type="new_id" interface="zwp_virtual_keyboard_v1"/>
+    </request>
+  </interface>
+</protocol>

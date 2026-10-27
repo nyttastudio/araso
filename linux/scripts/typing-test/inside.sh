@@ -81,6 +81,12 @@ expect "the right Ctrl tap pauses" "dkssud 안녕 "
 field; xdotool type --delay 80 "dkssud"; xdotool key Return; xdotool key Return
 expect "Return confirms, a second one goes to the app" "안녕
 "
+# A Korean keyboard's 한/영 and 한자 keys (evdev KEY_HANGEUL, KEY_HANJA: X's Hangul, Hangul_Hanja).
+field; xdotool type --delay 80 "dkssud"; xdotool key Hangul; xdotool type --delay 80 " "
+expect "the 한/영 key switches the word" "dkssud "
+field; xdotool key Hangul_Hanja; xdotool type --delay 80 "dkssud "; xdotool key Hangul_Hanja; xdotool type --delay 80 "dkssud "
+expect "the 한자 key pauses" "dkssud 안녕 "
+
 # vim's mode (scripts/vim sends it): in normal mode every key goes straight to the app.
 field; araso-settings --vim normal; sleep 0.3; xdotool type --delay 80 "dkssud "
 araso-settings --vim insert; sleep 0.3; xdotool type --delay 80 "dkssud "; araso-settings --vim off
@@ -92,14 +98,19 @@ expect "Japanese: kanji from the card" "今日は"
 echo '{}' > "$HOME/.config/araso/settings.json"; reload
 
 # The settings window's Try Typing: typed through fcitx5's Qt module, the addon reports each word.
-araso-settings --settings typing >/tmp/settings.log 2>&1 &
+rm -f /tmp/settings-out.txt
+ARASO_TYPING_OUT=/tmp/settings-out.txt araso-settings --settings typing >/tmp/settings.log 2>&1 &
 settings_pid=$!
 sleep 3
 xdotool windowfocus --sync "$(xdotool search --class araso-settings | tail -1)" >/dev/null 2>&1
+sleep 0.6
 fcitx5-remote -o
+sleep 0.3
 xdotool type --delay 80 "dkssud hello "
 sleep 1.5
 import -window root "$shots/linux-try-typing.png"
 kill "$settings_pid" 2>/dev/null
+got=$(cat /tmp/settings-out.txt 2>/dev/null)
+if [ "$got" = "안녕 hello " ]; then echo "ok   the settings window (Qt) types through fcitx5"; else echo "FAIL the settings window (Qt): got \"$got\""; failures=$((failures + 1)); fi
 echo "$failures failed"
 exit "$failures"

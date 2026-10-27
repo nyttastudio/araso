@@ -7,7 +7,10 @@
 #include <fcitx/candidatelist.h>
 #include <fcitx/inputcontext.h>
 #include <fcitx/inputcontextmanager.h>
+#include <fcitx/inputmethodentry.h>
+#include <fcitx/inputmethodmanager.h>
 #include <fcitx/inputpanel.h>
+#include <fcitx-utils/keysym.h>
 #include <fcitx/statusarea.h>
 #include <fcitx/userinterfacemanager.h>
 
@@ -101,6 +104,18 @@ Engine::Engine(fcitx::Instance *instance)
             Bridge::shared().request(request);
             clients_.erase(st->client);
             st->client = 0;
+        }));
+
+    // fcitx5 takes 한/영 (Hangul) as a key that turns the input method on and off, before the
+    // input method sees it. In a field Araso types in, it is Araso's switch key, as on Windows
+    // (where right Alt is a switch key); elsewhere, or when the session leaves it, fcitx5's.
+    watchers_.emplace_back(instance_->watchEvent(
+        fcitx::EventType::InputContextKeyEvent, fcitx::EventWatcherPhase::PreInputMethod, [this](fcitx::Event &event) {
+            auto &keyEvent = static_cast<fcitx::KeyEvent &>(event);
+            auto *ic = keyEvent.inputContext();
+            if (keyEvent.isRelease() || keyEvent.rawKey().sym() != FcitxKey_Hangul || !ic ||
+                instance_->inputMethod(ic) != "araso") return;
+            if (const auto *entry = instance_->inputMethodManager().entry("araso")) keyEvent_(*entry, keyEvent);
         }));
 
     if (ready_) {
@@ -320,7 +335,13 @@ void Engine::runPending(const Json &notify) {
     }
 }
 
-void Engine::keyEvent(const fcitx::InputMethodEntry &, fcitx::KeyEvent &event) {
+void Engine::keyEvent(const fcitx::InputMethodEntry &entry, fcitx::KeyEvent &event) {
+    // 한/영 came first, through the watcher above.
+    if (!event.isRelease() && event.rawKey().sym() == FcitxKey_Hangul) return;
+    keyEvent_(entry, event);
+}
+
+void Engine::keyEvent_(const fcitx::InputMethodEntry &, fcitx::KeyEvent &event) {
     auto *ic = event.inputContext();
     auto *st = state(ic);
     if (!attached(ic, st)) return;

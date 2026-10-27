@@ -3,5 +3,5 @@ FROM swift:6.2-jammy
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     cmake ninja-build pkg-config extra-cmake-modules gettext \
     fcitx5 libfcitx5core-dev libfcitx5config-dev libfcitx5utils-dev fcitx5-modules-dev \
-    qt6-base-dev libgl-dev \
+    qt6-base-dev qtbase5-dev libgl-dev \
     && rm -rf /var/lib/apt/lists/*

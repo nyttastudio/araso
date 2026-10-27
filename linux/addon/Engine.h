@@ -68,6 +68,8 @@ public:
     void external(const std::string &message);
 
 private:
+    /// A key for this input context (`keyEvent`, and 한/영 ahead of fcitx5's own keys).
+    void keyEvent_(const fcitx::InputMethodEntry &entry, fcitx::KeyEvent &event);
     State *state(fcitx::InputContext *ic);
     bool attached(fcitx::InputContext *ic, State *state);
     std::string app(fcitx::InputContext *ic) const;

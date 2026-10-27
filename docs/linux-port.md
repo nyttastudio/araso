@@ -43,7 +43,8 @@ its protocol and much of its shape.
   physical key, whatever layout the desktop has, as on macOS and Windows. The keys Windows marks
   extended (right Ctrl and Alt, arrows, keypad Enter and /), 한/영 and 한자 (evdev's, or a layout's
   `Hangul`/`Hangul_Hanja` keysyms, as `korean:ralt_hangul` makes right Alt) are mapped one by one.
-  A key without a code (a virtual keyboard) is placed by what it types.
+  A key without a code (a virtual keyboard), or a character on a key that types none on a PC
+  keyboard (a virtual keyboard with a keymap of its own, as wtype makes), is placed by what it types.
 - **No test/keep dance.** TSF holds a text service to what it answered before seeing a key; fcitx5
   lets the addon take a key or not after handling it. A key the session doesn't take reaches the
   app after the edits it made (Space after a word, typed by the app as on macOS), so `claimed` and
@@ -66,7 +67,7 @@ its protocol and much of its shape.
 | `PauseHUD` (the icon under the caret) | the tray icon turns to `araso-paused`, and fcitx5 shows "Araso 일시정지" by the caret | The icon can change on Linux. |
 | input menu (`menu()`) | the status area's Araso menu (tray, kimpanel), built by `ServiceRuntime.menu` | The same items and names; a check only on what is on. |
 | bundle identifier (`apps.json`) | the program name fcitx5 reports, lowercase (`firefox`, `org.gnome.texteditor`, `kitty`) | A key ending in `.` still matches as a prefix. Wayland's text-input doesn't name the app: there the default applies. |
-| right ⌥ tap (switch key) | right Alt (AltGr) tap, or the 한/영 key | |
+| right ⌥ tap (switch key) | right Alt (AltGr) tap, or the 한/영 key | fcitx5 takes 한/영 (`Hangul`) to turn input methods on and off before an input method sees it; in a field Araso types in, the addon takes it first (a `PreInputMethod` watcher) where right Alt is a switch key, and leaves it to fcitx5 elsewhere. |
 | right ⇧ tap, ⌥Space, Esc, ⇧Esc | right Shift tap, Alt+Space, Esc, Shift+Esc | |
 | ⌘ | Ctrl (the shortcut key), as on Windows | Right Ctrl tapped alone pauses (the default); the 한자 key too. Super plays ⌃. |
 | pause shortcut | Ctrl/Alt/Super + key | settings.json keeps macOS key codes and modifier names, so the file is the same everywhere. |
@@ -96,9 +97,12 @@ its protocol and much of its shape.
 
 ## Building
 
-- Packages (Ubuntu 24.04 names): `swift` 6.2, `cmake`, `ninja-build`, `pkg-config`,
+- Packages (Ubuntu names): `swift` 6.2, `cmake`, `ninja-build`, `pkg-config`,
   `extra-cmake-modules`, `fcitx5`, `libfcitx5core-dev`, `libfcitx5config-dev`,
-  `libfcitx5utils-dev`, `fcitx5-modules-dev`, `qt6-base-dev`.
+  `libfcitx5utils-dev`, `fcitx5-modules-dev`, and `qtbase5-dev` or `qt6-base-dev`.
+- The settings window builds on Qt 6 or Qt 5 (`ARASO_QT=5|6`; empty: Qt 6 when there is one).
+  Releases use Qt 5: Ubuntu 22.04's Qt 6 has no input method plugins at all, so a Qt 6 window
+  can't be typed into there, while fcitx5's Qt 5 module is on every distribution.
 - `linux/scripts/build.sh [--test] [--tar]`: the bridge (`swift build -c release --product
   ArasoBridge`, RUNPATH `$ORIGIN`), the Swift runtime it needs (`ldd`), the addon and the settings
   window (`cmake -S linux`), then `build/linux/package/Araso-linux-<arch>/` (`install.sh`,
@@ -120,13 +124,19 @@ its protocol and much of its shape.
   typing and after a word, Backspace, a particle, the pause tap, Return, the menu, and kanji from
   the card.
 - `linux/scripts/typing-test/run.sh` (Docker, from a Mac too): builds the package in a Swift
-  container, installs it on a clean Ubuntu with only fcitx5 and apps, and types into a GTK field
-  and the settings window's Try Typing (Qt) with xdotool on Xvfb, through fcitx5's own GTK and Qt
-  modules. Screenshots land in `build/linux/shots`.
-- The package built on 22.04 types for real on clean 22.04 (fcitx5 5.0) and 24.04 (fcitx5 5.1).
-  22.04 has no fcitx5 module for Qt 6 (`fcitx5-frontend-qt6`), so there Qt 6 apps, the settings
-  window's Try Typing among them, don't type through fcitx5.
-- Not yet checked: Wayland sessions (GNOME's, KDE's, wlroots'), a real Korean keyboard, and
+  container on Ubuntu 22.04, installs it on a clean Ubuntu with only fcitx5 and apps, and types
+  with real key events: on X (`inside.sh`, xdotool on Xvfb) into a GTK field and the settings
+  window's Try Typing (Qt), through fcitx5's GTK and Qt modules (Korean and English, a particle, the
+  right Alt switch while typing and after a word, the right Ctrl pause, the 한/영 and 한자 keys,
+  Return, vim's modes, kanji from the card); on Wayland (`wayland.sh`, a headless sway) into a GTK
+  field through fcitx5's GTK module and through Wayland's text-input, typed by `vkbd`, a virtual
+  keyboard with the US keymap and real evdev codes (`vkbd.c`). Screenshots land in
+  `build/linux/shots`. `.github/workflows/linux.yml` runs the same on x86_64 and aarch64.
+- The package built on 22.04 types for real on clean 22.04 (fcitx5 5.0) and 24.04 (fcitx5 5.1),
+  on X and on Wayland (sway). 22.04 has no fcitx5 module for Qt 6 (`fcitx5-frontend-qt6`), so
+  other Qt 6 apps there don't type through fcitx5; the settings window is Qt 5 for that reason.
+- Not yet checked: GNOME's and KDE's Wayland sessions (their own input method plumbing), hardware
+  keyboards (the tests send the same evdev codes a Korean keyboard's 한/영 and 한자 keys do), and
   distributions other than Ubuntu.
 
 ## Not on Linux

@@ -1,0 +1,10 @@
+# A user's machine with a Wayland session (sway, headless) instead of X, and vkbd (vkbd.c): a
+# virtual keyboard that types as a real one does.
+FROM araso-linux-user
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    sway grim fcitx5-frontend-gtk4 gcc libc6-dev libwayland-dev libwayland-bin libxkbcommon-dev \
+    && rm -rf /var/lib/apt/lists/*
+COPY vkbd.c virtual-keyboard-unstable-v1.xml /usr/src/vkbd/
+RUN cd /usr/src/vkbd && wayland-scanner client-header virtual-keyboard-unstable-v1.xml virtual-keyboard-unstable-v1-client-protocol.h \
+    && wayland-scanner private-code virtual-keyboard-unstable-v1.xml protocol.c \
+    && gcc -O2 -o /usr/local/bin/vkbd vkbd.c protocol.c -lwayland-client -lxkbcommon

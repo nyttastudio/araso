@@ -34,7 +34,7 @@ command -v ninja >/dev/null 2>&1 && generator="-G Ninja"
 # shellcheck disable=SC2086
 cmake -S linux -B "$out/cmake" $generator -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -DARASO_VERSION="$version" \
   -DARASO_BRIDGE="$bridge" -DARASO_RUNTIME="$runtime" -DDICTIONARY="$dictionary" \
-  -DARASO_TESTS=$( [ $test = 1 ] && echo ON || echo OFF )
+  -DARASO_QT="${ARASO_QT:-}" -DARASO_TESTS=$( [ $test = 1 ] && echo ON || echo OFF )
 cmake --build "$out/cmake" --parallel
 if [ $test = 1 ]; then
   (cd "$out/cmake" && ctest --output-on-failure)

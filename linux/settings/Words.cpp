@@ -4,6 +4,7 @@
 
 #include <QButtonGroup>
 #include <QComboBox>
+#include <QFile>
 #include <QDialog>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -14,6 +15,8 @@
 #include <QTimer>
 #include <QTreeWidget>
 #include <QVBoxLayout>
+
+#include <cstdlib>
 
 namespace araso {
 namespace settings {
@@ -281,7 +284,14 @@ void BuildTyping() {
     auto *field = new QPlainTextEdit(g.typed);
     field->setMinimumHeight(110);
     field->setMaximumHeight(140);
-    QObject::connect(field, &QPlainTextEdit::textChanged, field, [field] { g.typed = field->toPlainText(); });
+    QObject::connect(field, &QPlainTextEdit::textChanged, field, [field] {
+        g.typed = field->toPlainText();
+        // The typing test reads what the field holds (linux/scripts/typing-test).
+        if (const char *out = std::getenv("ARASO_TYPING_OUT")) {
+            QFile file(out);
+            if (file.open(QIODevice::WriteOnly | QIODevice::Truncate)) file.write(g.typed.toUtf8());
+        }
+    });
     g.layout->addWidget(field);
     Note(T("The language switch key changes the word's reading, also right after the word."));
     auto *row = Line();

@@ -39,12 +39,13 @@ jobs:
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
             git cmake ninja-build pkg-config extra-cmake-modules gettext \
             fcitx5 libfcitx5core-dev libfcitx5config-dev libfcitx5utils-dev fcitx5-modules-dev \
-            qt6-base-dev libgl-dev
+            qtbase5-dev libgl-dev
       - uses: actions/checkout@v4
       - name: Swift tests
         run: swift test
       - name: Build, test, pack
-        run: sh linux/scripts/build.sh --test --tar
+        # The settings window on Qt 5: 22.04's Qt 6 can't take input methods.
+        run: ARASO_QT=5 sh linux/scripts/build.sh --test --tar
       - name: Arch
         run: echo "ARCH=$(uname -m)" >> "$GITHUB_ENV"
       - uses: actions/upload-artifact@v4
@@ -70,9 +71,8 @@ jobs:
         run: |
           apt-get update
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-            fcitx5 fcitx5-frontend-gtk3 libqt6widgets6 libqt6network6 \
+            fcitx5 fcitx5-frontend-gtk3 fcitx5-frontend-qt5 libqt5widgets5 libqt5network5 \
             xvfb xdotool dbus-x11 dbus python3-gi gir1.2-gtk-3.0 libgtk-3-0 imagemagick fonts-noto-cjk procps
-          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends fcitx5-frontend-qt6 || true
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
@@ -89,9 +89,46 @@ jobs:
           name: typing-${{ matrix.machine.arch }}-${{ strategy.job-index }}
           path: shots
 
+  wayland:
+    # A Wayland session: sway without a screen, typed into by vkbd (a virtual keyboard with the US
+    # keymap), through fcitx5's GTK module and through Wayland's text-input.
+    needs: package
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            arch: x86_64
+          - runner: ubuntu-24.04-arm
+            arch: aarch64
+    runs-on: ${{ matrix.runner }}
+    container: ubuntu:24.04
+    steps:
+      - name: A user's machine with sway
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            fcitx5 fcitx5-frontend-gtk3 libqt5widgets5 libqt5network5 sway grim dbus python3-gi gir1.2-gtk-3.0 \
+            libgtk-3-0 fonts-noto-cjk procps gcc libc6-dev libwayland-dev libwayland-bin libxkbcommon-dev
+      - uses: actions/checkout@v4
+      - name: vkbd
+        run: |
+          cd linux/scripts/typing-test
+          wayland-scanner client-header virtual-keyboard-unstable-v1.xml virtual-keyboard-unstable-v1-client-protocol.h
+          wayland-scanner private-code virtual-keyboard-unstable-v1.xml protocol.c
+          gcc -O2 -I. -o /usr/local/bin/vkbd vkbd.c protocol.c -lwayland-client -lxkbcommon
+      - uses: actions/download-artifact@v4
+        with:
+          name: Araso-linux-${{ matrix.arch }}
+          path: dist
+      - name: Real typing on Wayland
+        run: |
+          tar -C dist -xzf "dist/Araso-linux-${{ matrix.arch }}.tar.gz"
+          sh linux/scripts/typing-test/wayland.sh "$PWD/dist/Araso-linux-${{ matrix.arch }}"
+
   release:
     # Only once the repository variable ARASO_LINUX_RELEASE is "true".
-    needs: typing
+    needs: [typing, wayland]
     if: startsWith(github.ref, 'refs/tags/v') && vars.ARASO_LINUX_RELEASE == 'true'
     runs-on: ubuntu-latest
     steps:

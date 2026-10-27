@@ -135,11 +135,23 @@ bool FromSym(fcitx::KeySym sym, Code &code) {
     return false;
 }
 
+/// The keys that type characters on a PC keyboard (evdev), keypad aside.
+bool IsCharacterSeat(int evdev) {
+    return (evdev >= 2 && evdev <= 13) || (evdev >= 16 && evdev <= 27) || (evdev >= 30 && evdev <= 41) ||
+           (evdev >= 43 && evdev <= 53) || evdev == 57 || evdev == 86;
+}
+
+bool IsKeypad(int evdev) { return evdev == 55 || (evdev >= 71 && evdev <= 83) || evdev == 96 || evdev == 98; }
+
 }  // namespace
 
 Json WindowsKey(const fcitx::Key &key) {
     Code code{};
-    bool found = key.code() > 8 ? Lookup(key.code() - 8, code) : false;
+    int evdev = key.code() - 8;
+    bool found = key.code() > 8 ? Lookup(evdev, code) : false;
+    // A character on a key that types none on a keyboard: a virtual keyboard with a keymap of its
+    // own (wtype's). Placed by what it types instead.
+    if (found && key.sym() > 0x20 && key.sym() < 0x7F && !IsCharacterSeat(evdev) && !IsKeypad(evdev)) found = false;
     if (!found && !FromSym(key.sym(), code)) return Json();
     fcitx::KeySym sym = key.sym();
     // Where the desktop's layout makes a key 한/영 or 한자 (korean:ralt_hangul…), it is that key.
