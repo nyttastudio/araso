@@ -133,7 +133,8 @@ its protocol and much of its shape.
   keyboard with the US keymap and real evdev codes (`vkbd.c`). Screenshots land in
   `build/linux/shots`. `.github/workflows/linux.yml` runs the same on x86_64 and aarch64.
 - The package built on 22.04 types for real on clean 22.04 (fcitx5 5.0) and 24.04 (fcitx5 5.1),
-  on X and on Wayland (sway). 22.04 has no fcitx5 module for Qt 6 (`fcitx5-frontend-qt6`), so
+  on X and on Wayland (sway), aarch64 natively and x86_64 under emulation (`ARASO_SLOW=30` gives
+  `inside.sh` the time the models and the kanji dictionary take to load there). 22.04 has no fcitx5 module for Qt 6 (`fcitx5-frontend-qt6`), so
   other Qt 6 apps there don't type through fcitx5; the settings window is Qt 5 for that reason.
 - Not yet checked: GNOME's and KDE's Wayland sessions (their own input method plumbing), hardware
   keyboards (the tests send the same evdev codes a Korean keyboard's 한/영 and 한자 keys do), and

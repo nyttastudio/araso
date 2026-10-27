@@ -61,7 +61,9 @@ expect() {  # name, expected text
 }
 
 fcitx5 -d --verbose='araso=5' >/tmp/fcitx5.log 2>&1
-sleep 3
+# ARASO_SLOW (seconds): more time for the models and the kanji dictionary to load, under emulation.
+slow=${ARASO_SLOW:-0}
+sleep $((3 + slow))
 
 field; xdotool type --delay 80 "dkssud hello "
 expect "Korean and English per word" "안녕 hello "
@@ -92,8 +94,8 @@ field; araso-settings --vim normal; sleep 0.3; xdotool type --delay 80 "dkssud "
 araso-settings --vim insert; sleep 0.3; xdotool type --delay 80 "dkssud "; araso-settings --vim off
 expect "vim's normal mode passes keys, insert mode decides" "dkssud 안녕 "
 
-echo '{"japanese": true}' > "$HOME/.config/araso/settings.json"; reload
-field; xdotool type --delay 80 "kyouha "; sleep 1; import -window root "$shots/linux-candidates.png"; xdotool key Return
+echo '{"japanese": true}' > "$HOME/.config/araso/settings.json"; reload; sleep "$slow"
+field; xdotool type --delay 80 "kyouha "; sleep $((1 + slow)); import -window root "$shots/linux-candidates.png"; xdotool key Return; sleep "$slow"
 expect "Japanese: kanji from the card" "今日は"
 echo '{}' > "$HOME/.config/araso/settings.json"; reload
 
@@ -101,7 +103,7 @@ echo '{}' > "$HOME/.config/araso/settings.json"; reload
 rm -f /tmp/settings-out.txt
 ARASO_TYPING_OUT=/tmp/settings-out.txt araso-settings --settings typing >/tmp/settings.log 2>&1 &
 settings_pid=$!
-sleep 3
+sleep $((3 + slow))
 xdotool windowfocus --sync "$(xdotool search --class araso-settings | tail -1)" >/dev/null 2>&1
 sleep 0.6
 fcitx5-remote -o
