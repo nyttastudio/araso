@@ -1812,16 +1812,18 @@ public final class InputSession {
     }
 
     /// Where the keys of the last syllable start: the longest front that makes `earlier` alone.
+    /// No front at all makes nothing, whatever the layout: 3-set composes no keys as nil, not as
+    /// no units, and the first syllable cut after its first key (안 → 아, then ㄴ made 아ㄴ).
     private static func cut(_ chars: [Character], before earlier: [HangulComposer.Unit]) -> Int {
         stride(from: chars.count - 1, through: 0, by: -1).first {
-            HangulComposer.compose(keys: String(chars[..<$0]))?.units == earlier
+            $0 == 0 ? earlier.isEmpty : HangulComposer.compose(keys: String(chars[..<$0]))?.units == earlier
         } ?? chars.count - 1
     }
 
     /// The word as Hangul, with the syllable being typed kept apart from those before it
     /// after a Delete (`syllableStart`).
     private func hangul() -> String? {
-        guard let start = syllableStart, start < keys.count else { return HangulComposer.compose(keys: keys)?.text }
+        guard let start = syllableStart, start > 0, start < keys.count else { return HangulComposer.compose(keys: keys)?.text }
         let chars = Array(keys)
         guard let front = HangulComposer.compose(keys: String(chars[..<start])),
               let back = HangulComposer.compose(keys: String(chars[start...])) else { return nil }
