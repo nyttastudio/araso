@@ -29,7 +29,7 @@ final class InputController: IMKInputController {
         if let current, current.generation == runtime.generation { return current.session }
         let fresh = runtime.makeSession()
         if let old = current?.session {
-            old.commit(client: client().map { textClient($0 as IMKTextInput) })
+            old.commit(client: client().map { old.cased(IMKClient($0 as IMKTextInput, marks: self)) })
             fresh.activate(app: old.app)
         }
         current = (fresh, runtime.generation)
@@ -102,7 +102,9 @@ final class InputController: IMKInputController {
     }
 
     /// The session's view of a client; this controller gives it the system's clause underlines.
-    private func textClient(_ input: IMKTextInput) -> IMKClient { IMKClient(input, marks: self) }
+    /// The field as the session writes to it: through `cased`, so a word typed with Caps Lock
+    /// goes in in capitals wherever the session is handed the field.
+    @MainActor private func textClient(_ input: IMKTextInput) -> TextClient { session.cased(IMKClient(input, marks: self)) }
 
     override func recognizedEvents(_ sender: Any!) -> Int {
         Int(NSEvent.EventTypeMask.keyDown.rawValue | NSEvent.EventTypeMask.flagsChanged.rawValue)
@@ -146,7 +148,8 @@ final class InputController: IMKInputController {
             }
             let key = key(for: event)
             noteWordRect(input)
-            let handled = session.handle(key, client: textClient(input))
+            // The raw field: this `handle` notes Caps Lock for the word first, then applies `cased`.
+            let handled = session.handle(key, client: IMKClient(input, marks: self), capsLock: event.modifierFlags.contains(.capsLock))
             syncStrip(input)
             // The settings window's typing test shows how each word was decided; only there.
             if session.app == Bundle.main.bundleIdentifier, let trace = session.lastTrace {
@@ -368,15 +371,20 @@ final class InputController: IMKInputController {
         // hands the input method: the setting decides. Colemak's ; (on the p key, 2-set's ㅔ) is
         // part of a word too, as is any key romaji's layout has a letter on.
         let layout = LatinLayout.current
+        // Caps Lock is left out: the session reads letters as Shift alone types them (`capsLock:`).
         if layout != .qwerty || LatinLayout.romaji != .qwerty, let ch = layout.character(keyCode: event.keyCode,
                                                         shift: event.modifierFlags.contains(.shift),
-                                                        capsLock: event.modifierFlags.contains(.capsLock)),
+                                                        capsLock: false),
            ch.isLetter || layout.isLetterSeat(ch) {
             return .letter(ch)
         }
         guard let chars = event.characters, chars.unicodeScalars.count == 1,
               let ch = chars.first, let value = chars.unicodeScalars.first?.value else { return .other }
-        if ch.isASCII && ch.isLetter { return .letter(ch) }
+        if ch.isASCII && ch.isLetter {
+            // With Caps Lock on, macOS types capitals, Shift or not: the letter Shift alone gives.
+            guard event.modifierFlags.contains(.capsLock) else { return .letter(ch) }
+            return .letter(Character(event.modifierFlags.contains(.shift) ? ch.uppercased() : ch.lowercased()))
+        }
         if ch == " ", event.modifierFlags.contains(.shift) { return .shiftSpace }
         if (0x20..<0x7F).contains(value) { return .printable(ch) }
         return .other

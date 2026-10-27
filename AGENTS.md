@@ -12,7 +12,10 @@ repo (Cloudflare Pages); keep its copy in step too. CONTRIBUTING.md (Korean) and
 with the issue and PR templates in `.github`, tell contributors how to build and check a change;
 keep them in step with this file (AGENTS.md only points here). A contributor's PR starts from an
 issue the maintainer labeled `accepted`; `.github/workflows/issue-first.yml` comments on one that
-doesn't link such an issue (`.github/scripts/issue-first.sh`, `DRY_RUN=1` to try it). Building needs Swift 6.2 (Xcode 26),
+doesn't link such an issue (`.github/scripts/issue-first.sh`, `DRY_RUN=1` to try it). Labels are listed in
+`.github/labels.yml` (kind, status, `area: …`); `.github/workflows/labels.yml` syncs them, labels an issue
+from its form's area dropdown and a PR from its linked issue and changed files (`.github/scripts/labels.sh`,
+`.github/labeler.yml`); add a label to labels.yml, never only on GitHub. Building needs Swift 6.2 (Xcode 26),
 which `swift-tools-version` in Package.swift says.
 
 ## Commands
@@ -118,6 +121,16 @@ tests use `FakeTextField`). It owns the preview and hysteresis, commits, Esc rea
   ⇧ was already down) and drops whatever the input method inserts; deciding each key there lost
   letters (`PASSWORD` came out `pASSwrD`). A terminal with Secure Keyboard Entry reports its
   caret, so it isn't affected.
+- Caps Lock doesn't change what a word reads as: `InputController` hands letters over in the case
+  Shift alone gives (macOS types capitals with Caps Lock, Shift or not), `handle(_:client:capsLock:)`
+  notes it per word (`capsWord`; a toggle inside a word commits what came before), and every client
+  the session writes to goes through `cased`, so English goes in in capitals (`CapsLockClient`).
+  Keys that are loose jamo throughout, two or more, are English in such a word (the capitals that
+  made RST English are gone, and rst reads as chat jamo), the same while typing and at Space; a
+  word with a syllable in it (안녕ㄱ) or one jamo reads as without Caps Lock. English the engine
+  chose by a hair over Korean gets that certainty too, not over Japanese (hon stays ほん), and a
+  word the dictionary remembers keeps its language. `CapsLockTests`; `ARASO_CAPS_LOCK=1` for
+  `araso-cli --type`.
 - The pause key (`Settings.pauseKey`: a right modifier tap, by default ⌘, read from flagsChanged, or a
   shortcut caught in keyDown, both in `InputController`) pauses the session until it is pressed again,
   `activate`, or a settings change (a fresh session). The menu icon can't change, so `PauseHUD`

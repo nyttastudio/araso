@@ -241,6 +241,9 @@ public final class InputSession {
     /// The user paused Araso in this text field (the pause key): keys go through as typed
     /// until the next tap or another text field.
     public private(set) var paused = false
+    /// Caps Lock was on when the word being typed (or the one just committed) started: the field
+    /// is seen through `CapsLockClient` (`cased`), English going in in capitals.
+    public private(set) var capsWord = false
     /// Language of the current preview, so in-phrase symbols know where they belong.
     private var previewLanguage: Language?
     /// The last key passed to the app was a digit (so "." there is a decimal point).
@@ -339,6 +342,44 @@ public final class InputSession {
     /// Whether keys currently go straight to vim (normal, visual or command-line mode).
     public var inVimNormalMode: Bool { vimMode == .normal }
 
+    /// `handle` for a key typed with Caps Lock on or off. The letter comes in the case Shift alone
+    /// gives it (the controller's job), so a word reads the same either way (GKAUS is 하면); what
+    /// the word puts in the field goes through `cased`. Caps Lock changing inside a word commits
+    /// what came before, and a new word starts.
+    public func handle(_ key: Key, client: TextClient, capsLock: Bool) -> Bool {
+        if capsLock != capsWord, startsOrExtendsWord(key, client) {
+            // What came before goes in as it was shown, a candidate being chosen too, under the old
+            // state; then the new word takes the new one.
+            if !keys.isEmpty || conversion != nil { commit(client: cased(client)) }
+            if keys.isEmpty, conversion == nil { capsWord = capsLock }
+        }
+        return handle(key, client: cased(client))
+    }
+
+    /// A letter, or a 3-set digit or symbol key whose jamo goes on with the word (`handle` makes
+    /// it a letter).
+    private func startsOrExtendsWord(_ key: Key, _ client: TextClient) -> Bool {
+        switch key {
+        case .letter: return true
+        case .printable(let ch): return printableContinuesWord(ch, client)
+        default: return false
+        }
+    }
+
+    /// On 3-set a digit or symbol key with a jamo goes on with the word where the jamo fits
+    /// (갔 is kf2, 밥 starts on ;); elsewhere it is the symbol. Not in a URL or path, though the
+    /// word itself doesn't make one: 밝 is ;f@, not an address.
+    private func printableContinuesWord(_ ch: Character, _ client: TextClient) -> Bool {
+        heldBoundary == nil && (keys.isEmpty || !inURLRun)
+            && KoreanLayout.current.continuesWord(keys, with: ch, afterDigit: afterDigit, knows: Self.koreanModel.knowsSyllableIncludingRare)
+            && !Self.hasURLMarker(run(client))
+    }
+
+    /// The field as the word being typed sees it: through `CapsLockClient` when Caps Lock was on.
+    public func cased(_ client: TextClient) -> TextClient {
+        capsWord ? CapsLockClient(client) : client
+    }
+
     /// Returns true when the key was consumed.
     public func handle(_ key: Key, client: TextClient) -> Bool {
         readings = nil
@@ -366,12 +407,7 @@ public final class InputSession {
             return true
         }
         if conversion != nil { return handleConverting(key, client: client) }
-        // On 3-set a digit or symbol key with a jamo goes on with the word where the jamo fits
-        // (갔 is kf2, 밥 starts on ;); elsewhere it is the symbol. Not in a URL or path, though the
-        // word itself doesn't make one: 밝 is ;f@, not an address.
-        if case .printable(let ch) = key, heldBoundary == nil, keys.isEmpty || !inURLRun,
-           KoreanLayout.current.continuesWord(keys, with: ch, afterDigit: afterDigit, knows: Self.koreanModel.knowsSyllableIncludingRare),
-           !Self.hasURLMarker(run(client)) {
+        if case .printable(let ch) = key, printableContinuesWord(ch, client) {
             return handle(.letter(ch), client: client)
         }
         // On 3-set a key with a digit or symbol there (⇧B ?, ⇧/ !, ⇧L 3, [ () types it right after
@@ -1433,6 +1469,19 @@ public final class InputSession {
         if partial, d.language == .korean, d.confidence < policy.conversionThreshold {
             let now = engine.decide(keys, context: DecisionContext(previousLanguage: previousLanguage, partial: false, app: app))
             if now.language == .korean, now.confidence >= policy.conversionThreshold { d = now }
+        }
+        // Typed with Caps Lock, keys that are loose jamo throughout, two or more, are an acronym
+        // (RST, RD, DDR): the capitals that made them English without Caps Lock are gone, and as
+        // lowercase they read as chat jamo (ㄱㄴㅅ). The same while typing and at Space, so what is
+        // shown goes in; a word with a syllable in it (안녕ㄱ) and one jamo alone (ㅎ, on its way
+        // to 하면) read as without Caps Lock. English the engine chose by a hair over Korean gets the
+        // same certainty, so the ㄱ shown on RD's first key doesn't hold on through the hysteresis;
+        // over Japanese it stays as it was (hon is ほん). A word the dictionary remembers keeps its
+        // language.
+        if capsWord, d.language == .korean || d.language == .english && d.runnerUp == .korean,
+           engine.rememberedLanguage(keys, app: app) == nil,
+           let composed = HangulComposer.compose(keys: keys), composed.units.count >= 2, composed.syllables.isEmpty {
+            d = Decision(language: .english, confidence: 1, output: keys, explanation: "Caps Lock: loose jamo")
         }
         let kept = d.language != .english && d.confidence < policy.conversionThreshold
         keptEnglishByStrict = kept && policy.conversionThreshold >= AppPolicy.strictThreshold && keys.count <= 3

@@ -1,0 +1,69 @@
+# The repository's labels. `.github/workflows/labels.yml` creates or updates them from this file on a
+# push to main (`.github/scripts/labels.sh sync`); it never deletes one, so a label dropped here has
+# to be deleted by hand. Three kinds (CONTRIBUTING.md):
+#   kind    one per issue or PR: bug, enhancement, docs, ci
+#   status  where an issue stands: accepted (issue-first.yml reads it), needs-info, duplicate, wontfix
+#   area    what it touches, any number: `area: …`, `platform: windows`
+# A PR gets its kind and area labels from the issues it closes, and docs, ci, platform: windows and
+# area: install from the files it changes (`.github/labeler.yml`). An issue gets its kind from its
+# form and an area from the form's dropdown (`.github/scripts/labels.sh`).
+
+# Kind
+- name: bug
+  color: d73a4a
+  description: 잘못 입력되거나 동작하지 않음 / Something types wrong or doesn't work
+- name: enhancement
+  color: a2eeef
+  description: 새 기능이나 동작 변경 / A new feature or a change in behavior
+- name: docs
+  color: 0075ca
+  description: README, CONTRIBUTING, docs만 / Documentation only
+- name: ci
+  color: ededed
+  description: 워크플로, 빌드·릴리스 스크립트 / Workflows, build and release scripts
+
+# Status
+- name: accepted
+  color: 0e8a16
+  description: 메인테이너가 방향에 답함, PR을 시작해도 됨 / The maintainer agreed on the direction; a PR may start
+- name: needs-info
+  color: fbca04
+  description: 재현할 키, 앱, 버전, 로그가 더 필요함 / Needs keys, app, version or a log to reproduce
+- name: duplicate
+  color: cfd3d7
+  description: 이미 있는 이슈나 PR / Already reported
+- name: wontfix
+  color: ffffff
+  description: 하지 않기로 함 / Won't be done
+- name: slop
+  color: e99695
+  description: CodeRabbit이 저품질로 판단한 PR / Flagged by CodeRabbit as low quality
+
+# Area
+- name: "area: korean"
+  color: c5def5
+  description: 한글 조합, 세벌식 / Hangul composition, 3-set
+- name: "area: japanese"
+  color: c5def5
+  description: 로마자, 가나, 한자 변환 / Romaji, kana, kanji conversion
+- name: "area: decision"
+  color: c5def5
+  description: 언어 판단, 단어 나누기, 영어 / Language decision, splits, English
+- name: "area: layout"
+  color: c5def5
+  description: 콜맥 등 자판 배치 / Keyboard layouts (Colemak…)
+- name: "area: dictionary"
+  color: c5def5
+  description: 학습, 사전, 텍스트 대치 / Learning, the dictionary, text replacements
+- name: "area: app-compat"
+  color: c5def5
+  description: 특정 앱·터미널·입력란에서만 / One app, terminal or field
+- name: "area: install"
+  color: c5def5
+  description: 설치, 업데이트, 입력 소스 등록 / Install, updates, input source registration
+- name: "area: settings"
+  color: c5def5
+  description: 설정 창, 설정 파일, 키 / Settings window, settings files, keys
+- name: "platform: windows"
+  color: 5319e7
+  description: Windows 버전 / The Windows port

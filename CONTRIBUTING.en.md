@@ -16,6 +16,12 @@ reviews everything, so answers can take a while.
 3. Link the issue in the PR description with `Closes #<number>`. A bot comments on a PR that isn't
    linked to an `accepted` issue, and edits that comment once it is.
 
+Labels come in three kinds ([.github/labels.yml](.github/labels.yml)): one **kind** (`bug`,
+`enhancement`, `docs`, `ci`), a **status** on issues (`accepted`, `needs-info`, `duplicate`,
+`wontfix`), and any number of **areas** (`area: korean`, `area: decision`, `platform: windows`…). An
+issue gets its kind from its form and an area from the form's dropdown; a bot gives a PR the kind and
+area labels of the issue it links and labels for the files it changes, so you don't label it yourself.
+
 Questions, install problems and security issues don't go in issues:
 
 - **Questions and install problems** go to
