@@ -546,7 +546,8 @@ and its parts go in as typed (`en_s2c`, `src_dir`); only a part that spells a Ko
 syllables or more turns Korean (`보고서_최종`, `회의록_1023`). A word typed right before a digit
 goes in as typed too (`cmd0`, `v2`), unless it is a Korean word of two syllables or more or one of
 제, 주, 표, 장, 절, 항, 조, 호 (`제1장`, `옵션1`); a word that starts right after a number is decided
-as usual (`3개`, `3월5일`).
+as usual (`3개`, `3월5일`). A word corrected twice or added to the dictionary, and a text
+replacement, still apply there (`so` remembered as `내` gives `내1`).
 
 <details>
 <summary>Each step in detail</summary>
