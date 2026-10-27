@@ -12,7 +12,10 @@ repo (Cloudflare Pages); keep its copy in step too. CONTRIBUTING.md (Korean) and
 with the issue and PR templates in `.github`, tell contributors how to build and check a change;
 keep them in step with this file (AGENTS.md only points here). A contributor's PR starts from an
 issue the maintainer labeled `accepted`; `.github/workflows/issue-first.yml` comments on one that
-doesn't link such an issue (`.github/scripts/issue-first.sh`, `DRY_RUN=1` to try it). Building needs Swift 6.2 (Xcode 26),
+doesn't link such an issue (`.github/scripts/issue-first.sh`, `DRY_RUN=1` to try it). Labels are listed in
+`.github/labels.yml` (kind, status, `area: …`); `.github/workflows/labels.yml` syncs them, labels an issue
+from its form's area dropdown and a PR from its linked issue and changed files (`.github/scripts/labels.sh`,
+`.github/labeler.yml`); add a label to labels.yml, never only on GitHub. Building needs Swift 6.2 (Xcode 26),
 which `swift-tools-version` in Package.swift says.
 
 ## Commands

@@ -1,0 +1,35 @@
+# Labels a PR from the files it changes (.github/workflows/labels.yml, actions/labeler). Only adds;
+# the kind and area labels of the issue it closes come from .github/scripts/labels.sh. docs and ci
+# only when every changed file is one, so a feature that also updates the README stays a feature.
+docs:
+  - all:
+      - changed-files:
+          - all-globs-to-all-files: ['**/*.md', 'docs/**', '.github/ISSUE_TEMPLATE/**']
+
+ci:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: ['.github/workflows/**', '.github/scripts/**', 'scripts/**']
+          - all-globs-to-all-files: ['.github/**', 'scripts/**', '**/*.md']
+
+"platform: windows":
+  - changed-files:
+      - any-glob-to-any-file: ['windows/**', 'Sources/ArasoBridge/**', 'Sources/ArasoService/**']
+
+"area: install":
+  - changed-files:
+      - any-glob-to-any-file:
+          - scripts/install.sh
+          - scripts/get.sh
+          - scripts/release.sh
+          - scripts/build-app.sh
+          - scripts/enable-input-source.swift
+          - scripts/Distribution.xml
+          - scripts/pkg/**
+          - scripts/pkg-reset/**
+          - windows/installer/**
+          - Sources/Araso/Registration.swift
+          - Sources/Araso/Uninstaller.swift
+          - Sources/Araso/Updater.swift
+          - Sources/ArasoCore/Predecessor.swift
+          - Sources/ArasoCore/Release.swift

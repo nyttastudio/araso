@@ -16,6 +16,12 @@
 3. PR 설명에 `Closes #번호`로 이슈를 연결합니다. `accepted` 이슈에 연결되지 않은 PR에는 봇이 안내
    댓글을 달고, 연결되면 그 댓글을 고쳐 알려 줍니다.
 
+라벨은 세 가지입니다([.github/labels.yml](.github/labels.yml)). **종류**(`bug`, `enhancement`, `docs`,
+`ci`)는 하나만, **상태**(`accepted`, `needs-info`, `duplicate`, `wontfix`)는 이슈에,
+**영역**(`area: korean`, `area: decision`, `platform: windows` 등)은 여러 개 붙습니다. 이슈는 양식에서
+종류를, 영역 드롭다운에서 영역을 받고, PR은 연결한 이슈의 종류·영역 라벨과 바꾼 파일에 따른 라벨을
+봇이 붙여 주므로 직접 붙이지 않아도 됩니다.
+
 질문, 설치 문제, 보안 문제는 이슈가 아닌 곳으로 보내 주세요.
 
 - **질문이나 설치 문제**는 [Discussions](https://github.com/nyttastudio/araso/discussions)에 올려

@@ -16,6 +16,22 @@ body:
         The keys you typed, what you expected and what came out. E.g. `dkssud` → expected `안녕`, got `dkssud`.
     validations:
       required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: 영역 / Area
+      description: 가장 가까운 것 하나. 메인테이너가 라벨로 붙이고, 필요하면 고칩니다. / The closest one; it becomes a label the maintainer may change.
+      options:
+        - 한국어 입력 (한글 조합, 세벌식) / Korean
+        - 일본어 입력 (로마자, 한자 변환) / Japanese
+        - 언어 판단, 단어 나누기 / Language decision, splits
+        - 자판 배치 (콜맥 등) / Keyboard layout (Colemak…)
+        - 학습, 사전, 텍스트 대치 / Learning, dictionary, text replacements
+        - 특정 앱에서만 / One app only
+        - 설치, 업데이트 / Install, updates
+        - 설정 / Settings
+        - Windows
+        - 잘 모르겠음 / Not sure
   - type: input
     id: app
     attributes:
