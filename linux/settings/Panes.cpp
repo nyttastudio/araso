@@ -44,6 +44,21 @@ int KoreanIndex(const std::string &layout) {
 
 double Strict() { return g.model["strictThreshold"].asNumber(0.97); }
 
+/// fcitx5's Active By Default, from its config file: fcitx5 saves it there when Araso changes it.
+bool ActiveByDefault() {
+    QString config = qEnvironmentVariable("XDG_CONFIG_HOME");
+    if (config.isEmpty()) config = QDir::homePath() + "/.config";
+    QFile file(config + "/fcitx5/config");
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) return false;
+    bool behavior = false;
+    while (!file.atEnd()) {
+        QString line = QString::fromUtf8(file.readLine()).trimmed();
+        if (line.startsWith('[')) behavior = line == "[Behavior]";
+        else if (behavior && line.startsWith("ActiveByDefault=")) return line.mid(16) == "True";
+    }
+    return false;
+}
+
 /// A label that takes the keys pressed in it, before any input method sees them: the pause
 /// shortcut's recorder.
 class KeyField : public QLabel {
@@ -76,6 +91,15 @@ void BuildLanguages() {
     bool japanese = settings["japanese"].asBool();
 
     Heading(T("Languages"));
+    // Not a setting of Araso's: fcitx5's, which the input method changes (the window may not write
+    // fcitx5's file while it runs). The box keeps what was clicked until fcitx5 has saved it.
+    Check(T("On in every text field"), ActiveByDefault(), true, [](bool on) {
+        Json request = Json::object();
+        request.set("op", "activeByDefault");
+        request.set("on", on);
+        Send("ime", request.dump());
+    });
+    Note(T("Off: a text field starts in the keyboard layout, and Ctrl+Space turns Araso on there (fcitx5's Active By Default)."), 20);
     Check(T("Convert words"), policy["enabled"].asBool(true), true, [](bool on) {
         ChangeDefault([on](Json &p) { p.set("enabled", on); });
     });

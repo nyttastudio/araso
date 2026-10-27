@@ -58,6 +58,7 @@ its protocol and much of its shape.
 
 | macOS | Linux | Notes |
 | --- | --- | --- |
+| selecting Araso as the input source (on everywhere) | fcitx5's Active By Default, turned on once the first time the addon starts (`fcitx5-active-by-default` in the settings folder marks it done) | fcitx5 otherwise starts each field in the group's first input method, a keyboard layout, until Ctrl+Space. The settings window's **On in every text field** reads fcitx5's `config` and asks the addon (`activeByDefault` on the `ime` socket) to change it, since fcitx5 rewrites that file. |
 | IMKInputController, `handle(_:client:)` | `InputMethodEngineV2::keyEvent` (`linux/addon/Engine.cpp`) | Releases matter only for modifiers (taps). |
 | `IMKClient` (`TextClient`) | `SnapshotClient` over `Document` | UTF-16 positions in both; fcitx5's surrounding text counts characters. |
 | marked text, clause underlines | preedit (`setClientPreedit`, or fcitx5's panel for apps that draw none) | Underlined; while converting, the clause the candidates are for highlighted. |

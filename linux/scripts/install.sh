@@ -40,6 +40,9 @@ echo "Installing Araso $(cat "$here/VERSION" 2>/dev/null || echo) (fcitx5 addons
 $sudo sh -c "
   set -e
   rm -rf /usr/lib/araso /usr/share/araso
+  # Unlinked, not written over: a running araso-settings or fcitx5 keeps the old file (writing
+  # into a running program fails, Text file busy; into a loaded library, corrupts it).
+  (cd '$here/files/usr' && find . -type f) | while read -r file; do rm -f \"/usr/\$file\"; done
   cp -R '$here/files/usr/.' /usr/
   install -m 755 '$here/files/addon/araso.so' '$addons/araso.so'
   if command -v gtk-update-icon-cache >/dev/null 2>&1; then gtk-update-icon-cache -q /usr/share/icons/hicolor || true; fi
@@ -52,5 +55,7 @@ if pgrep -u "$(id -u)" -x fcitx5 >/dev/null 2>&1; then
 fi
 cat <<'MSG'
 Araso is installed. Add it once in fcitx5's settings: Input Method → Available Input Method →
-Araso (or run fcitx5-configtool). Settings: araso-settings, or Araso's menu in the tray.
+Araso (or run fcitx5-configtool). It then starts on in every text field (it turns on fcitx5's
+Active By Default; araso-settings → Languages turns that off). Settings: araso-settings, or
+Araso's menu in the tray.
 MSG

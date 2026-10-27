@@ -37,7 +37,13 @@ reload() {  # what the settings window does after writing a file
   python3 -c 'import os,socket; s=socket.socket(socket.AF_UNIX,socket.SOCK_DGRAM); r=os.environ.get("XDG_RUNTIME_DIR"); d=r + "/araso" if r else "/tmp/araso-%d" % os.getuid(); s.sendto(b"{\"op\":\"reload\"}", d + "/ime")'
   sleep 0.5
 }
-field() {  # starts a fresh field and turns Araso on in it, with nothing learned yet
+on() {  # a new field starts in Araso (fcitx5's Active By Default, turned on by the addon)
+  state=$(fcitx5-remote)
+  if [ "$state" != 2 ]; then
+    echo "FAIL $1 starts in Araso: fcitx5-remote says $state"; failures=$((failures + 1)); fcitx5-remote -o
+  fi
+}
+field() {  # starts a fresh field, in Araso, with nothing learned yet
   rm -f /tmp/out.txt "$HOME/.config/araso/dictionary.json"
   reload
   python3 "$here/field.py" /tmp/out.txt >/dev/null 2>&1 &
@@ -48,8 +54,7 @@ field() {  # starts a fresh field and turns Araso on in it, with nothing learned
   done
   xdotool search --name "Araso typing test" windowfocus --sync >/dev/null 2>&1
   sleep 0.6
-  fcitx5-remote -o
-  sleep 0.3
+  on "a new field"
 }
 expect() {  # name, expected text
   sleep 0.8
@@ -106,8 +111,7 @@ settings_pid=$!
 sleep $((3 + slow))
 xdotool windowfocus --sync "$(xdotool search --class araso-settings | tail -1)" >/dev/null 2>&1
 sleep 0.6
-fcitx5-remote -o
-sleep 0.3
+on "the settings window"
 xdotool type --delay 80 "dkssud hello "
 sleep 1.5
 import -window root "$shots/linux-try-typing.png"

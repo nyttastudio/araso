@@ -4,7 +4,9 @@
 
 #include <fcitx-utils/log.h>
 #include <fcitx-utils/misc.h>
+#include <fcitx-config/rawconfig.h>
 #include <fcitx/candidatelist.h>
+#include <fcitx/globalconfig.h>
 #include <fcitx/inputcontext.h>
 #include <fcitx/inputcontextmanager.h>
 #include <fcitx/inputmethodentry.h>
@@ -22,6 +24,7 @@
 #include <cerrno>
 #include <cstring>
 #include <ctime>
+#include <fstream>
 
 FCITX_DEFINE_LOG_CATEGORY(araso_log, "araso");
 #define ARASO_DEBUG() FCITX_LOGC(araso_log, Debug)
@@ -121,6 +124,16 @@ Engine::Engine(fcitx::Instance *instance)
     if (ready_) {
         listen();
         scheduleUpdateCheck(kFirstCheck);
+        // fcitx5 starts every field in its first input method, a keyboard layout, until a trigger key
+        // (Ctrl+Space) turns Araso on there; on macOS and Windows Araso types wherever it is the
+        // input source. So fcitx5's Active By Default goes on once, the first time Araso starts; the
+        // settings window turns it off and on after that.
+        std::string marker = Bridge::supportFolder() + "/fcitx5-active-by-default";
+        if (access(marker.c_str(), F_OK) != 0) {
+            setActiveByDefault(true);
+            mkdir(Bridge::supportFolder().c_str(), 0700);
+            std::ofstream(marker) << "fcitx5's Active By Default was turned on once; araso-settings changes it.\n";
+        }
     }
 }
 
@@ -484,11 +497,22 @@ void Engine::listen() {
         });
 }
 
+void Engine::setActiveByDefault(bool on) {
+    fcitx::RawConfig raw;
+    raw.setValueByPath("Behavior/ActiveByDefault", on ? "True" : "False");
+    instance_->globalConfig().load(raw, true);
+    if (!instance_->globalConfig().safeSave()) ARASO_ERROR() << "can't save fcitx5's config";
+}
+
 void Engine::external(const std::string &message) {
     bool ok = false;
     Json request = Json::parse(message, &ok);
     if (!ok || !request.isObject()) return;
     std::string op = request["op"].asString();
+    if (op == "activeByDefault") {
+        setActiveByDefault(request["on"].asBool());
+        return;
+    }
     // Only what the settings window and vim send; the rest is the text fields' own.
     if (op != "reload" && op != "vim") return;
     Json response = Bridge::shared().request(request);

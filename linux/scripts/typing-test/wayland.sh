@@ -26,8 +26,10 @@ run() {  # name, GTK_IM_MODULE ("" for Wayland's text-input), keys, expected
   GTK_IM_MODULE=$2 python3 "$here/field.py" /tmp/out.txt >/dev/null 2>&1 &
   pid=$!
   sleep 2.5
-  fcitx5-remote -o
-  sleep 0.3
+  state=$(fcitx5-remote)
+  if [ "$state" != 2 ]; then
+    echo "FAIL $1 starts in Araso: fcitx5-remote says $state"; failures=$((failures + 1)); fcitx5-remote -o
+  fi
   vkbd "$3"
   sleep 1
   grim "$shots/wayland-$(echo "$1" | tr ' ' '-').png" 2>/dev/null

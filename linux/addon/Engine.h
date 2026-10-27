@@ -64,7 +64,8 @@ public:
     void choose(fcitx::InputContext *ic, int index);
     void pick(fcitx::InputContext *ic, int index);
 
-    /// A request from outside (`ime` socket: the settings window's `reload`, vim's mode).
+    /// A request from outside (`ime` socket: the settings window's `reload` and
+    /// `activeByDefault`, vim's mode).
     void external(const std::string &message);
 
 private:
@@ -85,6 +86,8 @@ private:
     void runPending(const Json &notify);
     void listen();
     void scheduleUpdateCheck(uint64_t delay);
+    /// fcitx5's Active By Default: a new field starts in Araso, not in the keyboard layout.
+    void setActiveByDefault(bool on);
 
     fcitx::Instance *instance_;
     fcitx::FactoryFor<State> factory_;

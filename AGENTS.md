@@ -161,7 +161,8 @@ session's edits back into `deleteSurroundingText`, commits and preedit; `Keys` m
 (PC scan codes) to the `WindowsKey` `KeyMapper` reads (`Configuration.platform` `linux`: Super for
 ⌃, the `Araso-linux-<arch>.tar.gz` asset, `Linux.strings`). `araso-settings` (Qt 6) is the
 settings window and the CLI for `--vim` and `--check-update`; the addon listens on
-`$XDG_RUNTIME_DIR/araso/ime`. `linux/tests` type through a fcitx5 `Instance` (ctest);
+`$XDG_RUNTIME_DIR/araso/ime`, and turns on fcitx5's Active By Default the first time it starts (else
+every field starts in the keyboard layout until Ctrl+Space). `linux/tests` type through a fcitx5 `Instance` (ctest);
 `.github/workflows/linux.yml` builds on Ubuntu 22.04 and types for real; a change to
 `InputSession` reaches Linux too.
 

@@ -160,6 +160,9 @@ Where it differs from macOS:
 - Ctrl plays ⌘'s part: right Ctrl (the 한자 key) tapped alone pauses, and right Alt (the 한/영
   key) tapped alone switches readings. fcitx5 turns input methods on and off with 한/영, but in a
   field Araso types in, Araso takes it first as its switch key.
+- Araso starts on in every text field: the first time it starts, it turns on fcitx5's Active By
+  Default. Off (**On in every text field** under Languages in the settings window), a field starts
+  in the keyboard layout until Ctrl+Space, as fcitx5 does by default.
 - Apps are named by the program name fcitx5 knows (`firefox`, `kitty`, `org.gnome.texteditor`), and
   the settings files are in `~/.config/araso`. Wayland apps don't tell their name, so they follow
   the default.
