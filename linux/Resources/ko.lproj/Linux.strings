@@ -1,0 +1,4 @@
+/* Araso for Linux — 한국어. macOS와 같은 문구는 Resources/ko.lproj/Localizable.strings에 있고, 여기에는 Linux에만 있는 문구만 둔다. */
+
+/* 입력기 */
+"Paused" = "일시정지";

@@ -1,0 +1,11 @@
+[Addon]
+Name=Araso
+Name[ko]=아라소
+Comment=English, Korean and Japanese decided per word
+Comment[ko]=영어, 한국어, 일본어를 단어마다 알아서 입력
+Category=InputMethod
+Version=@ARASO_VERSION@
+Library=araso
+Type=SharedLibrary
+OnDemand=True
+Configurable=False

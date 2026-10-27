@@ -22,15 +22,23 @@ public final class ServiceRuntime {
         public var ownApp: String
         /// Load the kanji converter (the input method's host). The settings window only edits files.
         public var converter: Bool
+        /// `windows` or `linux` (the fcitx5 addon): how keys are named, the platform's own UI text
+        /// (`Windows.strings`, `Linux.strings`).
+        public var platform: String
+        /// The release asset this copy updates from; nil: Windows' installer.
+        public var asset: String?
 
         public init(resources: String? = nil, support: String? = nil, version: String = "0",
-                    language: String = "en", ownApp: String = "arasohost.exe", converter: Bool = true) {
+                    language: String = "en", ownApp: String = "arasohost.exe", converter: Bool = true,
+                    platform: String = "windows", asset: String? = nil) {
             self.resources = resources
             self.support = support
             self.version = version
             self.language = language
             self.ownApp = ownApp
             self.converter = converter
+            self.platform = platform
+            self.asset = asset
         }
 
         public init(from decoder: Decoder) throws {
@@ -41,6 +49,8 @@ public final class ServiceRuntime {
             language = try c.decodeIfPresent(String.self, forKey: .language) ?? "en"
             ownApp = try c.decodeIfPresent(String.self, forKey: .ownApp) ?? "arasohost.exe"
             converter = try c.decodeIfPresent(Bool.self, forKey: .converter) ?? true
+            platform = try c.decodeIfPresent(String.self, forKey: .platform) ?? "windows"
+            asset = try c.decodeIfPresent(String.self, forKey: .asset)
         }
     }
 
@@ -79,10 +89,13 @@ public final class ServiceRuntime {
         self.configuration = configuration
         if let support = configuration.support { SupportDirectory.override = URL(fileURLWithPath: support, isDirectory: true) }
         if let resources = configuration.resources { Resources.directory = URL(fileURLWithPath: resources, isDirectory: true) }
-        Strings.load(language: configuration.language,
+        let linux = configuration.platform == "linux"
+        KeyMapper.platform = linux ? .linux : .windows
+        UpdateStore.asset = configuration.asset ?? UpdateStore.windowsAsset
+        Strings.load(language: configuration.language, platform: linux ? "Linux" : "Windows",
                      from: [configuration.resources.map { URL(fileURLWithPath: $0, isDirectory: true) },
                             Self.packageRoot.appendingPathComponent("Resources"),
-                            Self.packageRoot.appendingPathComponent("windows/Resources")].compactMap { $0 })
+                            Self.packageRoot.appendingPathComponent(linux ? "linux/Resources" : "windows/Resources")].compactMap { $0 })
         AppPolicies.migrateSwitchKey()
         settings = Settings.load()
         LatinLayout.active = settings.latinLayout

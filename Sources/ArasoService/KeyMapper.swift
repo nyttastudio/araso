@@ -15,6 +15,12 @@ import Foundation
 /// Letters, digits and symbols come from the physical key (its scan code) as on a US keyboard,
 /// whatever layout Windows has, as the Mac input method has macOS type on the US layout.
 public enum KeyMapper {
+    /// Where the keys come from: Linux (the fcitx5 addon) sends the same keys, its evdev codes
+    /// being these scan codes, and names the ⌃ key Super where Windows names it Win.
+    public enum Platform: Sendable { case windows, linux }
+    nonisolated(unsafe) public static var platform = Platform.windows
+    static var superName: String { platform == .linux ? "Super" : "Win" }
+
     // Virtual keys (winuser.h).
     public static let vkBack = 0x08, vkTab = 0x09, vkReturn = 0x0D, vkShift = 0x10, vkControl = 0x11,
                       vkMenu = 0x12, vkPause = 0x13, vkCapital = 0x14, vkHangul = 0x15, vkHanja = 0x19,
@@ -222,13 +228,13 @@ public enum KeyMapper {
         return character(WindowsKey(vk: key.vk, scan: key.scan, extended: key.extended)).map { String($0) }
     }
 
-    /// How a key on Windows is written in the settings window (the Mac glyphs mean nothing there).
+    /// How a key on Windows (or Linux) is written in the settings window (the Mac glyphs mean nothing there).
     public static func tapName(_ tap: PauseKey.Tap) -> String {
         switch tap {
         case .rightCommand: return "Ctrl"
         case .rightOption: return "Alt"
         case .rightShift: return "Shift"
-        case .rightControl: return "Win"
+        case .rightControl: return superName
         }
     }
 
@@ -238,7 +244,7 @@ public enum KeyMapper {
         if shortcut.modifiers.contains(.command) { parts.append("Ctrl") }
         if shortcut.modifiers.contains(.option) { parts.append("Alt") }
         if shortcut.modifiers.contains(.shift) { parts.append("Shift") }
-        if shortcut.modifiers.contains(.control) { parts.append("Win") }
+        if shortcut.modifiers.contains(.control) { parts.append(superName) }
         parts.append(shortcut.key)
         return parts.joined(separator: "+")
     }

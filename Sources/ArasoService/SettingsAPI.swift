@@ -108,7 +108,9 @@ public struct ReleaseInfo: Codable, Equatable, Sendable {
 /// (`update.json` in the settings folder; the Mac app keeps the same in its user defaults).
 public enum UpdateStore {
     /// The release asset Windows installs.
-    public static let asset = "Araso-Setup.exe"
+    public static let windowsAsset = "Araso-Setup.exe"
+    /// The release asset this copy updates from (`ServiceRuntime.Configuration.asset`).
+    nonisolated(unsafe) public static var asset = windowsAsset
 
     struct Stored: Codable {
         var checked: Double

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Araso Settings
+Name[ko]=Araso 설정
+Comment=Settings, per-app rules and the dictionary of the Araso input method
+Comment[ko]=Araso 입력기의 설정, 앱별 규칙, 사전
+Exec=araso-settings --settings general
+Icon=araso
+Categories=Settings;
+StartupNotify=true
