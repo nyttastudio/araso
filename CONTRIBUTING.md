@@ -16,6 +16,12 @@
 3. PR 설명에 `Closes #번호`로 이슈를 연결합니다. `accepted` 이슈에 연결되지 않은 PR에는 봇이 안내
    댓글을 달고, 연결되면 그 댓글을 고쳐 알려 줍니다.
 
+라벨은 세 가지입니다([.github/labels.yml](.github/labels.yml)). **종류**(`bug`, `enhancement`, `docs`,
+`ci`)는 하나만, **상태**(`accepted`, `needs-info`, `duplicate`, `wontfix`)는 이슈에,
+**영역**(`area: korean`, `area: decision`, `platform: windows`, `platform: linux` 등)은 여러 개 붙습니다. 이슈는 양식에서
+종류를, 영역 드롭다운에서 영역을 받고, PR은 연결한 이슈의 종류·영역 라벨과 바꾼 파일에 따른 라벨을
+봇이 붙여 주므로 직접 붙이지 않아도 됩니다.
+
 질문, 설치 문제, 보안 문제는 이슈가 아닌 곳으로 보내 주세요.
 
 - **질문이나 설치 문제**는 [Discussions](https://github.com/nyttastudio/araso/discussions)에 올려
@@ -34,6 +40,9 @@
 - Windows 쪽은 [docs/windows-port.md](docs/windows-port.md)를 보세요. Windows에서만 도는 코드는
   맥에서 실행할 수 없고, PR의 Windows CI가 빌드와 테스트를 맡습니다. C++ 컴파일만 확인하려면
   `windows/scripts/check-cross.sh`(zig)를 쓰세요.
+- Linux 쪽은 [docs/linux-port.md](docs/linux-port.md)를 보세요. 맥에서도 Docker만 있으면
+  `linux/scripts/typing-test/run.sh`가 빌드, 테스트, 깨끗한 Ubuntu에서의 실제 입력까지 확인합니다.
+  PR의 Linux CI도 같은 것을 돌립니다.
 
 처음 보는 용어(늦게 뗀 Shift, 단어, 읽기…)는 [GLOSSARY.md](GLOSSARY.md)에 있습니다. 코드 구조와
 주의할 점은 [AGENTS.md](AGENTS.md)에 가장 자세히 정리되어 있습니다. AI 에이전트용으로 쓴 문서지만
@@ -49,7 +58,7 @@ swift run araso-cli -v "dkssud hello"        # 영어/한국어 판단과 점수
 ```
 
 입력 로직은 모두 `Sources/ArasoCore`에 있고 테스트도 대부분 이곳을 다룹니다. `InputSession`은
-`FakeTextField`로 테스트합니다. `InputSession`을 바꿨다면 Windows에도 반영되니
+`FakeTextField`로 테스트합니다. `InputSession`을 바꿨다면 Windows와 Linux에도 반영되니
 `swift test --filter ServiceTests`도 확인하세요.
 
 ## 실제 입력으로 확인하기
@@ -110,8 +119,8 @@ PR 설명에 바꾸기 전후의 숫자(정확도, 잘못 분리된 단어 수)�
 - main은 선형 히스토리만 받습니다(squash 또는 rebase로 머지). 브랜치를 최신으로 맞출 때는 main을
   머지하지 말고 rebase 해 주세요.
 - 처음 PR을 보내면 CI는 메인테이너가 승인한 뒤에 돕니다.
-- CI(`test`)가 통과해야 머지됩니다. `InputSession`이나 `ArasoService`를 건드렸다면 Windows CI도
-  확인해 주세요.
+- CI(`test`)가 통과해야 머지됩니다. `InputSession`이나 `ArasoService`를 건드렸다면 Windows CI와
+  Linux CI도 확인해 주세요.
 - AI 도구를 써도 괜찮습니다. 이 저장소의 [AGENTS.md](AGENTS.md)를 읽게 하세요(Claude Code는
   CLAUDE.md를 거쳐 읽습니다). PR에는 직접 실행하고 확인한 결과를 적어 주세요.
 

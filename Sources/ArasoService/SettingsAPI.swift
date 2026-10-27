@@ -107,7 +107,7 @@ public struct ReleaseInfo: Codable, Equatable, Sendable {
 /// What the last update check found and when, shared by the host and the settings window
 /// (`update.json` in the settings folder; the Mac app keeps the same in its user defaults).
 public enum UpdateStore {
-    /// The release asset Windows installs.
+    /// The release asset Windows installs (Linux's is named by the addon: `Configuration.asset`).
     public static let asset = "Araso-Setup.exe"
 
     struct Stored: Codable {
@@ -131,7 +131,7 @@ public enum UpdateStore {
     }
 
     /// The newer release the last check found, if any.
-    static func available(current: String) -> ReleaseInfo? {
+    static func available(current: String, asset: String = asset) -> ReleaseInfo? {
         guard let body = read()?.body, let release = Release(gitHubJSON: Data(body.utf8), asset: asset) else { return nil }
         let info = ReleaseInfo(release, current: current)
         return info.newer ? info : nil

@@ -12,7 +12,10 @@ repo (Cloudflare Pages); keep its copy in step too. CONTRIBUTING.md (Korean) and
 with the issue and PR templates in `.github`, tell contributors how to build and check a change;
 keep them in step with this file (AGENTS.md only points here). A contributor's PR starts from an
 issue the maintainer labeled `accepted`; `.github/workflows/issue-first.yml` comments on one that
-doesn't link such an issue (`.github/scripts/issue-first.sh`, `DRY_RUN=1` to try it). Building needs Swift 6.2 (Xcode 26),
+doesn't link such an issue (`.github/scripts/issue-first.sh`, `DRY_RUN=1` to try it). Labels are listed in
+`.github/labels.yml` (kind, status, `area: …`); `.github/workflows/labels.yml` syncs them, labels an issue
+from its form's area dropdown and a PR from its linked issue and changed files (`.github/scripts/labels.sh`,
+`.github/labeler.yml`); add a label to labels.yml, never only on GitHub. Building needs Swift 6.2 (Xcode 26),
 which `swift-tools-version` in Package.swift says.
 
 ## Commands
@@ -35,6 +38,8 @@ scripts/record-demo/record.sh                # the README demo's footage: real t
 scripts/record-demo/render.sh                # → docs/media/demo.gif and build/demo/web/demo.mp4 + poster (the website's araso/)
 /usr/bin/log show --last 10m --predicate 'subsystem == "com.nyttastudio.inputmethod.Araso"' --info --debug
 windows/scripts/check-cross.sh [x86_64|x86|aarch64]   # Windows C++ (text service + host) built with zig, here
+linux/scripts/build.sh [--test] [--tar]       # on Linux: bridge + fcitx5 addon + araso-settings → build/linux/package
+linux/scripts/typing-test/run.sh              # with Docker (a Mac too): that, then real typing on a clean Ubuntu (Xvfb)
 swift windows/scripts/make-icon.swift [--slash] windows/Resources/Araso.ico
 ```
 
@@ -123,6 +128,16 @@ tests use `FakeTextField`). It owns the preview and hysteresis, commits, Esc rea
   ⇧ was already down) and drops whatever the input method inserts; deciding each key there lost
   letters (`PASSWORD` came out `pASSwrD`). A terminal with Secure Keyboard Entry reports its
   caret, so it isn't affected.
+- Caps Lock doesn't change what a word reads as: `InputController` hands letters over in the case
+  Shift alone gives (macOS types capitals with Caps Lock, Shift or not), `handle(_:client:capsLock:)`
+  notes it per word (`capsWord`; a toggle inside a word commits what came before), and every client
+  the session writes to goes through `cased`, so English goes in in capitals (`CapsLockClient`).
+  Keys that are loose jamo throughout, two or more, are English in such a word (the capitals that
+  made RST English are gone, and rst reads as chat jamo), the same while typing and at Space; a
+  word with a syllable in it (안녕ㄱ) or one jamo reads as without Caps Lock. English the engine
+  chose by a hair over Korean gets that certainty too, not over Japanese (hon stays ほん), and a
+  word the dictionary remembers keeps its language. `CapsLockTests`; `ARASO_CAPS_LOCK=1` for
+  `araso-cli --type`.
 - The pause key (`Settings.pauseKey`: a right modifier tap, by default ⌘, read from flagsChanged, or a
   shortcut caught in keyDown, both in `InputController`) pauses the session until it is pressed again,
   `activate`, or a settings change (a fresh session). The menu icon can't change, so `PauseHUD`
@@ -157,6 +172,19 @@ what InputMethodKit and `Runtime` are here: a session per text service over a sn
 window, updates), `windows/installer` the Inno Setup script. `.github/workflows/windows.yml` builds,
 tests and packs it on `windows-latest`; nothing Windows-only can be run on a Mac. A change to
 `InputSession` reaches Windows too: check `swift test --filter ServiceTests`.
+
+**Linux** (docs/linux-port.md): a fcitx5 addon (`linux/addon`, C++) that loads `ArasoBridge`
+(`libArasoBridge.so`) into the fcitx5 daemon, which serves every app as Araso's one process does
+on macOS: no host process and no pipe, the same JSON requests. `Document` turns fcitx5's
+surrounding text plus the client-side preedit into the field `SnapshotClient` reads, and the
+session's edits back into `deleteSurroundingText`, commits and preedit; `Keys` maps evdev codes
+(PC scan codes) to the `WindowsKey` `KeyMapper` reads (`Configuration.platform` `linux`: Super for
+⌃, the `Araso-linux-<arch>.tar.gz` asset, `Linux.strings`). `araso-settings` (Qt 6) is the
+settings window and the CLI for `--vim` and `--check-update`; the addon listens on
+`$XDG_RUNTIME_DIR/araso/ime`, and turns on fcitx5's Active By Default the first time it starts (else
+every field starts in the keyboard layout until Ctrl+Space). `linux/tests` type through a fcitx5 `Instance` (ctest);
+`.github/workflows/linux.yml` builds on Ubuntu 22.04 and types for real; a change to
+`InputSession` reaches Linux too.
 
 **`Runtime`** (`Sources/Araso`) is a process-wide singleton holding settings, engine and
 converter, plus a `generation` counter. Controllers swap in a fresh session when the generation
@@ -234,6 +262,9 @@ runtime.
   when `WINDOWS_SIGN_PFX` is set; see the workflow's header). Until then a Windows beta is its own
   GitHub pre-release (`windows-beta-<n>`, the installer from a CI run's `Araso-Setup` artifact),
   which `releases/latest` (the macOS update check, get.sh, the website) never returns.
+  The Linux workflow (`linux.yml`) adds `Araso-linux-x86_64.tar.gz` and `Araso-linux-aarch64.tar.gz`
+  (what the Linux update check asks for) and their versioned copies the same way, once the
+  repository variable `ARASO_LINUX_RELEASE` is `true`.
   To release, run the Release workflow from the Actions tab with the new version
   (`gh workflow run release.yml -f version=0.1.11`): its `bump` job sets the version in
   `Resources/Info.plist` (and the build number one up), runs the tests and pushes that commit to

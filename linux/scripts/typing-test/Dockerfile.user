@@ -1,0 +1,6 @@
+# A user's machine: fcitx5 and apps, no Swift, no compilers.
+FROM ubuntu:24.04
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    fcitx5 fcitx5-frontend-gtk3 fcitx5-frontend-qt5 fcitx5-frontend-qt6 libqt5widgets5 libqt5network5 libqt6widgets6 libqt6network6 \
+    xvfb xdotool dbus-x11 dbus python3-gi gir1.2-gtk-3.0 libgtk-3-0 imagemagick fonts-noto-cjk procps \
+    && rm -rf /var/lib/apt/lists/*

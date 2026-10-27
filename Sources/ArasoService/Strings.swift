@@ -1,18 +1,20 @@
 import ArasoCore
 import Foundation
 
-/// The user's language for UI text on Windows, from the same `ko.lproj/Localizable.strings` the
-/// Mac app has (plus `Windows.strings` for what only Windows says). English is the key itself.
+/// The user's language for UI text on Windows and Linux, from the same `ko.lproj/Localizable.strings`
+/// the Mac app has (plus `Windows.strings` or `Linux.strings` for what only that platform says).
+/// English is the key itself.
 public enum Strings {
     /// The table in use: empty for English.
     nonisolated(unsafe) private static var table: [String: String] = [:]
 
-    /// Loads Korean when `language` starts with "ko" (the host passes Windows' UI language).
-    public static func load(language: String, from directories: [URL]) {
+    /// Loads Korean when `language` starts with "ko" (the host passes Windows' UI language, the
+    /// addon Linux's `LANG`).
+    public static func load(language: String, platform: String = "Windows", from directories: [URL]) {
         guard language.lowercased().hasPrefix("ko") else { table = [:]; return }
         var merged: [String: String] = [:]
         for directory in directories {
-            for name in ["Localizable.strings", "Windows.strings"] {
+            for name in ["Localizable.strings", platform + ".strings"] {
                 let url = directory.appendingPathComponent("ko.lproj").appendingPathComponent(name)
                 guard let text = try? String(contentsOf: url, encoding: .utf8) else { continue }
                 merged.merge(parse(text)) { _, new in new }

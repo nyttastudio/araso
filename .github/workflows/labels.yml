@@ -1,0 +1,71 @@
+# Labels issues and PRs (CONTRIBUTING.md): .github/labels.yml is the list of labels, synced on a push
+# to main; an issue gets the area picked in its form; a PR gets the kind and area labels of the issue
+# it closes, and labels from the files it changes (.github/labeler.yml). It only adds labels.
+#
+# pull_request_target, so it can label PRs from forks. It checks out the base branch (the script and
+# the labeler's config), never the PR's code, and reads the PR only through the API.
+name: Labels
+
+on:
+  push:
+    branches: [main]
+    paths: [.github/labels.yml]
+  workflow_dispatch:
+  issues:
+    types: [opened, labeled]
+  pull_request_target:
+    types: [opened, reopened, edited, synchronize]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: labels-${{ github.event.pull_request.number || github.event.issue.number || 'sync' }}
+
+jobs:
+  sync:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github
+      - name: Sync
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: bash .github/scripts/labels.sh sync
+
+  issue:
+    if: github.event_name == 'issues'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          sparse-checkout: .github/scripts
+      - name: Label
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          ACTION: ${{ github.event.action }}
+          NUMBER: ${{ github.event.issue.number }}
+        run: bash .github/scripts/labels.sh "$([[ $ACTION == opened ]] && echo form || echo issue)" "$NUMBER"
+
+  pr:
+    if: github.event_name == 'pull_request_target'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/labeler@v5
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          sparse-checkout: .github/scripts
+      - name: Label
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          NUMBER: ${{ github.event.pull_request.number }}
+        run: bash .github/scripts/labels.sh pr "$NUMBER"

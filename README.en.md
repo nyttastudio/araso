@@ -135,6 +135,50 @@ The rest is mapped in [docs/windows-port.md](docs/windows-port.md). Report what 
 
 </details>
 
+<details>
+<summary>Linux (beta)</summary>
+
+The same input method, for fcitx5. Deciding words, the dictionary and learning are the same code
+as on macOS; kanji conversion is AzooKey's. It runs on x86_64 and aarch64 with Ubuntu 22.04 or later
+and distributions like it (glibc 2.35 or later).
+
+1. Install fcitx5 and make it the input method framework (Ubuntu: `sudo apt install fcitx5 fcitx5-frontend-gtk3 fcitx5-frontend-gtk4 fcitx5-frontend-qt5`,
+   plus `fcitx5-frontend-qt6` from 24.04 on; then `im-config -n fcitx5` and log out; 22.04 has no `fcitx5-frontend-qt6`, so Qt 6 apps don't type through it there).
+2. If the release has `Araso-linux-<arch>.tar.gz`, download it, unpack it and run its `./install.sh`.
+   Until then, install from source (Swift 6.2, CMake, fcitx5's development files and Qt 6; the list
+   is in [docs/linux-port.md](docs/linux-port.md)):
+
+   ```sh
+   git clone https://github.com/nyttastudio/araso && araso/linux/scripts/install.sh
+   ```
+3. Add **Araso** under **Input Method** in fcitx5's settings (`fcitx5-configtool`); the installer
+   doesn't turn it on. The Araso menu in the tray is the macOS input menu, and the settings window
+   is `araso-settings`.
+
+Where it differs from macOS:
+
+- Ctrl plays ⌘'s part: right Ctrl (the 한자 key) tapped alone pauses, and right Alt (the 한/영
+  key) tapped alone switches readings. fcitx5 turns input methods on and off with 한/영, but in a
+  field Araso types in, Araso takes it first as its switch key.
+- Araso starts on in every text field: the first time it starts, it turns on fcitx5's Active By
+  Default. Off (**On in every text field** under Languages in the settings window), a field starts
+  in the keyboard layout until Ctrl+Space, as fcitx5 does by default.
+- Apps are named by the program name fcitx5 knows (`firefox`, `kitty`, `org.gnome.texteditor`), and
+  the settings files are in `~/.config/araso`. Wayland apps don't tell their name, so they follow
+  the default.
+- fcitx5 draws the candidates and the readings, in its theme. Pausing changes the tray icon and
+  shows a moment by the caret.
+- Text replacements come from `replacements.json` in the settings folder (`{"addr": ["123 Main St"]}`),
+  and Araso replaces them itself.
+- The settings window's About tells of updates; they download from the release page. Uninstall
+  with About's **Uninstall…** or `sudo /usr/lib/araso/uninstall.sh`.
+
+The rest is mapped in [docs/linux-port.md](docs/linux-port.md). Report what doesn't work in
+[Issues](https://github.com/nyttastudio/araso/issues), with the distribution, the desktop (GNOME,
+KDE…), X11 or Wayland, and the app's name.
+
+</details>
+
 ### Updates
 
 When a new version is out, the input menu shows **Update to Araso …**, and **About** in the
@@ -197,6 +241,7 @@ While a word is being typed it is underlined and shows the language Araso expect
 | Key | English / Korean word | Japanese phrase |
 | --- | --- | --- |
 | letters | extend the word | extend the phrase (kana preview) |
+| letters with Caps Lock on | read as if Caps Lock were off (`GKAUS` → `하면`); English goes in in capitals (`OUTPUT`), and so do keys that would be loose jamo throughout, two or more (`RST`, `RD`, chat jamo too: `ZZ`); a word in the dictionary keeps its language. Toggled inside a word, a new word starts there | same |
 | **[Language switch keys](#language-switch-keys)** (by default right ⌥ tapped on its own, and ⇧Esc) | switch reading: English → English+particle → Korean → Japanese | same (with live conversion, the kana first) |
 | Esc | commit; the app gets the Esc (when chosen as a switch key, as above) | with live conversion, the kana first; on the kana, cancel the phrase (the app doesn't get it) |
 | Delete | English: the last letter. Korean: the syllable being typed jamo by jamo, earlier ones whole (한국 → 한구 → 한ㄱ → 한 → gone, as the system's 2-set does) | one kana at a time (かんこく → かんこ); with live conversion the last clause goes back to kana less one, the ones before it staying as shown (今日はいい天気 → 今日はいいてん), as in macOS's Japanese input |
@@ -377,7 +422,8 @@ are decided again at the shell.
 <details>
 <summary>How it works, and caveats</summary>
 
-- The signal is `Araso --vim insert|normal|off --app <bundle id>`, sent on mode changes
+- The signal is `Araso --vim insert|normal|off --app <bundle id>` (`ArasoHost.exe` on Windows,
+  `araso-settings` on Linux), sent on mode changes
   (entering and leaving insert mode, start, quit, focus), not on keys.
 - The bundle identifier is `$__CFBundleIdentifier`, which macOS sets for every app, so nothing
   needs setting up per terminal (Ghostty, Terminal, iTerm2, VS Code…), and the signal reaches only
@@ -644,6 +690,7 @@ printf 'きょうはいいてんきですね\n' | swift run araso-cli --convert
 | `Sources/Araso` | InputMethodKit server, a thin controller over `InputSession`, candidate window, settings window |
 | `Sources/ArasoCore/Data` | kana and written-Japanese trigrams, Korean syllables and words, English words |
 | `tools/` | corpus → romaji, model builders, evaluation set and accuracy (python3, no packages) |
+| `windows/`, `linux/` | the Windows (TSF) and Linux (fcitx5) input methods: [docs/windows-port.md](docs/windows-port.md), [docs/linux-port.md](docs/linux-port.md) |
 
 ## License and data
 

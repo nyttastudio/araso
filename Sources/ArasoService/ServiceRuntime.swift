@@ -22,15 +22,23 @@ public final class ServiceRuntime {
         public var ownApp: String
         /// Load the kanji converter (the input method's host). The settings window only edits files.
         public var converter: Bool
+        /// `windows` or `linux` (the fcitx5 addon): how keys are named, the platform's own UI text
+        /// (`Windows.strings`, `Linux.strings`).
+        public var platform: String
+        /// The release asset this copy updates from; nil: Windows' installer.
+        public var asset: String?
 
         public init(resources: String? = nil, support: String? = nil, version: String = "0",
-                    language: String = "en", ownApp: String = "arasohost.exe", converter: Bool = true) {
+                    language: String = "en", ownApp: String = "arasohost.exe", converter: Bool = true,
+                    platform: String = "windows", asset: String? = nil) {
             self.resources = resources
             self.support = support
             self.version = version
             self.language = language
             self.ownApp = ownApp
             self.converter = converter
+            self.platform = platform
+            self.asset = asset
         }
 
         public init(from decoder: Decoder) throws {
@@ -41,6 +49,8 @@ public final class ServiceRuntime {
             language = try c.decodeIfPresent(String.self, forKey: .language) ?? "en"
             ownApp = try c.decodeIfPresent(String.self, forKey: .ownApp) ?? "arasohost.exe"
             converter = try c.decodeIfPresent(Bool.self, forKey: .converter) ?? true
+            platform = try c.decodeIfPresent(String.self, forKey: .platform) ?? "windows"
+            asset = try c.decodeIfPresent(String.self, forKey: .asset)
         }
     }
 
@@ -71,6 +81,9 @@ public final class ServiceRuntime {
     /// The latest vim mode change and the app vim runs in (see Runtime on macOS).
     private var lastVim: (signal: VimSignal, app: String?)?
     private let configuration: Configuration
+    /// How keys are named, and the release asset this copy updates from.
+    private let platform: KeyMapper.Platform
+    private let asset: String
     private let replacements = TextReplacementFile()
     /// The files changed from the menu: an open settings window reads them again.
     private var changedFiles = false
@@ -79,10 +92,13 @@ public final class ServiceRuntime {
         self.configuration = configuration
         if let support = configuration.support { SupportDirectory.override = URL(fileURLWithPath: support, isDirectory: true) }
         if let resources = configuration.resources { Resources.directory = URL(fileURLWithPath: resources, isDirectory: true) }
-        Strings.load(language: configuration.language,
+        let linux = configuration.platform == "linux"
+        platform = linux ? .linux : .windows
+        asset = configuration.asset ?? UpdateStore.asset
+        Strings.load(language: configuration.language, platform: linux ? "Linux" : "Windows",
                      from: [configuration.resources.map { URL(fileURLWithPath: $0, isDirectory: true) },
                             Self.packageRoot.appendingPathComponent("Resources"),
-                            Self.packageRoot.appendingPathComponent("windows/Resources")].compactMap { $0 })
+                            Self.packageRoot.appendingPathComponent(linux ? "linux/Resources" : "windows/Resources")].compactMap { $0 })
         AppPolicies.migrateSwitchKey()
         settings = Settings.load()
         LatinLayout.active = settings.latinLayout
@@ -172,7 +188,7 @@ public final class ServiceRuntime {
         case .release:
             response = ServiceResponse()
             let now = Date().timeIntervalSince1970
-            if let body = request.body, let release = Release(gitHubJSON: Data(body.utf8), asset: UpdateStore.asset) {
+            if let body = request.body, let release = Release(gitHubJSON: Data(body.utf8), asset: asset) {
                 UpdateStore.write(body: body, checked: now)
                 response.release = ReleaseInfo(release, current: configuration.version)
             } else {
@@ -198,7 +214,7 @@ public final class ServiceRuntime {
                   let name = KeyMapper.keyName(key) else { break }
             let shortcut = PauseKey.Shortcut(keyCode: code, modifiers: KeyMapper.modifiers(key), key: name)
             response.shortcut = shortcut
-            response.shortcutName = KeyMapper.shortcutName(shortcut)
+            response.shortcutName = KeyMapper.shortcutName(shortcut, on: platform)
             switch shortcut.problem(switchKeys: AppPolicies.load().defaultPolicy.switchKeys) {
             case .types?: response.problem = "types"
             case .arasos?: response.problem = "arasos"
@@ -480,8 +496,8 @@ public final class ServiceRuntime {
         let pause: String
         switch settings.pauseKey {
         case .off: pause = L("Pause in This Text Field")
-        case .tap(let tap): pause = L("Pause in This Text Field (%@)", L("right %@", KeyMapper.tapName(tap)))
-        case .shortcut(let shortcut): pause = L("Pause in This Text Field (%@)", KeyMapper.shortcutName(shortcut))
+        case .tap(let tap): pause = L("Pause in This Text Field (%@)", L("right %@", KeyMapper.tapName(tap, on: platform)))
+        case .shortcut(let shortcut): pause = L("Pause in This Text Field (%@)", KeyMapper.shortcutName(shortcut, on: platform))
         }
         add("pause", pause, on: session.paused)
         items.append(.line)
@@ -514,7 +530,7 @@ public final class ServiceRuntime {
                 add("forget:" + word.keys, L("%@ → %@ · Forget", word.text, Self.languageName(word.language)), indent: 1)
             }
         }
-        if settings.checkForUpdates, let release = UpdateStore.available(current: configuration.version) {
+        if settings.checkForUpdates, let release = UpdateStore.available(current: configuration.version, asset: asset) {
             add("update", L("Update to Araso %@…", release.version))
         }
         add("typing", L("Try Typing…"))
@@ -640,7 +656,7 @@ public final class ServiceRuntime {
         }
         return SettingsModel(settings: Settings.load(), defaultPolicy: SettingsModel.PolicyInfo(base), apps: apps,
                              words: words, version: configuration.version,
-                             update: UpdateStore.available(current: configuration.version),
+                             update: UpdateStore.available(current: configuration.version, asset: asset),
                              checked: UpdateStore.read()?.checked ?? 0, strictThreshold: AppPolicy.strictThreshold)
     }
 

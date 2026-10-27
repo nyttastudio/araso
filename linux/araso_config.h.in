@@ -1,0 +1,6 @@
+// Written by CMake (linux/CMakeLists.txt).
+#pragma once
+#define ARASO_VERSION "@ARASO_VERSION@"
+#define ARASO_LIBDIR "@ARASO_LIBDIR@"
+#define ARASO_DATADIR "@ARASO_DATADIR@"
+#define ARASO_BINDIR "@ARASO_BINDIR@"

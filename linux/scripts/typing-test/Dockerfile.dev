@@ -1,0 +1,11 @@
+FROM swift:6.2-noble
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    cmake ninja-build pkg-config extra-cmake-modules gettext \
+    fcitx5 libfcitx5core-dev libfcitx5config-dev libfcitx5utils-dev fcitx5-modules-dev \
+    qt6-base-dev libgl-dev \
+    xvfb xdotool dbus-x11 x11-utils fcitx5-frontend-gtk3 fcitx5-frontend-qt6 \
+    python3-gi gir1.2-gtk-3.0 libgtk-3-0 at-spi2-core \
+    && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    imagemagick x11-apps fonts-noto-cjk fonts-dejavu-core fcitx5-frontend-gtk4 \
+    && rm -rf /var/lib/apt/lists/*

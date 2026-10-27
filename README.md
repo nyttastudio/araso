@@ -126,6 +126,42 @@ macOS와 다른 점은 이렇습니다.
 
 </details>
 
+<details>
+<summary>Linux (베타)</summary>
+
+fcitx5 입력기로 도는 같은 입력기입니다. 단어 판단, 사전, 학습은 macOS와 같은 코드이고, 한자 변환은 AzooKey로
+합니다. Ubuntu 22.04 이상과 비슷한 배포판(glibc 2.35 이상)의 x86_64와 aarch64에서 돕니다.
+
+1. fcitx5를 설치하고 입력기로 쓰도록 하세요(Ubuntu: `sudo apt install fcitx5 fcitx5-frontend-gtk3 fcitx5-frontend-gtk4 fcitx5-frontend-qt5`,
+   24.04부터는 `fcitx5-frontend-qt6`도. 그다음 `im-config -n fcitx5`와 로그아웃. 22.04에는 `fcitx5-frontend-qt6`가 없어 Qt 6 앱에는 입력되지 않습니다).
+2. 릴리스에 `Araso-linux-<아키텍처>.tar.gz`가 있으면 받아 풀고 그 안의 `./install.sh`를 실행하세요. 아직 없으면
+   소스에서 설치합니다(Swift 6.2, CMake, fcitx5 개발 파일, Qt 6가 필요합니다. 목록은
+   [docs/linux-port.md](docs/linux-port.md)).
+
+   ```sh
+   git clone https://github.com/nyttastudio/araso && araso/linux/scripts/install.sh
+   ```
+3. fcitx5 설정(`fcitx5-configtool`)의 **입력기**에서 **Araso**를 추가하세요. 설치 프로그램은 입력기를 켜지 않습니다.
+   트레이의 Araso 메뉴가 macOS의 입력 메뉴와 같고, 설정 창은 `araso-settings`입니다.
+
+macOS와 다른 점은 이렇습니다.
+
+- ⌘ 자리는 Ctrl이 맡습니다. 오른쪽 Ctrl(한자 키)만 누르면 일시정지, 오른쪽 Alt(한/영 키)만 누르면 언어 바꾸기입니다.
+  fcitx5는 한/영 키로 입력기를 켜고 끄지만, Araso가 켜진 입력란에서는 Araso가 먼저 받아 언어 바꾸기로 씁니다.
+- Araso를 고르면 모든 입력란에서 켜진 채로 시작합니다. 처음 켤 때 fcitx5의 Active By Default를 켜 두기
+  때문이고, 끄면 fcitx5 기본처럼 입력란마다 Ctrl+Space로 켜야 합니다(설정 창 언어 탭의 **모든 입력란에서 켜기**).
+- 앱은 fcitx5가 아는 프로그램 이름(`firefox`, `kitty`, `org.gnome.texteditor`)으로 정하고, 설정 파일은 `~/.config/araso`에 있습니다.
+  Wayland 앱은 이름을 알려 주지 않아 기본 설정을 따릅니다.
+- 후보 창과 읽기 목록은 fcitx5가 자기 테마로 그립니다. 일시정지하면 트레이 아이콘이 바뀌고 커서 옆에 잠깐 표시됩니다.
+- 텍스트 대치는 설정 폴더의 `replacements.json`(`{"주소": ["서울시 …"]}`)에서 읽어 Araso가 직접 바꿉니다.
+- 업데이트는 설정 창의 정보 탭이 알려 주고, 받기는 릴리스 페이지에서 합니다. 제거는 정보 탭의 **제거…** 또는
+  `sudo /usr/lib/araso/uninstall.sh`입니다.
+
+나머지 대응은 [docs/linux-port.md](docs/linux-port.md)에 있습니다. 안 되는 점은 배포판, 데스크톱(GNOME, KDE…),
+X11·Wayland 여부, 앱 이름과 함께 [Issues](https://github.com/nyttastudio/araso/issues)에 남겨 주세요.
+
+</details>
+
 ### 업데이트
 
 새 버전이 나오면 입력 메뉴에 <b>Araso … 로 업데이트…</b>가 생깁니다. 설정 창의 **정보**에서 바뀐 것을 보고
@@ -186,6 +222,7 @@ Seamtype(0.1.x)은 0.2.0에서 Legato로, 0.2.1에서 Araso로 이름이 바뀌�
 | 키 | 영어·한국어 단어 | 일본어 구절 |
 | --- | --- | --- |
 | 글자 | 단어를 이어서 침 | 구절을 이어서 침 (가나로 미리 보기) |
+| Caps Lock을 켜고 친 글자 | Caps Lock이 꺼진 것처럼 판단(`GKAUS` → `하면`), 영어로 남으면 대문자(`OUTPUT`). 단어 전체가 낱자모이고 두 개 이상이면 영어(`RST`, `RD`, 채팅 자모 `ZZ`도). 사전에 넣거나 배운 단어는 사전대로. 단어 중간에 바꾸면 거기서 새 단어 | 같음 |
 | **[언어 바꾸기 키](#언어-바꾸기-키)** (기본: 오른쪽 ⌥ 단독으로 눌렀다 떼기, ⇧Esc) | 읽기 바꾸기: 영어 → 영어+조사 → 한국어 → 일본어 | 같음 (라이브 변환이면 먼저 가나로) |
 | Esc | 확정하고 앱이 Esc를 받음 (언어 바꾸기 키로 골랐으면 위와 같음) | 라이브 변환이면 먼저 가나로, 가나에서는 구절 취소 (앱에는 가지 않음) |
 | Delete | 영어는 한 글자씩. 한국어는 치고 있는 글자를 자모 하나씩, 그 앞은 한 글자씩 (한국 → 한구 → 한ㄱ → 한 → 지움, 시스템 두벌식과 같음) | 가나 한 글자씩 (かんこく → かんこ). 라이브 변환이면 마지막 문절이 가나로 돌아가며 한 글자 지워지고 앞 문절은 그대로 (今日はいい天気 → 今日はいいてん), 맥 일본어 입력기와 같음 |
@@ -343,7 +380,7 @@ vim이 모드가 바뀔 때마다 Araso에 알려 주므로, 입력 모드에서
 <details>
 <summary>동작 방식과 주의할 점</summary>
 
-- 신호는 `Araso --vim insert|normal|off --app <번들 ID>`입니다. 키마다가 아니라 모드가 바뀔 때(입력 모드
+- 신호는 `Araso --vim insert|normal|off --app <번들 ID>`입니다(Windows는 `ArasoHost.exe`, Linux는 `araso-settings`). 키마다가 아니라 모드가 바뀔 때(입력 모드
   들어가기·나오기, 시작, 끝, 포커스)만 보냅니다.
 - 번들 ID는 macOS가 앱마다 넣어 주는 `$__CFBundleIdentifier`입니다. 그래서 터미널(Ghostty, Terminal, iTerm2,
   VS Code 등)마다 따로 설정할 것이 없고, 신호는 그 앱의 입력창에만 갑니다. `--app` 없는 신호는 Esc가 언어 바꾸기
@@ -591,6 +628,7 @@ printf 'きょうはいいてんきですね\n' | swift run araso-cli --convert
 | `Sources/Araso` | InputMethodKit 서버, `InputSession` 위의 얇은 컨트롤러, 후보 창, 설정 창 |
 | `Sources/ArasoCore/Data` | 가나·일본어 문어 3-그램, 한국어 음절과 단어, 영어 단어 |
 | `tools/` | 말뭉치 → 로마자, 모델 생성, 평가 데이터와 정확도 (python3, 추가 패키지 없음) |
+| `windows/`, `linux/` | Windows(TSF)와 Linux(fcitx5) 입력기: [docs/windows-port.md](docs/windows-port.md), [docs/linux-port.md](docs/linux-port.md) |
 
 ## 라이선스와 데이터
 

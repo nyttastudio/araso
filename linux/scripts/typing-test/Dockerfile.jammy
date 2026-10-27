@@ -1,0 +1,7 @@
+# The release build: Ubuntu 22.04's glibc (2.35), fcitx5 (5.0) and Qt (6.2), so the package runs there and on newer.
+FROM swift:6.2-jammy
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    cmake ninja-build pkg-config extra-cmake-modules gettext \
+    fcitx5 libfcitx5core-dev libfcitx5config-dev libfcitx5utils-dev fcitx5-modules-dev \
+    qt6-base-dev qtbase5-dev libgl-dev \
+    && rm -rf /var/lib/apt/lists/*

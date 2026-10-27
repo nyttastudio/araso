@@ -1,0 +1,58 @@
+/* Araso for Linux — 한국어. macOS와 같은 문구는 Resources/ko.lproj/Localizable.strings에 있고, 여기에는 Linux에서 쓰는 나머지 문구를 둔다(Windows와 같은 것은 Windows.strings에서 옮겨 왔다). */
+
+/* 언어 바꾸기 키 */
+"Right Alt tap" = "오른쪽 Alt 단독";
+"Alt+Space" = "Alt+Space";
+"Right Shift tap" = "오른쪽 Shift 단독";
+"Esc" = "Esc";
+"Shift+Esc" = "Shift+Esc";
+"Tap the right Alt (한/영 on Korean keyboards) on its own. Apps don't react to it." = "오른쪽 Alt(한국어 자판에서는 한/영 키)만 눌렀다 뗍니다. 앱은 이 키에 반응하지 않습니다.";
+"Alt and Space together. It no longer opens the window menu." = "Alt와 Space를 함께. 더 이상 창 메뉴를 열지 않습니다.";
+"Tap the right Shift on its own. Apps ignore it, so nothing else happens." = "오른쪽 Shift만 눌렀다 뗍니다. 앱은 이 키를 무시하므로 다른 일이 생기지 않습니다.";
+"Quick, but some apps also see the Esc and may close a dialog or clear the input." = "빠르지만, 어떤 앱은 그 Esc도 받아서 대화상자를 닫거나 입력을 지울 수 있습니다.";
+"A right Alt or Shift tap with other modifiers is left to what it's bound to." = "다른 modifier와 함께 누른 오른쪽 Alt·Shift는 받지 않고, 원래 하던 일에 맡깁니다.";
+
+/* 일시정지 */
+"Right Ctrl tap" = "오른쪽 Ctrl 단독";
+"Right Ctrl tap (한자 on Korean keyboards)" = "오른쪽 Ctrl 단독 (한국어 자판에서는 한자 키)";
+"Press Esc to cancel." = "취소하려면 Esc를 누르세요.";
+"Right Super tap" = "오른쪽 Super 단독";
+"Add Ctrl, Alt or Super: without one the key types. F-keys can go alone." = "Ctrl, Alt, Super 중 하나를 함께 누르세요. 없으면 글자가 입력됩니다. F 키는 혼자 써도 됩니다.";
+
+/* 일본어 */
+"A full-width space after Japanese; Shift+Space types the other width." = "일본어 뒤의 공백을 전각으로 씁니다. Shift+Space는 반대 폭입니다.";
+
+/* 앱별 */
+"Add an app by its program name, such as firefox or org.gnome.TextEditor." = "firefox나 org.gnome.TextEditor처럼 프로그램 이름으로 앱을 추가하세요.";
+"Program name" = "프로그램 이름";
+"Running apps" = "실행 중인 앱";
+"Custom" = "직접 고르기";
+"Full-width" = "전각";
+
+/* 입력해 보기 */
+"Language" = "언어";
+"Confidence" = "확신도";
+"Why" = "근거";
+"Type here on the English layout, e.g. dkssud hello" = "영문 자판으로 여기에 쳐 보세요. 예: dkssud hello";
+"The language switch key changes the word's reading, also right after the word." = "언어 바꾸기 키로 단어의 읽기를 바꿀 수 있습니다. 단어를 친 바로 뒤에도 됩니다.";
+"How it was decided" = "어떻게 판단했나";
+"Add to Dictionary…" = "사전에 추가…";
+"Clear" = "지우기";
+"Type a word above to see its scores." = "위에 단어를 치면 점수가 나옵니다.";
+
+/* 정보 */
+"Settings files" = "설정 파일";
+"Open Settings Folder" = "설정 폴더 열기";
+"Settings, per-app rules and the dictionary are JSON files in this folder." = "설정, 앱별 규칙, 사전은 이 폴더의 JSON 파일입니다.";
+"Araso isn't installed here, so it can't be uninstalled from this window." = "이 위치에 설치된 Araso가 아니어서 여기서는 제거할 수 없습니다.";
+"Araso Settings" = "Araso 설정";
+"Updates come from the release page: download the new version and run its install.sh." = "업데이트는 릴리스 페이지에서 받습니다. 새 버전을 내려받아 그 안의 install.sh를 실행하세요.";
+"Removes Araso from this computer; it asks for your password. Settings and learned words can go too." = "이 컴퓨터에서 Araso를 지웁니다. 암호를 묻습니다. 설정과 학습한 단어도 함께 지울 수 있습니다.";
+"Delete settings and learned words too?" = "설정과 학습한 단어도 지울까요?";
+
+/* 언어 */
+"On in every text field" = "모든 입력란에서 켜기";
+"Off: a text field starts in the keyboard layout, and Ctrl+Space turns Araso on there (fcitx5's Active By Default)." = "끄면 입력란이 키보드 자판으로 시작하고, 그 입력란에서 Ctrl+Space를 눌러야 Araso가 켜집니다. (fcitx5의 Active By Default 설정)";
+
+/* 입력기 */
+"Paused" = "일시정지";

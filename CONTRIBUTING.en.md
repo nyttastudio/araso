@@ -16,6 +16,12 @@ reviews everything, so answers can take a while.
 3. Link the issue in the PR description with `Closes #<number>`. A bot comments on a PR that isn't
    linked to an `accepted` issue, and edits that comment once it is.
 
+Labels come in three kinds ([.github/labels.yml](.github/labels.yml)): one **kind** (`bug`,
+`enhancement`, `docs`, `ci`), a **status** on issues (`accepted`, `needs-info`, `duplicate`,
+`wontfix`), and any number of **areas** (`area: korean`, `area: decision`, `platform: windows`, `platform: linux`…). An
+issue gets its kind from its form and an area from the form's dropdown; a bot gives a PR the kind and
+area labels of the issue it links and labels for the files it changes, so you don't label it yourself.
+
 Questions, install problems and security issues don't go in issues:
 
 - **Questions and install problems** go to
@@ -34,6 +40,9 @@ Araso, so they aren't mistaken for the official versions.
 - For Windows, see [docs/windows-port.md](docs/windows-port.md). Windows-only code can't run on a Mac;
   the PR's Windows CI builds and tests it. To check that the C++ compiles, use
   `windows/scripts/check-cross.sh` (zig).
+- For Linux, see [docs/linux-port.md](docs/linux-port.md). With Docker, also on a Mac,
+  `linux/scripts/typing-test/run.sh` builds, tests and types for real on a clean Ubuntu; the PR's
+  Linux CI runs the same.
 
 The words the code uses (Lingering Shift, Word, Reading…) are in [GLOSSARY.md](GLOSSARY.md). The
 fullest account of the structure and its pitfalls is [AGENTS.md](AGENTS.md), written for AI agents
@@ -49,7 +58,7 @@ swift run araso-cli -v "dkssud hello"        # English/Korean decision with scor
 ```
 
 All typing logic is in `Sources/ArasoCore`, and that's what most tests cover; `InputSession` is
-tested through `FakeTextField`. A change to `InputSession` reaches Windows too, so also run
+tested through `FakeTextField`. A change to `InputSession` reaches Windows and Linux too, so also run
 `swift test --filter ServiceTests`.
 
 ## Trying it in real typing
@@ -111,7 +120,7 @@ Put the numbers from before and after (accuracy, wrong splits) in the PR descrip
   on main rather than merging main in.
 - On your first PR, CI runs once the maintainer approves it.
 - CI (`test`) has to pass to merge. If you touched `InputSession` or `ArasoService`, check the
-  Windows CI too.
+  Windows and Linux CI too.
 - AI tools are fine. Have them read [AGENTS.md](AGENTS.md) (Claude Code reads it through
   CLAUDE.md). In the PR, write what you ran and checked yourself.
 

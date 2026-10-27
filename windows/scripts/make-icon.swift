@@ -1,8 +1,10 @@
 // Draws Araso's Windows icon: the macOS menu-bar mark (A, 아 and あ cut into rows, one per
 // language; scripts/make-icon.swift) in white on a rounded blue square, since Windows shows
 // icons as drawn, on a light or a dark taskbar alike. Writes an .ico with PNG images at the sizes
-// Windows asks for. --slash strikes it through, for the pause indicator.
-// usage: swift windows/scripts/make-icon.swift [--slash] <out.ico>
+// Windows asks for. --slash strikes it through, for the pause indicator. Given a folder instead of
+// an .ico, writes the PNGs Linux's icon theme takes (<folder>/<size>/araso.png, araso-paused.png
+// with --slash; linux/data/icons).
+// usage: swift windows/scripts/make-icon.swift [--slash] <out.ico | folder>
 import AppKit
 import CoreText
 
@@ -84,6 +86,15 @@ func png(_ pixels: Int) -> Data {
     c.restoreGState()
     NSGraphicsContext.restoreGraphicsState()
     return rep.representation(using: .png, properties: [:])!
+}
+
+if out.pathExtension != "ico" {
+    for size in [16, 22, 24, 32, 48, 64, 128, 256] {
+        let folder = out.appendingPathComponent("\(size)")
+        try! FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        try! png(size).write(to: folder.appendingPathComponent(slashed ? "araso-paused.png" : "araso.png"))
+    }
+    exit(0)
 }
 
 // ICONDIR, then one ICONDIRENTRY per image, then the PNGs.

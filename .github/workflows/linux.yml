@@ -1,0 +1,159 @@
+# The Linux input method (docs/linux-port.md): the Swift core's tests on Linux, then the bridge,
+# the fcitx5 addon and the settings window built on Ubuntu 22.04 (its glibc, fcitx5 and Qt are the
+# oldest the package runs with), their tests (typing through a fcitx5 instance), and the package
+# Araso-linux-<arch>.tar.gz for x86_64 and aarch64 (an artifact). Then real typing on a clean
+# Ubuntu 22.04 and 24.04 with only fcitx5 and apps: xdotool into a GTK field and the settings window
+# (linux/scripts/typing-test/inside.sh; 22.04 has no fcitx5 module for Qt 6, so only the field there).
+#
+# On a v<version> tag the tarballs go into the draft release that release.yml makes, as
+# Araso-linux-<arch>.tar.gz and Araso-linux-<arch>-<version>.tar.gz (the update check asks for the
+# first), once the repository variable ARASO_LINUX_RELEASE is "true".
+name: Linux
+
+on:
+  push:
+    branches: [main, 'aimdevlee/linux-*']
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: linux-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  package:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    container: swift:6.2-jammy
+    steps:
+      - name: Packages
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            git cmake ninja-build pkg-config extra-cmake-modules gettext \
+            fcitx5 libfcitx5core-dev libfcitx5config-dev libfcitx5utils-dev fcitx5-modules-dev \
+            qtbase5-dev libgl-dev
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Swift tests
+        run: swift test
+      - name: Build, test, pack
+        # The settings window on Qt 5: 22.04's Qt 6 can't take input methods.
+        run: ARASO_QT=5 sh linux/scripts/build.sh --test --tar
+      - name: Arch
+        run: echo "ARCH=$(uname -m)" >> "$GITHUB_ENV"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Araso-linux-${{ env.ARCH }}
+          path: build/linux/Araso-linux-*.tar.gz
+
+  typing:
+    needs: package
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ['ubuntu:22.04', 'ubuntu:24.04']
+        machine:
+          - runner: ubuntu-24.04
+            arch: x86_64
+          - runner: ubuntu-24.04-arm
+            arch: aarch64
+    runs-on: ${{ matrix.machine.runner }}
+    container: ${{ matrix.os }}
+    steps:
+      - name: A user's machine
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            fcitx5 fcitx5-frontend-gtk3 fcitx5-frontend-qt5 libqt5widgets5 libqt5network5 \
+            xvfb xdotool dbus-x11 dbus python3-gi gir1.2-gtk-3.0 libgtk-3-0 imagemagick fonts-noto-cjk procps
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: Araso-linux-${{ matrix.machine.arch }}
+          path: dist
+      - name: Real typing
+        run: |
+          tar -C dist -xzf "dist/Araso-linux-${{ matrix.machine.arch }}.tar.gz"
+          mkdir -p shots
+          ARASO_SHOTS="$PWD/shots" sh linux/scripts/typing-test/inside.sh "$PWD/dist/Araso-linux-${{ matrix.machine.arch }}"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: typing-${{ matrix.machine.arch }}-${{ strategy.job-index }}
+          path: shots
+
+  wayland:
+    # A Wayland session: sway without a screen, typed into by vkbd (a virtual keyboard with the US
+    # keymap), through fcitx5's GTK module and through Wayland's text-input.
+    needs: package
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            arch: x86_64
+          - runner: ubuntu-24.04-arm
+            arch: aarch64
+    runs-on: ${{ matrix.runner }}
+    container: ubuntu:24.04
+    steps:
+      - name: A user's machine with sway
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            fcitx5 fcitx5-frontend-gtk3 libqt5widgets5 libqt5network5 sway grim dbus python3-gi gir1.2-gtk-3.0 \
+            libgtk-3-0 fonts-noto-cjk procps gcc libc6-dev libwayland-dev libwayland-bin libxkbcommon-dev
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: vkbd
+        run: |
+          cd linux/scripts/typing-test
+          wayland-scanner client-header virtual-keyboard-unstable-v1.xml virtual-keyboard-unstable-v1-client-protocol.h
+          wayland-scanner private-code virtual-keyboard-unstable-v1.xml protocol.c
+          gcc -O2 -I. -o /usr/local/bin/vkbd vkbd.c protocol.c -lwayland-client -lxkbcommon
+      - uses: actions/download-artifact@v4
+        with:
+          name: Araso-linux-${{ matrix.arch }}
+          path: dist
+      - name: Real typing on Wayland
+        run: |
+          tar -C dist -xzf "dist/Araso-linux-${{ matrix.arch }}.tar.gz"
+          sh linux/scripts/typing-test/wayland.sh "$PWD/dist/Araso-linux-${{ matrix.arch }}"
+
+  release:
+    # Only once the repository variable ARASO_LINUX_RELEASE is "true".
+    needs: [typing, wayland]
+    if: startsWith(github.ref, 'refs/tags/v') && vars.ARASO_LINUX_RELEASE == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: Araso-linux-*
+          merge-multiple: true
+          path: dist
+      - name: Into the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          # release.yml makes the draft on the same tag; wait for it.
+          for i in $(seq 60); do
+            gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1 && break
+            sleep 30
+          done
+          gh release upload "$TAG" dist/*.tar.gz --clobber --repo "$REPO"

@@ -1,0 +1,163 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# .coderabbit.yaml — Araso (nyttastudio/araso) CodeRabbit 설정 초안
+# 레포 루트에 이 이름 그대로 놓고 커밋하면 다음 PR부터 적용됨. 설치 자체는 별도:
+# GitHub Marketplace에서 CodeRabbit 앱을 설치하고 araso 레포를 켜야 함.
+#
+# 핵심 선택:
+# - profile: chill — 1인 유지보수 + 외부 PR 위주라 노이즈 최소화가 우선
+# - 리뷰 언어: 한국어 (README/기여 문서가 한국어 메인이라 맞춤)
+# - AGENTS.md / CONTRIBUTING.md / GLOSSARY.md를 코드 가이드라인으로 물려서
+#   레포 규칙(용어, 결정 체인, accepted 이슈 워크플로)을 리뷰 기준으로 쓰게 함
+
+language: "ko-KR"
+
+reviews:
+  profile: "chill"
+  # CodeRabbit이 직접 Request changes로 머지를 막지 않게 — 코멘트만 달게 한다
+  request_changes_workflow: false
+  high_level_summary: true
+  # 워크스루 코멘트를 접어서 PR 페이지가 길어지지 않게
+  collapse_walkthrough: true
+  sequence_diagrams: false
+  poem: false
+  review_status: true
+
+  auto_review:
+    enabled: true
+    # 초안 PR은 리뷰하지 않음 (ready for review가 될 때부터)
+    drafts: false
+    auto_incremental_review: true
+
+  # OSS 공개 레포용: 저품질/AI 스팸 PR 자동 탐지 (판정 시 라벨 부여)
+  slop_detection:
+    enabled: true
+    label: "slop"
+
+  path_filters:
+    # 사전/트라이그램 데이터 파일 — 수집·생성 데이터라 코드 리뷰 대상이 아님
+    - "!Sources/ArasoCore/Data/**"
+    - "!Package.resolved"
+    # 미디어/바이너리 에셋
+    - "!docs/media/**"
+    - "!**/*.png"
+    - "!**/*.gif"
+    - "!**/*.ico"
+    - "!**/*.svg"
+
+  path_instructions:
+    - path: "**"
+      instructions: |
+        Araso is a macOS InputMethodKit input method (plus a Windows TSF port)
+        that decides, per word typed on a QWERTY keyboard, whether the keys are
+        English, Korean (2-set), or Japanese romaji. Most contributors are
+        external, and this repo's workflow requires a PR to start from an issue
+        the maintainer labeled `accepted` — if a PR does not link such an issue,
+        note that once, briefly.
+        Use the terminology in GLOSSARY.md exactly (e.g. "word", "lingering
+        Shift", "English-only capital"); flag code or docs that invent synonyms.
+        Focus on bugs and behavior changes that would affect real typing.
+        Do not nitpick formatting or style that the compiler, existing linters,
+        or surrounding code already settle.
+
+    - path: "Sources/ArasoCore/**"
+      instructions: |
+        This is the language-decision core. Changes flow through the decision
+        chain DictionaryEngine -> SplittingEngine -> HeuristicEngine, so any
+        scoring, bias, or threshold change can shift accuracy for every word,
+        not just the case in the PR. For scoring changes, ask for evidence:
+        a test in Tests/ArasoCoreTests or araso-cli output showing before/after.
+        Watch specifically for regressions in: lingering Shift handling,
+        English-only capitals forcing English, Korean particle splitting
+        (withParticle), and user-dictionary corrections (one correction is a
+        weak nudge, two make the word win, expiring after 30 days).
+        The decision path runs per keystroke: flag allocations, file I/O, or
+        blocking work added to it.
+
+    - path: "Sources/Araso/**"
+      instructions: |
+        This target is a thin InputMethodKit/AppKit layer over ArasoCore.
+        Flag typing or scoring logic that belongs in ArasoCore being added
+        here instead. Pay attention to IMK client connection lifecycle,
+        marked-text (composition) state handling, and main-thread blocking,
+        since a hang or crash here breaks typing in the user's frontmost app.
+
+    - path: "Sources/ArasoService/**"
+      instructions: |
+        Portable session/service layer shared by macOS and the Windows port.
+        It must stay platform-independent: flag imports of AppKit,
+        InputMethodKit, or other macOS-only frameworks.
+
+    - path: "Sources/ArasoBridge/**"
+      instructions: |
+        This builds a dynamic library that the Windows host process loads.
+        The C ABI across this boundary is a contract: flag any change to
+        exported function signatures, struct layout, string encoding, or
+        memory ownership (who frees what) as a breaking change that must be
+        matched on the C++ side in windows/host.
+
+    - path: "windows/**"
+      instructions: |
+        Windows port: a TSF text service (ArasoTip.dll) plus a host process,
+        built for x64, x86, and ARM64/ARM64X. The DLL is loaded into other
+        applications, so a crash or hang takes down the user's app, not just
+        Araso — be strict about COM reference counting, null checks after
+        QueryInterface/CoCreateInstance, TSF apartment/threading rules, and
+        the host IPC connection failing or timing out.
+        Changes under windows/installer (Inno Setup) affect upgrades of
+        existing installs; flag anything that would break in-place upgrade
+        or leave a stale TIP registered.
+
+    - path: "Tests/**"
+      instructions: |
+        Tests use Swift Testing (@Test / #expect), not XCTest. For tests,
+        focus on whether edge cases are actually covered — mixed-language
+        words, particles, lingering Shift, dictionary expiry — rather than
+        style. Do not ask for tests of trivial getters or constants.
+
+    - path: "scripts/**"
+      instructions: |
+        These scripts install into ~/Library/Input Methods, and the release
+        script signs and notarizes. Flag destructive commands (rm -rf,
+        overwriting an existing install) without guards, unquoted variable
+        expansions in paths, and anything that could leak signing identities,
+        notarization credentials, or keychain profile names into logs.
+
+    - path: ".github/workflows/**"
+      instructions: |
+        CI runs swift build/test on macOS and the Windows cross-build plus
+        typing tests. Flag: third-party actions not pinned to a commit SHA,
+        missing or overly broad `permissions:`, and secrets reachable from
+        pull_request events (especially from forks).
+
+    - path: "**/*.md"
+      instructions: |
+        README.md (Korean) is the main document and README.en.md must stay
+        in step with it; CONTRIBUTING.md / CONTRIBUTING.en.md likewise.
+        Flag user-visible behavior (keys, settings, accuracy numbers) that
+        is documented in one language but changed or missing in the other.
+        Do not nitpick grammar in either language.
+
+  tools:
+    # 레포에 .swiftlint.yml이 없어 기본 규칙으로 동작함.
+    # 노이즈가 크면 이 블록만 지우면 됨.
+    swiftlint:
+      enabled: true
+    shellcheck:
+      enabled: true
+    gitleaks:
+      enabled: true
+
+chat:
+  auto_reply: true
+
+knowledge_base:
+  opt_out: false
+  code_guidelines:
+    enabled: true
+    filePatterns:
+      - "AGENTS.md"
+      - "CONTRIBUTING.md"
+      - "GLOSSARY.md"
+  learnings:
+    # 공개 레포라 학습 범위를 이 레포로만 한정
+    scope: "local"
