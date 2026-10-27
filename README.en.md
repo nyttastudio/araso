@@ -144,9 +144,10 @@ and distributions like it (glibc 2.35 or later).
 
 1. Install fcitx5 and make it the input method framework (Ubuntu: `sudo apt install fcitx5 fcitx5-frontend-gtk3 fcitx5-frontend-gtk4 fcitx5-frontend-qt5`,
    plus `fcitx5-frontend-qt6` from 24.04 on; then `im-config -n fcitx5` and log out; 22.04 has no `fcitx5-frontend-qt6`, so Qt 6 apps don't type through it there).
-2. If the release has `Araso-linux-<arch>.tar.gz`, download it, unpack it and run its `./install.sh`.
-   Until then, install from source (Swift 6.2, CMake, fcitx5's development files and Qt 6; the list
-   is in [docs/linux-port.md](docs/linux-port.md)):
+2. Download `Araso-linux-<arch>.tar.gz` for your architecture (`uname -m`) from the
+   [Linux beta](https://github.com/nyttastudio/araso/releases/tag/linux-beta-1), unpack it and run
+   its `./install.sh`; it asks for your password. To install from source instead (Swift 6.2, CMake,
+   fcitx5's development files and Qt 6; the list is in [docs/linux-port.md](docs/linux-port.md)):
 
    ```sh
    git clone https://github.com/nyttastudio/araso && araso/linux/scripts/install.sh
