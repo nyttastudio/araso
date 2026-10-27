@@ -32,6 +32,22 @@ let trilingual = HeuristicEngine(english: sharedEngine.english, korean: sharedEn
         #expect(d.output == hangul)
     }
 
+    /// After English, keys the English list doesn't know that read as clean kana, four or more,
+    /// are a Japanese phrase: the previous word pulls at them as little as at 내가 after English.
+    @Test(arguments: [("inumanisentaku", "いぬまにせんたく"), ("haitatsuba", "はいたつば"), ("tahidari", "たひだり"), ("hashinde", "はしんで")])
+    func japanesePhraseAfterEnglish(keys: String, kana: String) {
+        let d = trilingual.decide(keys, context: DecisionContext(previousLanguage: .english))
+        #expect(d.language == .japanese && d.output == kana, "\(keys): \(d.output) \(d.explanation)")
+    }
+
+    /// Shorter clean kana after English (tai, shi, karan) are names and abbreviations more often
+    /// than Japanese, and a known English word (same, kite) is English there whatever its kana.
+    @Test(arguments: ["tai", "shi", "karan", "same", "kite", "hello", "machine"])
+    func shortOrKnownWordAfterEnglishStaysEnglish(word: String) {
+        let d = trilingual.decide(word, context: DecisionContext(previousLanguage: .english))
+        #expect(d.language == .english, "\(word): \(d.output) \(d.explanation)")
+    }
+
     @Test func japaneseContextHelpsAmbiguousWords() {
         // "kami" (紙/髪/神) after Japanese reads as Japanese.
         #expect(trilingual.decide("kamiwo", context: DecisionContext(previousLanguage: .japanese)).language == .japanese)

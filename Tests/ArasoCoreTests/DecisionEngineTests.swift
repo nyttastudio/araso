@@ -111,6 +111,34 @@ let sharedEngine = HeuristicEngine()
         }
     }
 
+    /// A capital after the first letter that the capital rule let through is a Korean shift key
+    /// (⇧O is ㅒ) or a Shift lingering from one: work typed as wOrk is nobody's English, so the
+    /// keys get no dictionary floor and 쟤가 gets its word floor, whatever came before.
+    @Test(arguments: [("wOrk", "쟤가"), ("dOrk", "얘가")])
+    func capitalOnAKoreanShiftKeyInsideAnEnglishWordIsKorean(keys: String, expected: String) {
+        for previous in [nil, Language.korean, .english] {
+            let d = sharedEngine.decide(keys, context: DecisionContext(previousLanguage: previous))
+            #expect(d.language == .korean && d.output == expected,
+                    "\(keys) after \(String(describing: previous)) → \(d.output) \(d.explanation)")
+        }
+    }
+
+    /// After English, a rare English word (SCOWL above `extraLevel`: ths, sns, dork, aha) doesn't
+    /// hold the previous word's pull against a Korean word on the same keys; an everyday one
+    /// (work 재가, go 해, did 양) still does.
+    @Test(arguments: [("ths", "손"), ("sns", "눈"), ("dork", "애가"), ("aha", "몸")])
+    func rareEnglishWordYieldsToKoreanWordAfterEnglish(keys: String, expected: String) {
+        #expect((sharedEngine.english.level(keys) ?? 0) > EnglishModel.extraLevel)
+        let d = sharedEngine.decide(keys, context: DecisionContext(previousLanguage: .english))
+        #expect(d.language == .korean && d.output == expected, "\(keys) → \(d.output) \(d.explanation)")
+    }
+
+    @Test(arguments: ["work", "go", "did", "so"])
+    func everydayEnglishWordHoldsAfterEnglish(word: String) {
+        let d = sharedEngine.decide(word, context: DecisionContext(previousLanguage: .english))
+        #expect(d.language == .english, "\(word) → \(d.output) \(d.explanation)")
+    }
+
     /// SCOWL lists its words' inflections, so a guessed one counts only for a stem the list
     /// ranks above its rarest level: thru (50, 35 as a `commonWords` slang word) + s and ahem
     /// (50) + s are no words, and their keys are 소견 and 모든. travelling and maths, from

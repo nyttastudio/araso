@@ -79,7 +79,11 @@ guards; an entry limited to apps applies to the keys as a whole, by `DecisionCon
   by the scores or the word lists, not with a rule for the case; the weights were tuned with
   `tools/eval_particles.py` and the wrong-split checks below.
 - `HeuristicEngine` scores the keys per keystroke as English, Korean and Japanese, then nudges
-  toward the previous word's language.
+  toward the previous word's language, less (`switchBiasFactor`) when the keys are a word of
+  another language: a known English word (not a rare one, SCOWL above `extraLevel`, against a
+  Korean word on the same keys: `ths` 손), a known Korean word, or clean kana of 4+ at
+  `japanesePhrase`'s score (`inumanisentaku` after English). A dictionary word with a capital on
+  a Korean shift key inside (`wOrk`, 쟤가) gets no English floor.
 - `render(_:as: .mixed)` uses the engine's split when the engine makes one, else the plain
   particle split (what an Esc-forced mixed reading shows).
 
