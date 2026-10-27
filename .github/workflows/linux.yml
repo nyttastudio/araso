@@ -2,8 +2,8 @@
 # the fcitx5 addon and the settings window built on Ubuntu 22.04 (its glibc, fcitx5 and Qt are the
 # oldest the package runs with), their tests (typing through a fcitx5 instance), and the package
 # Araso-linux-<arch>.tar.gz for x86_64 and aarch64 (an artifact). Then real typing on a clean
-# Ubuntu 24.04 with only fcitx5 and apps: xdotool into a GTK field and the settings window
-# (linux/scripts/typing-test/inside.sh).
+# Ubuntu 22.04 and 24.04 with only fcitx5 and apps: xdotool into a GTK field and the settings window
+# (linux/scripts/typing-test/inside.sh; 22.04 has no fcitx5 module for Qt 6, so only the field there).
 #
 # On a v<version> tag the tarballs go into the draft release that release.yml makes, as
 # Araso-linux-<arch>.tar.gz and Araso-linux-<arch>-<version>.tar.gz (the update check asks for the
@@ -57,34 +57,36 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
+        os: ['ubuntu:22.04', 'ubuntu:24.04']
+        machine:
           - runner: ubuntu-24.04
             arch: x86_64
           - runner: ubuntu-24.04-arm
             arch: aarch64
-    runs-on: ${{ matrix.runner }}
-    container: ubuntu:24.04
+    runs-on: ${{ matrix.machine.runner }}
+    container: ${{ matrix.os }}
     steps:
       - name: A user's machine
         run: |
           apt-get update
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-            fcitx5 fcitx5-frontend-gtk3 fcitx5-frontend-qt6 libqt6widgets6 libqt6network6 \
+            fcitx5 fcitx5-frontend-gtk3 libqt6widgets6 libqt6network6 \
             xvfb xdotool dbus-x11 dbus python3-gi gir1.2-gtk-3.0 libgtk-3-0 imagemagick fonts-noto-cjk procps
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends fcitx5-frontend-qt6 || true
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
-          name: Araso-linux-${{ matrix.arch }}
+          name: Araso-linux-${{ matrix.machine.arch }}
           path: dist
       - name: Real typing
         run: |
-          tar -C dist -xzf "dist/Araso-linux-${{ matrix.arch }}.tar.gz"
+          tar -C dist -xzf "dist/Araso-linux-${{ matrix.machine.arch }}.tar.gz"
           mkdir -p shots
-          ARASO_SHOTS="$PWD/shots" sh linux/scripts/typing-test/inside.sh "$PWD/dist/Araso-linux-${{ matrix.arch }}"
+          ARASO_SHOTS="$PWD/shots" sh linux/scripts/typing-test/inside.sh "$PWD/dist/Araso-linux-${{ matrix.machine.arch }}"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: typing-${{ matrix.arch }}
+          name: typing-${{ matrix.machine.arch }}-${{ strategy.job-index }}
           path: shots
 
   release:

@@ -142,8 +142,8 @@ The same input method, for fcitx5. Deciding words, the dictionary and learning a
 as on macOS; kanji conversion is AzooKey's. It runs on x86_64 and aarch64 with Ubuntu 22.04 or later
 and distributions like it (glibc 2.35 or later).
 
-1. Install fcitx5 and make it the input method framework (Ubuntu: `sudo apt install fcitx5 fcitx5-frontend-gtk3 fcitx5-frontend-gtk4 fcitx5-frontend-qt6`,
-   then `im-config -n fcitx5` and log out).
+1. Install fcitx5 and make it the input method framework (Ubuntu: `sudo apt install fcitx5 fcitx5-frontend-gtk3 fcitx5-frontend-gtk4 fcitx5-frontend-qt5 fcitx5-frontend-qt6`,
+   then `im-config -n fcitx5` and log out; 22.04 has no `fcitx5-frontend-qt6`, so Qt 6 apps don't type through it there).
 2. If the release has `Araso-linux-<arch>.tar.gz`, download it, unpack it and run its `./install.sh`.
    Until then, install from source (Swift 6.2, CMake, fcitx5's development files and Qt 6; the list
    is in [docs/linux-port.md](docs/linux-port.md)):

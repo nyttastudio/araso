@@ -123,6 +123,9 @@ its protocol and much of its shape.
   container, installs it on a clean Ubuntu with only fcitx5 and apps, and types into a GTK field
   and the settings window's Try Typing (Qt) with xdotool on Xvfb, through fcitx5's own GTK and Qt
   modules. Screenshots land in `build/linux/shots`.
+- The package built on 22.04 types for real on clean 22.04 (fcitx5 5.0) and 24.04 (fcitx5 5.1).
+  22.04 has no fcitx5 module for Qt 6 (`fcitx5-frontend-qt6`), so there Qt 6 apps, the settings
+  window's Try Typing among them, don't type through fcitx5.
 - Not yet checked: Wayland sessions (GNOME's, KDE's, wlroots'), a real Korean keyboard, and
   distributions other than Ubuntu.
 

@@ -31,7 +31,7 @@ for dir in /usr/lib/*-linux-gnu/fcitx5 /usr/lib64/fcitx5 /usr/lib/fcitx5; do
 done
 if [ -z "$addons" ]; then
   echo "fcitx5 isn't installed (its addon folder wasn't found). Install fcitx5 first:" >&2
-  echo "  Debian/Ubuntu: sudo apt install fcitx5 fcitx5-frontend-gtk3 fcitx5-frontend-gtk4 fcitx5-frontend-qt6" >&2
+  echo "  Debian/Ubuntu: sudo apt install fcitx5 fcitx5-frontend-gtk3 fcitx5-frontend-gtk4 fcitx5-frontend-qt5 fcitx5-frontend-qt6" >&2
   echo "  Fedora: sudo dnf install fcitx5 fcitx5-gtk fcitx5-qt   Arch: sudo pacman -S fcitx5 fcitx5-gtk fcitx5-qt" >&2
   exit 1
 fi
