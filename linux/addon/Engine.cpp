@@ -188,7 +188,8 @@ bool Engine::answer(fcitx::InputContext *ic, State *st, const Json &response) {
     if (response.has("error")) ARASO_DEBUG() << "request failed: " << response["error"].asString();
     const Json &reply = response["reply"];
     bool committed = false;
-    for (const auto &edit : st->document.apply(reply["ops"])) {
+    auto edits = st->document.apply(reply["ops"]);
+    for (const auto &edit : edits) {
         if (edit.kind == Document::Edit::Kind::Delete) {
             ic->deleteSurroundingText(edit.offset, edit.size);
         } else {
@@ -196,9 +197,9 @@ bool Engine::answer(fcitx::InputContext *ic, State *st, const Json &response) {
             committed = true;
         }
     }
-    // What the app's surrounding text will say once it hears of the edits, so the next key doesn't
-    // see the field from before them.
-    if (committed && st->document.known()) {
+    // What the app's surrounding text will say once it hears of the edits (deletions alone too), so
+    // the next key doesn't see the field from before them.
+    if (!edits.empty() && st->document.known()) {
         unsigned cursor = st->document.fieldCursor();
         ic->surroundingText().setText(st->document.fieldText(), cursor, cursor);
     }

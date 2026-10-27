@@ -141,11 +141,21 @@ void LoadModel() {
     if (model.isObject()) g.model = model;
 }
 
+/// Not while a dialog runs its own event loop: the control that opened it is still on the stack, and
+/// would go with the pane.
+void BuildPaneWhenFree() {
+    if (QApplication::activeModalWidget()) {
+        QTimer::singleShot(50, BuildPaneWhenFree);
+        return;
+    }
+    BuildPane();
+}
+
 void Rebuild() {
     // After the signal that asked for it: the control that sent it goes with the pane.
     if (rebuildQueued) return;
     rebuildQueued = true;
-    QTimer::singleShot(0, BuildPane);
+    QTimer::singleShot(0, BuildPaneWhenFree);
 }
 
 void ShowPane(int pane) {

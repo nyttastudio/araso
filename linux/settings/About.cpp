@@ -13,6 +13,7 @@
 #include <QProcess>
 #include <QPushButton>
 #include <QStandardPaths>
+#include <QTimer>
 #include <QUrl>
 
 #include <cstdlib>
@@ -32,7 +33,9 @@ void FetchRelease(QObject *owner, std::function<void(const std::string &)> done)
     QUrl url(feed && *feed ? QString(feed) : QString(kLatest));
     if (url.isLocalFile()) {
         QFile file(url.toLocalFile());
-        done(file.open(QIODevice::ReadOnly) ? file.readAll().toStdString() : std::string());
+        std::string body = file.open(QIODevice::ReadOnly) ? file.readAll().toStdString() : std::string();
+        // Later, as a reply would come: callers quit an event loop they haven't entered yet.
+        QTimer::singleShot(0, owner, [done, body] { done(body); });
         return;
     }
     auto *network = new QNetworkAccessManager(owner);
