@@ -74,8 +74,8 @@ std::string Bridge::supportFolder() {
 
 std::string Bridge::socketFolder() {
     std::string runtime = Env("XDG_RUNTIME_DIR");
-    if (runtime.empty()) runtime = "/tmp/araso-" + std::to_string(getuid());
-    return runtime + "/araso";
+    // Without a runtime folder (a bare session): one of this user's own in /tmp.
+    return runtime.empty() ? "/tmp/araso-" + std::to_string(getuid()) : runtime + "/araso";
 }
 
 std::string Bridge::version() { return ARASO_VERSION; }

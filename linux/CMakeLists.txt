@@ -1,9 +1,6 @@
 # Araso for Linux (docs/linux-port.md): the fcitx5 addon (araso.so, loaded into the fcitx5 daemon,
 # which loads the Swift libArasoBridge.so at run time) and the settings window (araso-settings, Qt 6).
-#   swift build -c release --product ArasoBridge --static-swift-stdlib
-#   cmake -S linux -B build/linux -DARASO_VERSION=0.3.4 -DARASO_BRIDGE=.build/release/libArasoBridge.so
-#   cmake --build build/linux && sudo cmake --install build/linux
-# linux/scripts/build.sh does all three.
+# linux/scripts/build.sh builds the bridge and this, and stages a package; install.sh puts it in place.
 cmake_minimum_required(VERSION 3.20)
 project(Araso LANGUAGES CXX)
 
@@ -12,14 +9,16 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(ARASO_VERSION "0.0.0" CACHE STRING "Version written into the binaries")
 set(ARASO_BRIDGE "" CACHE FILEPATH "libArasoBridge.so to install (swift build --product ArasoBridge)")
+set(ARASO_RUNTIME "" CACHE PATH "The Swift runtime libraries the bridge needs, installed beside it")
 option(ARASO_SETTINGS "Build the settings window (Qt 6 Widgets)" ON)
 option(ARASO_TESTS "Build the addon's tests" ON)
 
 find_package(Fcitx5Core 5.0 REQUIRED)
 find_package(Fcitx5Utils REQUIRED)
 
-# fcitx5 finds addons only in its own folders, so Araso goes where fcitx5 is; its own files beside.
-set(ARASO_LIBDIR "${FCITX_INSTALL_LIBDIR}/araso")
+# fcitx5 finds addons only in its own folder (which differs by distribution: install.sh finds it);
+# Araso's own files go to fixed places under fcitx5's prefix.
+set(ARASO_LIBDIR "${FCITX_INSTALL_PREFIX}/lib/araso")
 set(ARASO_DATADIR "${FCITX_INSTALL_DATADIR}/araso")
 set(ARASO_BINDIR "${FCITX_INSTALL_BINDIR}")
 configure_file(araso_config.h.in "${CMAKE_CURRENT_BINARY_DIR}/araso_config.h" @ONLY)
@@ -61,6 +60,10 @@ endif()
 if(ARASO_BRIDGE)
   install(FILES "${ARASO_BRIDGE}" DESTINATION "${ARASO_LIBDIR}")
 endif()
+if(ARASO_RUNTIME)
+  install(DIRECTORY "${ARASO_RUNTIME}/" DESTINATION "${ARASO_LIBDIR}" FILES_MATCHING PATTERN "*.so*")
+endif()
+install(PROGRAMS scripts/uninstall.sh DESTINATION "${ARASO_LIBDIR}")
 
 
 if(ARASO_SETTINGS)

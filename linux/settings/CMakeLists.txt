@@ -1,0 +1,5 @@
+find_package(Qt6 REQUIRED COMPONENTS Widgets Network)
+set(CMAKE_AUTOMOC OFF)
+add_executable(araso-settings Main.cpp Window.cpp Panes.cpp Words.cpp About.cpp)
+target_link_libraries(araso-settings PRIVATE araso_core Qt6::Widgets Qt6::Network)
+install(TARGETS araso-settings DESTINATION "${ARASO_BINDIR}")
