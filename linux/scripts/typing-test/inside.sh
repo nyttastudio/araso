@@ -81,6 +81,11 @@ expect "the right Ctrl tap pauses" "dkssud 안녕 "
 field; xdotool type --delay 80 "dkssud"; xdotool key Return; xdotool key Return
 expect "Return confirms, a second one goes to the app" "안녕
 "
+# vim's mode (scripts/vim sends it): in normal mode every key goes straight to the app.
+field; araso-settings --vim normal; sleep 0.3; xdotool type --delay 80 "dkssud "
+araso-settings --vim insert; sleep 0.3; xdotool type --delay 80 "dkssud "; araso-settings --vim off
+expect "vim's normal mode passes keys, insert mode decides" "dkssud 안녕 "
+
 echo '{"japanese": true}' > "$HOME/.config/araso/settings.json"; reload
 field; xdotool type --delay 80 "kyouha "; sleep 1; import -window root "$shots/linux-candidates.png"; xdotool key Return
 expect "Japanese: kanji from the card" "今日は"

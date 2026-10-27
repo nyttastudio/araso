@@ -34,6 +34,9 @@
 - Windows 쪽은 [docs/windows-port.md](docs/windows-port.md)를 보세요. Windows에서만 도는 코드는
   맥에서 실행할 수 없고, PR의 Windows CI가 빌드와 테스트를 맡습니다. C++ 컴파일만 확인하려면
   `windows/scripts/check-cross.sh`(zig)를 쓰세요.
+- Linux 쪽은 [docs/linux-port.md](docs/linux-port.md)를 보세요. 맥에서도 Docker만 있으면
+  `linux/scripts/typing-test/run.sh`가 빌드, 테스트, 깨끗한 Ubuntu에서의 실제 입력까지 확인합니다.
+  PR의 Linux CI도 같은 것을 돌립니다.
 
 처음 보는 용어(늦게 뗀 Shift, 단어, 읽기…)는 [GLOSSARY.md](GLOSSARY.md)에 있습니다. 코드 구조와
 주의할 점은 [AGENTS.md](AGENTS.md)에 가장 자세히 정리되어 있습니다. AI 에이전트용으로 쓴 문서지만
@@ -49,7 +52,7 @@ swift run araso-cli -v "dkssud hello"        # 영어/한국어 판단과 점수
 ```
 
 입력 로직은 모두 `Sources/ArasoCore`에 있고 테스트도 대부분 이곳을 다룹니다. `InputSession`은
-`FakeTextField`로 테스트합니다. `InputSession`을 바꿨다면 Windows에도 반영되니
+`FakeTextField`로 테스트합니다. `InputSession`을 바꿨다면 Windows와 Linux에도 반영되니
 `swift test --filter ServiceTests`도 확인하세요.
 
 ## 실제 입력으로 확인하기
@@ -110,8 +113,8 @@ PR 설명에 바꾸기 전후의 숫자(정확도, 잘못 분리된 단어 수)�
 - main은 선형 히스토리만 받습니다(squash 또는 rebase로 머지). 브랜치를 최신으로 맞출 때는 main을
   머지하지 말고 rebase 해 주세요.
 - 처음 PR을 보내면 CI는 메인테이너가 승인한 뒤에 돕니다.
-- CI(`test`)가 통과해야 머지됩니다. `InputSession`이나 `ArasoService`를 건드렸다면 Windows CI도
-  확인해 주세요.
+- CI(`test`)가 통과해야 머지됩니다. `InputSession`이나 `ArasoService`를 건드렸다면 Windows CI와
+  Linux CI도 확인해 주세요.
 - AI 도구를 써도 괜찮습니다. 이 저장소의 [AGENTS.md](AGENTS.md)를 읽게 하세요(Claude Code는
   CLAUDE.md를 거쳐 읽습니다). PR에는 직접 실행하고 확인한 결과를 적어 주세요.
 

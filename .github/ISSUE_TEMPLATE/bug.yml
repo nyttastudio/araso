@@ -36,7 +36,7 @@ body:
     id: os
     attributes:
       label: OS 버전 / OS version
-      placeholder: macOS 26.1 (Apple silicon) / Windows 11 24H2
+      placeholder: macOS 26.1 (Apple silicon) / Windows 11 24H2 / Ubuntu 24.04, KDE, Wayland
     validations:
       required: true
   - type: dropdown
@@ -48,6 +48,7 @@ body:
         - scripts/get.sh
         - scripts/install.sh (소스에서 빌드 / built from source)
         - Araso-Setup.exe (Windows)
+        - Araso-linux-*.tar.gz, linux/scripts/install.sh (Linux)
     validations:
       required: true
   - type: textarea
@@ -55,8 +56,8 @@ body:
     attributes:
       label: 바꾼 설정 / Settings you changed
       description: |
-        언어 바꾸기 키, 자판(콜맥, 세벌식…), Strict 앱 등. 도움이 되면 `~/Library/Application Support/Araso/`(Windows: `%APPDATA%\Araso`)의 `settings.json`과 `apps.json`을 붙여 주세요(`dictionary.json`은 친 단어가 들어 있으니 붙이지 마세요).
-        Switch keys, layouts (Colemak, 3-set…), Strict apps. If it helps, paste `settings.json` and `apps.json` from `~/Library/Application Support/Araso/` (Windows: `%APPDATA%\Araso`) (not `dictionary.json`: it holds words you typed).
+        언어 바꾸기 키, 자판(콜맥, 세벌식…), Strict 앱 등. 도움이 되면 `~/Library/Application Support/Araso/`(Windows: `%APPDATA%\Araso`, Linux: `~/.config/araso`)의 `settings.json`과 `apps.json`을 붙여 주세요(`dictionary.json`은 친 단어가 들어 있으니 붙이지 마세요).
+        Switch keys, layouts (Colemak, 3-set…), Strict apps. If it helps, paste `settings.json` and `apps.json` from `~/Library/Application Support/Araso/` (Windows: `%APPDATA%\Araso`, Linux: `~/.config/araso`) (not `dictionary.json`: it holds words you typed).
   - type: dropdown
     id: pr
     attributes:

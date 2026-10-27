@@ -99,13 +99,14 @@ final class Harness {
     var ui: UIState?
     var lastReply = ServiceReply()
 
-    init(settings: String? = nil, apps: String? = nil, replacements: String? = nil, app: String = "notepad.exe") throws {
+    init(settings: String? = nil, apps: String? = nil, replacements: String? = nil, app: String = "notepad.exe",
+         platform: String = "windows", asset: String? = nil) throws {
         folder = FileManager.default.temporaryDirectory.appendingPathComponent("araso-service-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         if let settings { try Data(settings.utf8).write(to: folder.appendingPathComponent("settings.json")) }
         if let apps { try Data(apps.utf8).write(to: folder.appendingPathComponent("apps.json")) }
         if let replacements { try Data(replacements.utf8).write(to: folder.appendingPathComponent("replacements.json")) }
-        runtime = ServiceRuntime(.init(support: folder.path, version: "0.2.4", language: "ko"))
+        runtime = ServiceRuntime(.init(support: folder.path, version: "0.2.4", language: "ko", platform: platform, asset: asset))
         client = runtime.handle(ServiceRequest(op: .attach, app: app)).reply.client ?? -1
         _ = send(ServiceRequest(op: .focus, client: client, app: app, context: document.context()))
     }
@@ -552,6 +553,24 @@ final class Harness {
         #expect(h.runtime.model().update?.version == "9.0.0")
         let menu = h.send(ServiceRequest(op: .menu, client: h.client)).reply.menu ?? []
         #expect(menu.contains { $0.id == "update" })
+    }
+
+    @Test func linuxNamesSuperAndUpdatesFromItsTarball() throws {
+        let h = try Harness(settings: #"{"pauseKey": "rightControl"}"#, app: "gedit", platform: "linux",
+                            asset: "Araso-linux-x86_64.tar.gz")
+        var request = ServiceRequest(op: .shortcut)
+        request.key = WindowsKey(vk: 0x50, scan: 0x19, ctrl: true, win: true)
+        #expect(h.runtime.handle(request).shortcutName == "Ctrl+Super+P")
+        let menu = h.send(ServiceRequest(op: .menu, client: h.client)).reply.menu ?? []
+        #expect(menu.first?.title.contains("Super") == true)
+        var release = ServiceRequest(op: .release)
+        release.body = #"""
+        { "tag_name": "v9.0.0", "html_url": "https://example.com/r", "body": "## 바뀐 것\n- **새 기능**: 설명\n",
+          "assets": [ { "name": "Araso-Setup.exe", "browser_download_url": "https://example.com/Araso-Setup.exe" },
+                      { "name": "Araso-linux-x86_64.tar.gz", "browser_download_url": "https://example.com/linux.tar.gz" } ] }
+        """#
+        #expect(h.runtime.handle(release).release?.installer == "https://example.com/linux.tar.gz")
+        #expect(h.runtime.model().update?.version == "9.0.0")
     }
 
     @Test func tryTypingTraceOnlyInTheHostsOwnField() throws {

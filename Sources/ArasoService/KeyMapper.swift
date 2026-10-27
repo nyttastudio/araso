@@ -17,9 +17,11 @@ import Foundation
 public enum KeyMapper {
     /// Where the keys come from: Linux (the fcitx5 addon) sends the same keys, its evdev codes
     /// being these scan codes, and names the ⌃ key Super where Windows names it Win.
-    public enum Platform: Sendable { case windows, linux }
-    nonisolated(unsafe) public static var platform = Platform.windows
-    static var superName: String { platform == .linux ? "Super" : "Win" }
+    public enum Platform: String, Sendable {
+        case windows, linux
+
+        var superName: String { self == .linux ? "Super" : "Win" }
+    }
 
     // Virtual keys (winuser.h).
     public static let vkBack = 0x08, vkTab = 0x09, vkReturn = 0x0D, vkShift = 0x10, vkControl = 0x11,
@@ -229,22 +231,22 @@ public enum KeyMapper {
     }
 
     /// How a key on Windows (or Linux) is written in the settings window (the Mac glyphs mean nothing there).
-    public static func tapName(_ tap: PauseKey.Tap) -> String {
+    public static func tapName(_ tap: PauseKey.Tap, on platform: Platform = .windows) -> String {
         switch tap {
         case .rightCommand: return "Ctrl"
         case .rightOption: return "Alt"
         case .rightShift: return "Shift"
-        case .rightControl: return superName
+        case .rightControl: return platform.superName
         }
     }
 
     /// A shortcut as Windows writes it: Ctrl+Alt+P.
-    public static func shortcutName(_ shortcut: PauseKey.Shortcut) -> String {
+    public static func shortcutName(_ shortcut: PauseKey.Shortcut, on platform: Platform = .windows) -> String {
         var parts: [String] = []
         if shortcut.modifiers.contains(.command) { parts.append("Ctrl") }
         if shortcut.modifiers.contains(.option) { parts.append("Alt") }
         if shortcut.modifiers.contains(.shift) { parts.append("Shift") }
-        if shortcut.modifiers.contains(.control) { parts.append(superName) }
+        if shortcut.modifiers.contains(.control) { parts.append(platform.superName) }
         parts.append(shortcut.key)
         return parts.joined(separator: "+")
     }

@@ -34,6 +34,9 @@ Araso, so they aren't mistaken for the official versions.
 - For Windows, see [docs/windows-port.md](docs/windows-port.md). Windows-only code can't run on a Mac;
   the PR's Windows CI builds and tests it. To check that the C++ compiles, use
   `windows/scripts/check-cross.sh` (zig).
+- For Linux, see [docs/linux-port.md](docs/linux-port.md). With Docker, also on a Mac,
+  `linux/scripts/typing-test/run.sh` builds, tests and types for real on a clean Ubuntu; the PR's
+  Linux CI runs the same.
 
 The words the code uses (Lingering Shift, Word, Reading…) are in [GLOSSARY.md](GLOSSARY.md). The
 fullest account of the structure and its pitfalls is [AGENTS.md](AGENTS.md), written for AI agents
@@ -49,7 +52,7 @@ swift run araso-cli -v "dkssud hello"        # English/Korean decision with scor
 ```
 
 All typing logic is in `Sources/ArasoCore`, and that's what most tests cover; `InputSession` is
-tested through `FakeTextField`. A change to `InputSession` reaches Windows too, so also run
+tested through `FakeTextField`. A change to `InputSession` reaches Windows and Linux too, so also run
 `swift test --filter ServiceTests`.
 
 ## Trying it in real typing
@@ -111,7 +114,7 @@ Put the numbers from before and after (accuracy, wrong splits) in the PR descrip
   on main rather than merging main in.
 - On your first PR, CI runs once the maintainer approves it.
 - CI (`test`) has to pass to merge. If you touched `InputSession` or `ArasoService`, check the
-  Windows CI too.
+  Windows and Linux CI too.
 - AI tools are fine. Have them read [AGENTS.md](AGENTS.md) (Claude Code reads it through
   CLAUDE.md). In the PR, write what you ran and checked yourself.
 
