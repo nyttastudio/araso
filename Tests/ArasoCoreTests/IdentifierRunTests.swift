@@ -121,4 +121,12 @@ import Testing
         type("kyouha_", into: japanese)
         #expect(field.text == "きょうは＿")
     }
+
+    /// A Japanese phrase shown before a digit goes in as shown, so it is a word: a switch is learned.
+    @Test func aJapanesePhraseBeforeADigitIsAWord() {
+        type("kyouha1", into: japanese)
+        #expect(field.text == "きょうは1")
+        type("⎋ ", into: japanese)
+        #expect(learning.pending["kyouha"] != nil)
+    }
 }

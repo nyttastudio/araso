@@ -651,7 +651,7 @@ public final class InputSession {
             client.insertText(word.text, replacing: nil)
             lastCommit = Committed(keys: word.keys, decided: word.decided, committedAs: word.language,
                                    language: word.language, text: word.text + String(ch), boundary: String(ch),
-                                   location: location, previous: previous, asTyped: asTyped)
+                                   location: location, previous: previous, asTyped: word.asTyped)
             noteRun(word.text + String(ch))
             afterKoreanSymbol = KoreanLayout.current.isSebeolsik && word.language.sentenceLanguage == .korean
                 && ch != " " && !inURLRun
@@ -1591,11 +1591,15 @@ public final class InputSession {
         // word. A short word reads as the start of a longer Japanese one while typed and as
         // English once it ends (zi showed 地 and zio じお, then went in as "zi", "zio"), and a
         // Strict app's short token kept English would go in as letters under its kana (ka under か).
+        // The word goes in as shown, not as typed: a word again (kyouha before a digit stays きょうは).
         if shown == .japanese, d.language == .english,
            !EnglishModel.shared.isKnownWord(keys), RomajiComposer.compose(keys).isClean {
+            asTyped = nil
             return shown
         }
-        return isWeakFlipAllowed(to: d, from: shown) ? d.language : shown
+        if isWeakFlipAllowed(to: d, from: shown) { return d.language }
+        asTyped = nil
+        return shown
     }
 
     /// Whether `decision` may replace the reading on screen: when it's confident, when it's
@@ -1810,8 +1814,9 @@ public final class InputSession {
     }
 
     /// Decides the current word, learns an Esc override, and resets the buffer.
-    private func finishWord() -> (keys: String, text: String, language: Language, decided: Language) {
+    private func finishWord() -> (keys: String, text: String, language: Language, decided: Language, asTyped: AsTyped?) {
         let engineChoice = committedLanguage()
+        let asTyped = asTyped // later decides (the remembered word's note) don't change it
         let language = forced ?? pinned ?? engineChoice
         if language != .japanese { dropNMarker() }
         // "Back to kana" without the user's Esc, or a reading kept while deleting, isn't a
@@ -1823,7 +1828,7 @@ public final class InputSession {
         liveSuppressed = false
         liveKept = nil
         noteBrackets(in: text)
-        let word = (keys, text, language, decided)
+        let word = (keys, text, language, decided, asTyped)
         previousLanguage = language.sentenceLanguage
         keys = ""
         ending = nil
