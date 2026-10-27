@@ -40,6 +40,7 @@ area_label() {
     설치*) echo "area: install" ;;
     설정*) echo "area: settings" ;;
     Windows*) echo "platform: windows" ;;
+    Linux*) echo "platform: linux" ;;
     esac
 }
 

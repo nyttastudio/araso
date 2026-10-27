@@ -18,7 +18,7 @@
 
 라벨은 세 가지입니다([.github/labels.yml](.github/labels.yml)). **종류**(`bug`, `enhancement`, `docs`,
 `ci`)는 하나만, **상태**(`accepted`, `needs-info`, `duplicate`, `wontfix`)는 이슈에,
-**영역**(`area: korean`, `area: decision`, `platform: windows` 등)은 여러 개 붙습니다. 이슈는 양식에서
+**영역**(`area: korean`, `area: decision`, `platform: windows`, `platform: linux` 등)은 여러 개 붙습니다. 이슈는 양식에서
 종류를, 영역 드롭다운에서 영역을 받고, PR은 연결한 이슈의 종류·영역 라벨과 바꾼 파일에 따른 라벨을
 봇이 붙여 주므로 직접 붙이지 않아도 됩니다.
 

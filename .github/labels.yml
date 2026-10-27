@@ -3,8 +3,8 @@
 # to be deleted by hand. Three kinds (CONTRIBUTING.md):
 #   kind    one per issue or PR: bug, enhancement, docs, ci
 #   status  where an issue stands: accepted (issue-first.yml reads it), needs-info, duplicate, wontfix
-#   area    what it touches, any number: `area: …`, `platform: windows`
-# A PR gets its kind and area labels from the issues it closes, and docs, ci, platform: windows and
+#   area    what it touches, any number: `area: …`, `platform: windows`, `platform: linux`
+# A PR gets its kind and area labels from the issues it closes, and docs, ci, the platforms and
 # area: install from the files it changes (`.github/labeler.yml`). An issue gets its kind from its
 # form and an area from the form's dropdown (`.github/scripts/labels.sh`).
 
@@ -67,3 +67,6 @@
 - name: "platform: windows"
   color: 5319e7
   description: Windows 버전 / The Windows port
+- name: "platform: linux"
+  color: 5319e7
+  description: Linux 버전 (fcitx5) / The Linux port (fcitx5)

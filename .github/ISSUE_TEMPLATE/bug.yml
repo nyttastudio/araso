@@ -31,6 +31,7 @@ body:
         - 설치, 업데이트 / Install, updates
         - 설정 / Settings
         - Windows
+        - Linux
         - 잘 모르겠음 / Not sure
   - type: input
     id: app

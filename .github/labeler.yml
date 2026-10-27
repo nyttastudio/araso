@@ -16,6 +16,10 @@ ci:
   - changed-files:
       - any-glob-to-any-file: ['windows/**', 'Sources/ArasoBridge/**', 'Sources/ArasoService/**']
 
+"platform: linux":
+  - changed-files:
+      - any-glob-to-any-file: ['linux/**', 'Sources/ArasoBridge/**', 'Sources/ArasoService/**', '.github/workflows/linux.yml']
+
 "area: install":
   - changed-files:
       - any-glob-to-any-file:
@@ -28,6 +32,8 @@ ci:
           - scripts/pkg/**
           - scripts/pkg-reset/**
           - windows/installer/**
+          - linux/scripts/install.sh
+          - linux/scripts/uninstall.sh
           - Sources/Araso/Registration.swift
           - Sources/Araso/Uninstaller.swift
           - Sources/Araso/Updater.swift
