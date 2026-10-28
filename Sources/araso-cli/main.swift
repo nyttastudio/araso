@@ -74,6 +74,19 @@ case "--kana":
         print("\(r.text)\t\(r.strayLetters)")
     }
     exit(0)
+case "--split":
+    // keys per line → "keys<TAB>split text or -<TAB>lead<TAB>detail": `ParticleSplitter.scored`, for tuning
+    // the English + particle and English + Korean word splits (--japanese: Japanese particles too).
+    let withJapanese = args.count > 1 && args[1] == "--japanese"
+    let splitter = ParticleSplitter(english: .shared, japanese: withJapanese ? JapaneseModel.shared : nil)
+    while let keys = readLine() {
+        if let scored = splitter.scored(keys, japaneseOn: withJapanese) {
+            print("\(keys)\t\(scored.split.text)\t\(String(format: "%+.2f", scored.lead))\t\(scored.detail)")
+        } else {
+            print("\(keys)\t-\t\t")
+        }
+    }
+    exit(0)
 case "--decide":
     // Optional: --decide --japanese [offset]
     let withJapanese = args.count > 1 && args[1] == "--japanese"

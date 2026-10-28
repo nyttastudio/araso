@@ -553,6 +553,8 @@ in as typed, in English with half-width symbols, until the next space (`https://
   reading the whole token as Hangul or as English. The more common the English word (or an acronym
   or name typed in capitals) and the less the whole reads as a Korean word, the likelier the split.
   - `githubdp` → `github에`, `UIrkxdmsrjs` → `UI같은건`, `formdptj` → `form에서` (래그 is no word).
+    A name the list doesn't know splits before a core particle when it starts with a capital:
+    `Arasork` → `Araso가`, `Escfmf` → `Esc를`.
     `gosemfdmf` stays `핸들을`.
   - Of 은/는, 을/를 and 이/가, the form that fits the end of the word before counts as likelier. An
     acronym ends as its last letter is said (`TMdms` → `TM은`, 티엠), and whole Hangul with the wrong
