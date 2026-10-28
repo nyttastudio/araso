@@ -246,21 +246,20 @@ import Testing
         #expect(session.fixing?.pieces.count == 3)
     }
 
-    /// A text view that marks at the caret whatever range is named (macOS's): only with the caret at
-    /// the word's start, as ⌥← leaves it.
+    /// A text view that marks at the caret whatever range is named (macOS's): with the caret anywhere
+    /// in a word, the line from it is marked at the word's start and the caret is at the end again.
     @Test func whereMarkedTextGoesAtTheCaret() {
         field.marksFromCaret = true
         type("hello world again ")
         caret(at: 8) // inside world
         session.handle(.cycle, client: field)
-        #expect(session.fixing == nil)
-        #expect(field.text == "hello world again ")
-        caret(at: 6) // its start
-        session.handle(.cycle, client: field)
         #expect(field.text == "hello \(korean("world")) again ")
-        #expect(field.marked.location == 6)
+        #expect(field.marked == NSRange(location: 6, length: (field.text as NSString).length - 6))
+        #expect(field.cursor == (field.text as NSString).length)
+        session.handle(.right, client: field) // and the range can change
+        #expect(field.text == "hello \(korean("world")) \(korean("again")) ")
         session.handle(.enter, client: field)
-        #expect(field.text == "hello \(korean("world")) again ")
+        #expect(field.marked.location == NSNotFound)
         caret(at: 0)
         #expect(!session.caretMoved(client: field)) // hello is sure: no list
     }
@@ -420,5 +419,24 @@ import Testing
         session.handle(.enter, client: field)
         #expect(field.text.hasPrefix("hel"))
         #expect(session.fixing == nil)
+    }
+
+    /// The field's first word has no character before it to move the caret with: there it is
+    /// switched where it is, the caret at its end, and the switch key goes on cycling it.
+    @Test func switchInPlaceFromAnywhereInTheFirstWord() {
+        field.marksFromCaret = true
+        type("hello world ")
+        caret(at: 2) // he|llo
+        #expect(session.handle(.cycle, client: field))
+        let hello = korean("hello")
+        #expect(field.text == "\(hello) world ")
+        #expect(field.cursor == (hello as NSString).length)
+        #expect(field.marked.location == NSNotFound)
+        #expect(session.readings?.texts == ["hello", hello])
+        session.handle(.cycle, client: field)
+        #expect(field.text == "hello world ")
+        session.handle(.cycle, client: field)
+        session.handle(.other, client: field) // closes it: learned
+        #expect(session.engine.correctedOnce("hello", app: nil) == .korean)
     }
 }

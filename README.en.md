@@ -343,10 +343,12 @@ next reading, and pressing it again keeps cycling. Deleting the space or punctua
 that chance; any other key ends it. This needs the caret still right after the word, and an app that
 lets Araso read the text there.
 
-A word earlier in the line can be fixed too. Put the caret at its start with ⌥← and tap right ⌥ (or
-⇧Esc, or ⌥Space if chosen): the line from that word to its end is underlined again, the word read
-the next way (macOS text views put marked text at the caret, so the caret has to be at the word's
-start). Tapping again keeps cycling, and as in
+A word earlier in the line can be fixed too. Put the caret anywhere in it (click, ⌥←, ⌥→) and tap
+right ⌥ (or ⇧Esc, or ⌥Space if chosen): the line from that word to its end is underlined again, the
+word read the next way, the caret at the end of the line. The field's first word is underlined only
+with the caret before it, and switched in place, without an underline, from anywhere else in it
+(macOS text views put marked text at the caret, and moving the caret there needs a character before
+the word). Tapping again keeps cycling, and as in
 Japanese conversion the thick underline is the part being fixed: → makes it a key longer, taking in
 the next word past the end of one (`dkssud gktpdy` → `안녕 하세요`); ← makes it shorter, and a cut
 inside a word leaves the rest of its keys to be read on their own (`hellofmf` → `hello` + `를`).

@@ -133,8 +133,12 @@ tests use `FakeTextField`). It owns the preview and hysteresis, commits, Esc rea
   with one insert over the marked text, so the caret ends where it was typing. One mark and one
   insert because macOS text views mark and insert at the caret whatever range is named (the
   settings window's typing pane and Notes: real keys, 2026-10-28; marking with the caret elsewhere
-  lost text in both); for the same reason the caret has to be at
-  the word's start there (`TextClient.marksFromCaret`, as ⌥← leaves it). ⇧← on the word being typed,
+  lost text in both). So where `TextClient.marksFromCaret` (macOS), a caret elsewhere in the word is
+  moved first by inserts that start or end at the caret, which go where they say: the rest of the line
+  over itself, then the line from the word replaced by the character before it, and the line marked at
+  the word's start (Notes, real keys, 2026-10-29). The field's first word has no such character: from
+  inside it, `switchInPlace` switches it as the word just committed is (no mark; `Committed.inLine`
+  updates its `recent` entry when the window closes). ⇧← on the word being typed,
   or ←/→ right after a switch key changed it, makes it a fix (`startFixingTyped`; `Key.shiftLeft`/
   `.shiftRight`, elsewhere ←/→). Not the word just committed: marking it needs the caret moved
   back first, and an insert to do that right after the switch key's went in at the caret (Notes and

@@ -199,6 +199,9 @@ public final class InputSession {
         /// The key as typed when `boundary` is 3-set's symbol for it (B for ?): what the boundary
         /// goes back to when the word is switched out of Korean (지냈어? → ldhr2jtB).
         var typedBoundary: String?
+        /// A word earlier in the line switched where it is (`switchInPlace`): its place in `recent`
+        /// and its length before, so the window closing updates it there instead of adding it.
+        var inLine: (index: Int, length: Int)?
 
         /// The same word after Delete took back its boundary character.
         var withoutBoundary: Committed {
@@ -516,6 +519,7 @@ public final class InputSession {
         }
         // Only a switch key proper: an Esc after the flip window is more often the app's (a popup, vim).
         if key == .cycle, keys.isEmpty, startFixing(client) { return true }
+        if key == .cycle, keys.isEmpty, switchInPlace(client) { return true }
 
         switch key {
         case .letter(let ch):
@@ -1009,8 +1013,61 @@ public final class InputSession {
         var fixing = Fixing(start: entry.location, original: original, shown: original, firstEntry: index,
                             pieces: pieces, trailing: trailing, language: next)
         closeFlipWindow()
-        showFixing(&fixing, client, replacing: NSRange(location: entry.location, length: utf16(original)))
+        if client.marksFromCaret, at != entry.location {
+            // Marked text goes at the caret here, whatever range is named, while an insert that starts
+            // or ends at the caret goes where it says. So: the rest of the line over itself (the caret
+            // at its end), then the line from the word gone with the character before it put back (the
+            // caret at the word's start), then the line marked there, the caret at its end again.
+            // Without a character before the word (the field's start) it is switched in place instead.
+            guard let before = characterBefore(entry.location, client) else { return false }
+            if at < end, let rest = client.text(in: NSRange(location: at, length: end - at)) {
+                client.insertText(rest, replacing: NSRange(location: at, length: end - at))
+            }
+            client.insertText(before.text, replacing: NSRange(location: before.range.location, length: end - before.range.location))
+            showFixing(&fixing, client)
+        } else {
+            showFixing(&fixing, client, replacing: NSRange(location: entry.location, length: utf16(original)))
+        }
         self.fixing = fixing
+        return true
+    }
+
+    /// The character just before `location` and where it is, if the field has one there.
+    private func characterBefore(_ location: Int, _ client: TextClient) -> (text: String, range: NSRange)? {
+        let from = max(0, location - 4)
+        guard location > 0, let text = client.text(in: NSRange(location: from, length: location - from)),
+              let last = text.last else { return nil }
+        let length = utf16(String(last))
+        return (String(last), NSRange(location: location - length, length: length))
+    }
+
+    /// A word of the line the caret is in or at the end of, switched where it is, as the word just
+    /// committed is: the rest of the word put back over itself first, so the caret is at its end
+    /// (an insert from the caret goes where it says, in macOS text views too), then the word in its
+    /// next reading over the range up to the caret. No marked text, so no ←/→; the switch key goes
+    /// on cycling it, and the next key closes it, learned as a switch right after a commit is.
+    private func switchInPlace(_ cased: TextClient) -> Bool {
+        let client = Self.uncased(cased)
+        let caret = client.selectedRange()
+        guard conversion == nil, client.marksAnywhere, !recent.isEmpty, caret.location != NSNotFound,
+              caret.length == 0 else { return false }
+        let at = caret.location
+        func word(_ entry: Committed) -> String { String(entry.text.dropLast(entry.boundary.count)) }
+        guard let index = recent.lastIndex(where: { $0.location <= at && at <= $0.location + utf16(word($0)) })
+        else { return false }
+        let entry = recent[index], text = word(entry), end = entry.location + utf16(text)
+        guard client.text(in: NSRange(location: entry.location, length: utf16(text))) == text else { return false }
+        if at < end {
+            let rest = (text as NSString).substring(from: at - entry.location)
+            client.insertText(rest, replacing: NSRange(location: at, length: end - at))
+        }
+        var pending = Committed(keys: entry.keys, decided: entry.decided, committedAs: entry.language,
+                                language: entry.language, text: text, boundary: "", location: entry.location,
+                                previous: entry.previous, learns: entry.learns)
+        pending.inLine = (index, utf16(text))
+        guard let changed = cycle(pending, client: client) else { return false }
+        lastCommit = changed
+        readings = readings(of: changed.keys, as: changed.language, decided: changed.decided, rendered: committedReading)
         return true
     }
 
@@ -1064,9 +1121,8 @@ public final class InputSession {
         guard !recent.isEmpty, caret.location != NSNotFound, caret.length == 0 else { return nil }
         let at = caret.location
         func wordEnd(_ entry: Committed) -> Int { entry.location + utf16(entry.text) - utf16(entry.boundary) }
-        let found = client.marksFromCaret ? recent.lastIndex(where: { $0.location == at })
-            : recent.lastIndex(where: { $0.location <= at && at <= wordEnd($0) })
-                ?? recent.lastIndex(where: { $0.location + utf16($0.text) == at })
+        let inWord = recent.lastIndex(where: { $0.location <= at && at <= wordEnd($0) })
+        let found = client.marksFromCaret ? inWord : inWord ?? recent.lastIndex(where: { $0.location + utf16($0.text) == at })
         guard let index = found else { return nil }
         // The word itself: a text service sends nothing after the caret, and a space is a space.
         let entry = recent[index], word = String(entry.text.dropLast(entry.boundary.count))
@@ -2401,10 +2457,12 @@ public final class InputSession {
         let text = committedReading(commit.keys, as: language) + commit.boundary(in: language)
         client.insertText(text, replacing: range)
         if runText.hasSuffix(commit.text) { runText = String(runText.dropLast(commit.text.count)) + text }
-        previousLanguage = language.sentenceLanguage
-        return Committed(keys: commit.keys, decided: commit.decided, committedAs: commit.committedAs,
-                         language: language, text: text, boundary: commit.boundary, location: commit.location,
-                         previous: commit.previous, learns: commit.learns, typedBoundary: commit.typedBoundary)
+        if commit.inLine == nil { previousLanguage = language.sentenceLanguage }
+        var changed = Committed(keys: commit.keys, decided: commit.decided, committedAs: commit.committedAs,
+                                language: language, text: text, boundary: commit.boundary, location: commit.location,
+                                previous: commit.previous, learns: commit.learns, typedBoundary: commit.typedBoundary)
+        changed.inLine = commit.inLine
+        return changed
     }
 
     private func closeFlipWindow() {
@@ -2417,6 +2475,18 @@ public final class InputSession {
     private func finalize(_ commit: Committed) {
         if commit.learns, commit.language != commit.committedAs {
             record(commit.keys, as: commit.language, engineChoice: commit.decided)
+        }
+        if let line = commit.inLine {
+            // Switched where it is: the entry takes the new word, with its own space, and the words
+            // after it move by the difference.
+            guard recent.indices.contains(line.index) else { return }
+            let old = recent[line.index], delta = utf16(commit.text) - line.length
+            recent[line.index] = Committed(keys: old.keys, decided: old.decided, committedAs: commit.language,
+                                           language: commit.language, text: commit.text + old.boundary,
+                                           boundary: old.boundary, location: old.location, previous: old.previous,
+                                           learns: old.learns, typedBoundary: old.typedBoundary)
+            for i in recent.indices where i > line.index { recent[i] = recent[i].moved(by: delta) }
+            return
         }
         forgetRecent(from: commit.location) // what was there or after it has moved (typed over, typed before)
         recent.append(commit)
