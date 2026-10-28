@@ -12,6 +12,7 @@ import Testing
     init() {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("araso-fixing-\(UUID().uuidString).json")
         session = InputSession(engine: DictionaryEngine(base: sharedEngine, storeURL: url))
+        field.insertsOverMarked = true // as a real text view does
     }
 
     func type(_ s: String) {
@@ -34,7 +35,8 @@ import Testing
         #expect(session.handle(.cycle, client: field))
         let fixed = korean("hello")
         #expect(field.text == "\(fixed) world ")
-        #expect(field.marked == NSRange(location: 0, length: (fixed as NSString).length))
+        // The line from the word on is marked; the word is the thick clause.
+        #expect(field.marked == NSRange(location: 0, length: (field.text as NSString).length))
         #expect(field.selectedClause == NSRange(location: 0, length: (fixed as NSString).length))
         #expect(session.handle(.enter, client: field))
         #expect(field.text == "\(fixed) world ")
@@ -224,5 +226,42 @@ import Testing
         #expect(seen.first == .korean)
         #expect(seen.contains(.english))
         #expect(session.readings?.languages[session.readings!.selected] == session.fixing?.language)
+    }
+
+    /// Text deleted or typed over takes the words there out of the list: the same text typed again
+    /// in the same place is fixed as the new words it is, not as the old ones.
+    @Test func wordsDeletedOrTypedOverAreForgotten() {
+        type("hello world ")
+        caret(at: 0)
+        session.handle(.cycle, client: field)
+        session.handle(.enter, client: field)
+        // The field emptied the way ⌘A and Delete do.
+        field.text = (field.text as NSString).substring(to: 0)
+        caret(at: 0)
+        #expect(!session.handle(.delete, client: field))
+        type("hello world again ")
+        caret(at: 0)
+        session.handle(.cycle, client: field)
+        #expect(field.marked == NSRange(location: 0, length: (field.text as NSString).length))
+        #expect(session.fixing?.pieces.count == 3)
+    }
+
+    /// A text view that marks at the caret whatever range is named (macOS's): only with the caret at
+    /// the word's start, as ⌥← leaves it.
+    @Test func whereMarkedTextGoesAtTheCaret() {
+        field.marksFromCaret = true
+        type("hello world again ")
+        caret(at: 8) // inside world
+        session.handle(.cycle, client: field)
+        #expect(session.fixing == nil)
+        #expect(field.text == "hello world again ")
+        caret(at: 6) // its start
+        session.handle(.cycle, client: field)
+        #expect(field.text == "hello \(korean("world")) again ")
+        #expect(field.marked.location == 6)
+        session.handle(.enter, client: field)
+        #expect(field.text == "hello \(korean("world")) again ")
+        caret(at: 0)
+        #expect(!session.caretMoved(client: field)) // hello is sure: no list
     }
 }

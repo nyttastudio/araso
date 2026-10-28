@@ -625,6 +625,9 @@ private final class IMKClient: TextClient {
     func text(in range: NSRange) -> String? {
         input.attributedSubstring(from: range)?.string
     }
+
+    /// The settings window's text view marked at the caret, not where the range named started.
+    var marksFromCaret: Bool { true }
 }
 
 extension NSEvent.ModifierFlags {

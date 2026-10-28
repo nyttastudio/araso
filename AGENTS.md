@@ -124,13 +124,16 @@ tests use `FakeTextField`). It owns the preview and hysteresis, commits, Esc rea
   entry's `escapeToApp` (0.1.8 and earlier) still applies until the entry names its own `switchKeys`.
 - Words of the line can be fixed later (`Fixing`, `FixingTests`): `finalize` keeps each word that
   went in with a boundary in `recent` (20, cleared by Return and `activate`, kept across clicks and
-  arrows, each checked against the field when used). A `.cycle` (not Esc, often the app's) with the
-  caret on one, or right after its space, marks it again where it is, read the next way; the
-  switch key cycles the clause, ←/→ resize it as in kanji conversion (whole next words past a
-  word's end, a cut inside one leaving the rest read on its own), Return on a cut settles the front,
-  Esc and Delete revert, a mark the app didn't put there drops the fix untouched (`markLanded`),
-  and anything else confirms by putting the fix and the rest of the line in at once
-  (`replaceThroughEnd`), so the caret ends where it was typing. Only through the field itself
+  arrows, each checked against the field when used; text deleted or typed over drops the words from
+  there, `forgetRecent`). A `.cycle` (not Esc, often the app's) with the caret on one marks the line
+  from it to its end (`trailing`) again, the word read the next way; the switch key cycles the
+  clause, ←/→ resize it as in kanji conversion (the next words past a word's end, a cut inside one
+  leaving the rest read on its own), Return on a cut settles the front, Esc and Delete revert, a
+  mark the app didn't put there drops the fix untouched (`markLanded`), and anything else confirms
+  with one insert over the marked text, so the caret ends where it was typing. One mark and one
+  insert because macOS text views mark and insert at the caret whatever range is named (the
+  settings window's typing pane: real keys, 2026-10-28); for the same reason the caret has to be at
+  the word's start there (`TextClient.marksFromCaret`, as ⌥← leaves it). Only through the field itself
   (`uncased`: Caps Lock's client would change the rest of the line). `caretMoved` lists an unsure
   word's readings (`fixHintConfidence`) after an arrow the app took. Not where a composition is only
   at the caret (`TextClient.marksAnywhere`, `TextContext.marksAtCaret`: fcitx5, Windows floating).

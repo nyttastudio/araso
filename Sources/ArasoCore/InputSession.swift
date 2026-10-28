@@ -18,10 +18,15 @@ public protocol TextClient: AnyObject {
     /// in the line needs (fcitx5's preedit, and a word Windows keeps out of a classic app's field,
     /// are always at the caret).
     var marksAnywhere: Bool { get }
+    /// Marked text with a range to replace goes where the caret is, whatever range is named (macOS's
+    /// text views, the settings window's at least): marking a word away from the caret has to move
+    /// the caret to it first.
+    var marksFromCaret: Bool { get }
 }
 
 public extension TextClient {
     var marksAnywhere: Bool { true }
+    var marksFromCaret: Bool { false }
 
     /// A client that draws no clauses shows the plain marked text.
     func setMarkedText(_ text: String, selectedClause: NSRange, replacing range: NSRange?) {
@@ -534,7 +539,16 @@ public final class InputSession {
                 updatePreview(client)
                 return true
             }
-            guard !keys.isEmpty else { noteDeleted(); return false }
+            guard !keys.isEmpty else {
+                // The app deletes the selection, or the character before the caret: the words from
+                // there on aren't where they were.
+                let selection = client.selectedRange()
+                if selection.location != NSNotFound {
+                    forgetRecent(from: selection.length > 0 ? selection.location : max(0, selection.location - 1))
+                }
+                noteDeleted()
+                return false
+            }
             let shown = forced ?? pinned ?? previewLanguage
             if forced == nil { pinned = shown }
             switch shown {
@@ -888,12 +902,16 @@ public final class InputSession {
     // MARK: - Fixing past words
 
     /// Words typed earlier in the line, fixed where they are: a switch key with the caret on one
-    /// (anywhere in it, or right after its space) brings it back as marked text, read the next
-    /// way, the part being fixed (the clause) drawn thick. The switch key goes on cycling the
-    /// clause; ←/→ make it a key shorter or longer, taking in the next word past the end of one,
-    /// and leaving the rest of a word to be read on its own when shorter (Araso|를); Return on such
-    /// a part settles it and goes on with the rest; Esc puts everything back. Return or any other
-    /// key confirms, and the caret goes back to the end of the text, as before the fix.
+    /// (anywhere in it, or right after its space) marks the line from that word to its end again,
+    /// the word read the next way and drawn thick (the clause), the words after it thin, as they
+    /// are. The switch key goes on cycling the clause; ←/→ make it a key shorter or longer, taking
+    /// in the next word past the end of one, and leaving the rest of a word to be read on its own
+    /// when shorter (Araso|를); Return on such a part settles it and goes on with the rest; Esc puts
+    /// everything back. Return or any other key confirms: the marked text goes in, so the caret is
+    /// at the end of the line again. Marking the whole rest of the line from the start is what
+    /// keeps that one insert: a text view marks or inserts where it likes right after an insert,
+    /// whatever range is named (the settings window's did), so nothing is re-marked or put back
+    /// over a range on the way.
     public struct Fixing {
         struct Piece {
             let keys: String
@@ -914,14 +932,16 @@ public final class InputSession {
         /// Where the marked text starts in the field.
         let start: Int
         /// What the marked text took the place of, put back by Esc.
-        var original: String
+        let original: String
         /// What the marked text shows now.
         var shown: String
-        /// Where the text the caret goes back to ends, in the field as it was before the fix.
-        let end: Int
         /// Index in `recent` of the first piece's word; the pieces follow it there.
         let firstEntry: Int
+        /// The words of the line from the one fixed on, one after another.
         var pieces: [Piece]
+        /// What follows the last piece to the end of the line, as it is: its space or symbol, and
+        /// whatever Araso didn't type there.
+        let trailing: String
         /// Text a Return settled from the front of the first piece (Araso, then 를 is fixed).
         var settled = ""
         /// How many pieces the clause takes in, from the first.
@@ -936,39 +956,70 @@ public final class InputSession {
     }
 
     /// The word the caret is on, or right after the space of, among the words of the line that
-    /// are still as they went in; then its next reading in its place, as marked text.
+    /// are still as they went in; then the line from it marked, the word read its next way.
     private func startFixing(_ cased: TextClient) -> Bool {
         let client = Self.uncased(cased)
         guard conversion == nil, client.marksAnywhere, let (index, at) = touchedEntry(client) else { return false }
         let entry = recent[index]
+        func piece(_ entry: Committed) -> Fixing.Piece {
+            Fixing.Piece(keys: entry.keys, decided: entry.decided, language: entry.language,
+                         text: String(entry.text.dropLast(entry.boundary.count)), boundary: entry.boundary,
+                         typedBoundary: entry.typedBoundary, learns: entry.learns)
+        }
         func intact(_ entry: Committed) -> Bool {
             client.text(in: NSRange(location: entry.location, length: utf16(entry.text))) == entry.text
         }
-        let piece = Fixing.Piece(keys: entry.keys, decided: entry.decided, language: entry.language,
-                                 text: String(entry.text.dropLast(entry.boundary.count)), boundary: entry.boundary,
-                                 typedBoundary: entry.typedBoundary, learns: entry.learns)
         let next = entry.language.next(for: entry.keys, japanese: japaneseEnabled, splits: engineSplits(entry.keys))
         guard next != entry.language else { return false }
-        // The caret goes back past the last word of the line still in place, or stays where it is.
-        let last = recent[index...].last(where: intact).map { $0.location + utf16($0.text) } ?? at
-        var fixing = Fixing(start: entry.location, original: piece.text, shown: piece.text, end: max(at, last),
-                            firstEntry: index, pieces: [piece], language: next)
+        // The words after it, while each follows the one before and is as it went in.
+        var pieces = [piece(entry)]
+        var wordEnd = entry.location + utf16(pieces[0].text)
+        var following = entry.location + utf16(entry.text)
+        for later in recent.dropFirst(index + 1) {
+            guard later.location == following, intact(later) else { break }
+            pieces.append(piece(later))
+            wordEnd = later.location + utf16(pieces[pieces.count - 1].text)
+            following = later.location + utf16(later.text)
+        }
+        // The line's end: past the last of them and anything typed after it, up to a line break.
+        var end = max(at, wordEnd)
+        if let after = readTrailing(client, from: wordEnd) { end = max(end, wordEnd + utf16(after)) }
+        guard let original = client.text(in: NSRange(location: entry.location, length: end - entry.location)),
+              let trailing = client.text(in: NSRange(location: wordEnd, length: end - wordEnd)) else { return false }
+        var fixing = Fixing(start: entry.location, original: original, shown: original, firstEntry: index,
+                            pieces: pieces, trailing: trailing, language: next)
         closeFlipWindow()
-        showFixing(&fixing, client, replacing: NSRange(location: entry.location, length: utf16(piece.text)))
+        showFixing(&fixing, client, replacing: NSRange(location: entry.location, length: utf16(original)))
         self.fixing = fixing
         return true
     }
 
+    /// The text after `location` up to the end of its line, as far as the field gives it.
+    private func readTrailing(_ client: TextClient, from location: Int) -> String? {
+        for length in stride(from: Self.trailingLookAhead, through: 0, by: -1) {
+            guard let text = client.text(in: NSRange(location: location, length: length)) else { continue }
+            return String(text.prefix { $0 != "\n" && $0 != "\r" && $0 != "\u{2028}" })
+        }
+        return nil
+    }
+
+    /// How far after the last word the line is read for its end (UTF-16 units).
+    private static let trailingLookAhead = 64
+
     /// The word of the line the caret is on (anywhere in it) or right after the space of, if it is
     /// still as it went in: its index in `recent`, and where the caret is. Where the field is read
-    /// only up to the caret (Windows), the caret has to be after the word.
+    /// only up to the caret (Windows), the caret has to be after the word; where marked text goes
+    /// at the caret whatever range is named (`marksFromCaret`, macOS), at its start, as ⌥← leaves it:
+    /// putting something back over the text there to move the caret went in at the caret too.
     private func touchedEntry(_ client: TextClient) -> (index: Int, caret: Int)? {
         let caret = client.selectedRange()
         guard !recent.isEmpty, caret.location != NSNotFound, caret.length == 0 else { return nil }
         let at = caret.location
         func wordEnd(_ entry: Committed) -> Int { entry.location + utf16(entry.text) - utf16(entry.boundary) }
-        guard let index = recent.lastIndex(where: { $0.location <= at && at <= wordEnd($0) })
-                ?? recent.lastIndex(where: { $0.location + utf16($0.text) == at }) else { return nil }
+        let found = client.marksFromCaret ? recent.lastIndex(where: { $0.location == at })
+            : recent.lastIndex(where: { $0.location <= at && at <= wordEnd($0) })
+                ?? recent.lastIndex(where: { $0.location + utf16($0.text) == at })
+        guard let index = found else { return nil }
         // The word itself: a text service sends nothing after the caret, and a space is a space.
         let entry = recent[index], word = String(entry.text.dropLast(entry.boundary.count))
         guard client.text(in: NSRange(location: entry.location, length: utf16(word))) == word else { return nil }
@@ -999,8 +1050,8 @@ public final class InputSession {
         guard var fixing else { return false }
         let client = Self.uncased(cased)
         guard markLanded(fixing, client) else {
-            // The app didn't mark the word where it is: nothing of the fix is in the field, and writing
-            // over the range would hit other text. Dropped; the key is handled as if it never began.
+            // The app didn't mark the line where it is: nothing of the fix is in the field, and writing
+            // over the marked text would hit other text. Dropped; the key is handled as if it never began.
             self.fixing = nil
             return handle(key, client: cased)
         }
@@ -1028,26 +1079,18 @@ public final class InputSession {
             } else {
                 return true
             }
-            showFixing(&fixing, client)
-            self.fixing = fixing
-            return true
 
         case .right:
             if let cut = fixing.cut {
                 fixing.cut = cut + 1 < fixing.pieces[0].keys.count ? cut + 1 : nil
-            } else if fixing.count < fixing.pieces.count {
+            } else if fixing.count < fixing.pieces.count,
+                      fixing.pieces[fixing.count].language.cycle(for: fixing.pieces[fixing.count].keys,
+                                                                 japanese: japaneseEnabled, splits: false)
+                          .contains(fixing.language) {
                 fixing.count += 1
-            } else if let range = takeNextWord(&fixing, client) {
-                fixing.count += 1
-                showFixing(&fixing, client, replacing: range)
-                self.fixing = fixing
-                return true
             } else {
                 return true
             }
-            showFixing(&fixing, client)
-            self.fixing = fixing
-            return true
 
         case .enter where fixing.cut != nil:
             // The clause is settled; the rest of the word becomes the clause.
@@ -1063,27 +1106,26 @@ public final class InputSession {
             fixing.restLanguage = nil
             fixing.language = language
             fixing.split = true
-            showFixing(&fixing, client)
-            self.fixing = fixing
-            return true
 
         case .enter:
             confirmFixing(client: client)
             return true
 
         case .escape, .delete:
-            // Delete too: in a word away from the caret, the app's Delete would take a character
-            // from the end of the line, out of sight.
+            // Delete too: the app's Delete would take the last character of the marked line, out of sight.
             self.fixing = nil
-            replaceThroughEnd(of: fixing, with: fixing.original, client)
+            client.insertText(fixing.original, replacing: nil)
             resetRun()
             return true
 
         default:
-            // Confirmed, and the key is typed at the end of the text as usual.
+            // Confirmed, and the key is typed at the end of the line as usual.
             confirmFixing(client: client)
             return handle(key, client: cased)
         }
+        showFixing(&fixing, client)
+        self.fixing = fixing
+        return true
     }
 
     /// The readings the clause can take: its keys' own, or the ones every word in it has.
@@ -1100,33 +1142,13 @@ public final class InputSession {
         return [Language.english, .korean, .japanese].filter { language in cycles.allSatisfy { $0.contains(language) } }
     }
 
-    /// The next word of the line, when it follows the last piece straight after its space and is
-    /// still as it went in: added to the pieces, as it is; returns the range the marked text then covers.
-    private func takeNextWord(_ fixing: inout Fixing, _ client: TextClient) -> NSRange? {
-        let index = fixing.firstEntry + fixing.pieces.count
-        guard recent.indices.contains(index), let last = fixing.pieces.last else { return nil }
-        let entry = recent[index], previous = recent[index - 1]
-        guard entry.location == previous.location + utf16(previous.text) else { return nil }
-        let word = String(entry.text.dropLast(entry.boundary.count))
-        let gap = last.boundary + word
-        let markedEnd = fixing.start + utf16(fixing.shown)
-        guard client.text(in: NSRange(location: markedEnd, length: utf16(gap))) == gap,
-              entry.language.cycle(for: entry.keys, japanese: japaneseEnabled, splits: false).contains(fixing.language)
-        else { return nil }
-        fixing.pieces.append(Fixing.Piece(keys: entry.keys, decided: entry.decided, language: entry.language,
-                                          text: word, boundary: entry.boundary, typedBoundary: entry.typedBoundary,
-                                          learns: entry.learns))
-        fixing.original += gap
-        return NSRange(location: fixing.start, length: utf16(fixing.shown) + utf16(gap))
-    }
-
     /// The rest of a cut word read on its own, after the clause.
     private func decideRest(_ keys: String, after language: Language) -> Language {
         engine.decide(keys, context: DecisionContext(previousLanguage: language.sentenceLanguage, app: app,
                                                      japanese: japaneseEnabled)).language
     }
 
-    /// The pieces as they read now, and where the clause is in them.
+    /// The line from the first piece as it reads now, and where the clause is in it.
     private func fixingText(_ fixing: inout Fixing) -> (text: String, clause: NSRange) {
         var text = fixing.settled
         var clause = NSRange(location: utf16(text), length: 0)
@@ -1148,17 +1170,14 @@ public final class InputSession {
                 language = piece.language
                 text += piece.text
             }
-            // The last piece's space or symbol stays in the field, after the marked text.
-            if i < fixing.pieces.count - 1 {
-                text += piece.boundary(in: language)
-                if fixing.cut == nil, i < fixing.count - 1 { clause.length = utf16(text) - clause.location }
-            }
+            // The last piece's space or symbol is the start of `trailing`.
+            if i < fixing.pieces.count - 1 { text += piece.boundary(in: language) }
         }
-        return (text, clause)
+        return (text + fixing.trailing, clause)
     }
 
-    /// Shows the pieces as marked text (in place of `range` when the text it covers grew), and
-    /// their readings under them while the clause is one whole word.
+    /// Shows the line as marked text (in place of `range` when it starts), and the clause's
+    /// readings under it while it is one whole word.
     private func showFixing(_ fixing: inout Fixing, _ client: TextClient, replacing range: NSRange? = nil) {
         fixing.restLanguage = nil // the clause changed: a cut word's rest is read again after it
         let (text, clause) = fixingText(&fixing)
@@ -1171,19 +1190,7 @@ public final class InputSession {
         }
     }
 
-    /// Puts `text` in place of the marked text, with the text after it up to where the caret was
-    /// to go back to, so the caret ends up there.
-    private func replaceThroughEnd(of fixing: Fixing, with text: String, _ client: TextClient) {
-        let marked = client.markedRange()
-        let start = marked.location != NSNotFound && marked.length > 0 ? marked.location : fixing.start
-        let shownLength = utf16(fixing.shown)
-        let tailStart = start + shownLength
-        let tailLength = max(0, fixing.end + shownLength - utf16(fixing.original) - tailStart)
-        let tail = tailLength > 0 ? client.text(in: NSRange(location: tailStart, length: tailLength)) : ""
-        client.insertText(text + (tail ?? ""), replacing: NSRange(location: start, length: shownLength + (tail == nil ? 0 : tailLength)))
-    }
-
-    /// The fix goes in as shown, and the caret back to the end of the text; whole words changed are
+    /// The fix goes in as shown, the caret at the end of the line; whole words changed are
     /// corrections, learned as a switch key's are.
     private func confirmFixing(client cased: TextClient?) {
         guard var fixing else { return }
@@ -1192,7 +1199,7 @@ public final class InputSession {
         guard let cased else { return }
         let client = Self.uncased(cased)
         guard markLanded(fixing, client) else { return }
-        replaceThroughEnd(of: fixing, with: text, client)
+        client.insertText(text, replacing: nil)
         let later = Array(recent.dropFirst(fixing.firstEntry + fixing.pieces.count))
         let delta = utf16(text) - utf16(fixing.original)
         var updated = Array(recent.prefix(fixing.firstEntry))
@@ -1213,7 +1220,8 @@ public final class InputSession {
             }
         }
         recent = updated + later.map { $0.moved(by: delta) }
-        if later.isEmpty, fixing.count == fixing.pieces.count, !fixing.split, fixing.cut == nil {
+        if later.isEmpty, fixing.count == fixing.pieces.count, !fixing.split, fixing.cut == nil,
+           fixing.trailing.allSatisfy(\.isWhitespace) {
             previousLanguage = fixing.language.sentenceLanguage
         }
         resetRun()
@@ -1221,16 +1229,22 @@ public final class InputSession {
 
     private func utf16(_ text: String) -> Int { (text as NSString).length }
 
-    /// The field has the pieces marked where the fix put them: an app that ignores a replacement
-    /// range for marked text leaves the word as it was (and the marked text, if any, elsewhere).
-    private func markLanded(_ fixing: Fixing, _ client: TextClient) -> Bool {
-        client.markedRange() == NSRange(location: fixing.start, length: utf16(fixing.shown))
+    /// The words of the line that reach `location` or past it changed place or went: forgotten.
+    private func forgetRecent(from location: Int) {
+        recent.removeAll { $0.location + utf16($0.text) > location }
     }
+
 
     /// The field itself, not as a word typed with Caps Lock sees it: fixing puts back text it didn't
     /// type (the rest of the line), which must keep its case. A word that went in in capitals reads
     /// as changed through it, so it isn't fixed.
     private static func uncased(_ client: TextClient) -> TextClient { (client as? CapsLockClient)?.base ?? client }
+
+    /// The field has the line marked where the fix put it: an app that ignores a replacement range
+    /// for marked text leaves the word as it was (and the marked text, if any, elsewhere).
+    private func markLanded(_ fixing: Fixing, _ client: TextClient) -> Bool {
+        client.markedRange() == NSRange(location: fixing.start, length: utf16(fixing.shown))
+    }
 
     // MARK: - Japanese conversion
 
@@ -2295,6 +2309,7 @@ public final class InputSession {
         if commit.learns, commit.language != commit.committedAs {
             record(commit.keys, as: commit.language, engineChoice: commit.decided)
         }
+        forgetRecent(from: commit.location) // what was there or after it has moved (typed over, typed before)
         recent.append(commit)
         if recent.count > Self.recentLimit { recent.removeFirst(recent.count - Self.recentLimit) }
     }

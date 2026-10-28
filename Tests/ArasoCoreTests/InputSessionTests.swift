@@ -20,6 +20,12 @@ final class FakeTextField: TextClient {
     var selectedClause: NSRange?
     /// False for a field whose composition is always at the caret (fcitx5).
     var marksAnywhere = true
+    /// An insert goes in place of the marked text whatever range it names, as in the settings
+    /// window's text view.
+    var insertsOverMarked = false
+    /// Marked text with a range goes at the caret, that many characters replaced from there, as in
+    /// the settings window's text view.
+    var marksFromCaret = false
 
     func setMarkedText(_ s: String, selectedClause: NSRange, replacing range: NSRange?) {
         if let range { setMarkedText(s, replacing: range) } else { setMarkedText(s) }
@@ -39,7 +45,10 @@ final class FakeTextField: TextClient {
     func setMarkedText(_ s: String, replacing range: NSRange) {
         selectedClause = nil
         let ns = text as NSString
-        let target = marked.location != NSNotFound ? NSUnionRange(range, marked) : range
+        let atCaret = NSRange(location: cursor, length: min(range.length, ns.length - cursor))
+        let target = insertsOverMarked && marked.location != NSNotFound ? marked
+            : marked.location != NSNotFound ? NSUnionRange(range, marked)
+            : marksFromCaret ? atCaret : range
         text = ns.replacingCharacters(in: target, with: s)
         let length = (s as NSString).length
         marked = length > 0 ? NSRange(location: target.location, length: length) : NSRange(location: NSNotFound, length: 0)
@@ -49,7 +58,8 @@ final class FakeTextField: TextClient {
     func insertText(_ s: String, replacing range: NSRange?) {
         insertions.append(s)
         selectedClause = nil
-        let target = range ?? (marked.location != NSNotFound ? marked : NSRange(location: cursor, length: 0))
+        let target = insertsOverMarked && marked.location != NSNotFound ? marked
+            : range ?? (marked.location != NSNotFound ? marked : NSRange(location: cursor, length: 0))
         text = (text as NSString).replacingCharacters(in: target, with: s)
         marked = NSRange(location: NSNotFound, length: 0)
         cursor = target.location + (s as NSString).length
