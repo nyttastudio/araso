@@ -934,6 +934,9 @@ public final class InputSession {
             let boundary: String
             let typedBoundary: String?
             let learns: Bool
+            /// The word that was being typed (`startFixingTyped`): learned as a word finished with Space
+            /// is, by whether a reading was chosen (`Fixing.chosen`), not by how it went in.
+            var typed = false
 
             func boundary(in language: Language) -> String {
                 language == .korean ? boundary : typedBoundary ?? boundary
@@ -964,6 +967,9 @@ public final class InputSession {
         var restLanguage: Language?
         /// A word was cut: the pieces aren't whole words any more, so nothing is learned.
         var split = false
+        /// A reading was chosen: with the switch key or a digit, or before the fix began on the word
+        /// being typed.
+        var chosen = false
     }
 
     /// The word the caret is on, or right after the space of, among the words of the line that
@@ -1027,13 +1033,11 @@ public final class InputSession {
         let marked = client.markedRange()
         guard shown != .japanese, marked.location != NSNotFound, marked.length > 0,
               let original = client.text(in: marked) else { return false }
-        // A reading the user chose with the switch key is a correction of Araso's: the piece counts
-        // as having gone in as Araso's, so confirming the chosen one learns it.
-        let decided = committedLanguage()
-        let piece = Fixing.Piece(keys: keys, decided: decided, language: forcedByUser ? decided : shown, text: original,
-                                 boundary: "", typedBoundary: nil, learns: !inURLRun)
+        let piece = Fixing.Piece(keys: keys, decided: committedLanguage(), language: shown, text: original,
+                                 boundary: "", typedBoundary: nil, learns: !inURLRun, typed: true)
         fixing = Fixing(start: marked.location, original: original, shown: original, firstEntry: recent.count,
                         pieces: [piece], trailing: "", language: shown)
+        fixing?.chosen = forced != nil && forcedByUser
         keys = ""
         forced = nil
         forcedByUser = false
@@ -1103,6 +1107,7 @@ public final class InputSession {
             } else if let first = cycle.first {
                 fixing.language = first
             }
+            fixing.chosen = true
             showFixing(&fixing, client)
             self.fixing = fixing
             return true
@@ -1145,6 +1150,7 @@ public final class InputSession {
                 return handle(key, client: cased)
             }
             fixing.language = cycle[n - 1]
+            fixing.chosen = true
 
         case .enter where fixing.cut != nil:
             // The clause is settled; the rest of the word becomes the clause.
@@ -1281,7 +1287,12 @@ public final class InputSession {
             var location = fixing.start
             for (i, piece) in fixing.pieces.enumerated() {
                 let language = i < fixing.count ? fixing.language : piece.language
-                if i < fixing.count, piece.learns, language != piece.language {
+                if i < fixing.count, piece.learns, piece.typed {
+                    // As `wordEnds` does for a word finished with Space: a chosen reading is a
+                    // correction even when it is Araso's own (that forgets one made before).
+                    if fixing.chosen { record(piece.keys, as: language, engineChoice: piece.decided) }
+                    else { engine.used(piece.keys, as: language) }
+                } else if i < fixing.count, piece.learns, language != piece.language {
                     record(piece.keys, as: language, engineChoice: piece.decided)
                 }
                 let word = i < fixing.count ? committedReading(piece.keys, as: language) : piece.text

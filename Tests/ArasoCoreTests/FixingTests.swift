@@ -350,4 +350,20 @@ import Testing
         session.handle(.enter, client: field)
         #expect(session.engine.correctedOnce("helloab", app: nil) == .korean)
     }
+
+    /// Back to Araso's own reading after choosing another, then confirmed: that is a choice too, and
+    /// forgets a correction made before, as a word finished with Space does.
+    @Test func choosingBackToTheOwnReadingForgetsACorrection() {
+        type("hello ")
+        session.handle(.cycle, client: field) // hello went in as Korean once
+        type("abc ")
+        #expect(session.engine.correctedOnce("hello", app: nil) == .korean)
+        type("hello")
+        while session.readings?.languages[session.readings!.selected] != .korean { session.handle(.cycle, client: field) }
+        while session.readings?.languages[session.readings!.selected] != .english { session.handle(.cycle, client: field) }
+        session.handle(.left, client: field)
+        session.handle(.right, client: field)
+        session.handle(.enter, client: field)
+        #expect(session.engine.correctedOnce("hello", app: nil) == nil)
+    }
 }
