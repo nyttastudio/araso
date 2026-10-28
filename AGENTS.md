@@ -15,7 +15,10 @@ issue the maintainer labeled `accepted`; `.github/workflows/issue-first.yml` com
 doesn't link such an issue (`.github/scripts/issue-first.sh`, `DRY_RUN=1` to try it). Labels are listed in
 `.github/labels.yml` (kind, status, `area: …`); `.github/workflows/labels.yml` syncs them, labels an issue
 from its form's area dropdown and a PR from its linked issue and changed files (`.github/scripts/labels.sh`,
-`.github/labeler.yml`); add a label to labels.yml, never only on GitHub. Building needs Swift 6.2 (Xcode 26),
+`.github/labeler.yml`); add a label to labels.yml, never only on GitHub. CI runs only what a change can
+affect: `windows.yml` and `linux.yml` have path filters (keep them in step when a build starts reading
+another folder; linux/ builds `windows/common`), and `ci.yml`'s `test`, a required check, is skipped by its
+`changes` job rather than filtered out, since a required check that never starts blocks the merge. Building needs Swift 6.2 (Xcode 26),
 which `swift-tools-version` in Package.swift says.
 
 ## Commands
