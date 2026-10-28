@@ -120,7 +120,8 @@ PR 설명에 바꾸기 전후의 숫자(정확도, 잘못 분리된 단어 수)�
   머지하지 말고 rebase 해 주세요.
 - 처음 PR을 보내면 CI는 메인테이너가 승인한 뒤에 돕니다.
 - CI(`test`)가 통과해야 머지됩니다. `InputSession`이나 `ArasoService`를 건드렸다면 Windows CI와
-  Linux CI도 확인해 주세요.
+  Linux CI도 확인해 주세요. 바뀐 파일과 상관없는 CI는 돌지 않습니다: 문서만 고치면 셋 다 건너뛰고,
+  `windows/`만 고치면 Windows CI만 돕니다(`test`는 건너뛰어도 통과로 칩니다).
 - AI 도구를 써도 괜찮습니다. 이 저장소의 [AGENTS.md](AGENTS.md)를 읽게 하세요(Claude Code는
   CLAUDE.md를 거쳐 읽습니다). PR에는 직접 실행하고 확인한 결과를 적어 주세요.
 

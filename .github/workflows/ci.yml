@@ -10,7 +10,39 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # `test` is a required check on main, so the workflow always runs and `test` is skipped (which
+  # counts as passing) when nothing the macOS build reads changed: docs, the Windows and Linux
+  # ports, tools/, scripts/ and the other workflows.
+  changes:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      swift: ${{ steps.filter.outputs.swift }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          predicate-quantifier: every
+          filters: |
+            swift:
+              - '**'
+              - '!**/*.md'
+              - '!LICENSE'
+              - '!docs/**'
+              - '!tools/**'
+              - '!scripts/**'
+              - '!windows/**'
+              - '!linux/**'
+              - '!.github/!(workflows)/**'
+              - '!.github/*'
+              - '!.github/workflows/!(ci.yml)'
+
   test:
+    needs: changes
+    if: needs.changes.outputs.swift == 'true'
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4

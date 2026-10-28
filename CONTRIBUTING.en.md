@@ -120,7 +120,8 @@ Put the numbers from before and after (accuracy, wrong splits) in the PR descrip
   on main rather than merging main in.
 - On your first PR, CI runs once the maintainer approves it.
 - CI (`test`) has to pass to merge. If you touched `InputSession` or `ArasoService`, check the
-  Windows and Linux CI too.
+  Windows and Linux CI too. CI that the changed files can't affect doesn't run: a docs-only change
+  skips all three, one in `windows/` runs only the Windows CI (a skipped `test` counts as passing).
 - AI tools are fine. Have them read [AGENTS.md](AGENTS.md) (Claude Code reads it through
   CLAUDE.md). In the PR, write what you ran and checked yourself.
 
