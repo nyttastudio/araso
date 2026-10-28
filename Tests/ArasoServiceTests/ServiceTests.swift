@@ -501,7 +501,8 @@ final class Harness {
         request.keys = "konnichiha"
         #expect(h.runtime.handle(request).decision?.language == "japanese")
         request.app = "code.exe"
-        #expect(h.runtime.handle(request).decision?.language != "japanese")
+        let decision = try #require(h.runtime.handle(request).decision)
+        #expect(["english", "korean"].contains(decision.language))
     }
 
     @Test func readingsForTheDictionaryEditor() throws {

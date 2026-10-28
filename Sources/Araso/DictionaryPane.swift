@@ -265,12 +265,16 @@ struct EntrySheet: View {
     private var choices: [Language] {
         var choices: [Language] = [.english]
         if !keys.isEmpty, HangulComposer.compose(keys: keys) != nil { choices.append(.korean) }
-        let policies = AppPolicies.load()
-        let japanese = app.map { policies.policy(for: $0).japanese(default: model.settings.japanese) }
-            ?? policies.japaneseUsed(default: model.settings.japanese)
-        if japanese || language == .japanese, !keys.isEmpty,
+        if japaneseHere || language == .japanese, !keys.isEmpty,
            RomajiComposer.compose(keys).strayLetters == 0 { choices.append(.japanese) }
         return choices
+    }
+
+    /// Japanese is on where the entry applies: its app, or some app for an entry for every app.
+    private var japaneseHere: Bool {
+        let policies = AppPolicies.load()
+        return app.map { policies.policy(for: $0).japanese(default: model.settings.japanese) }
+            ?? policies.japaneseUsed(default: model.settings.japanese)
     }
 
     /// Apps set in apps.json and the ones running, by name.
@@ -330,6 +334,11 @@ struct EntrySheet: View {
         .frame(width: 460)
         .onChange(of: keys) { _ in
             if !choices.contains(language) { language = .english }
+        }
+        // A new entry moved to an app without Japanese doesn't keep a Japanese reading; an entry
+        // being edited keeps the one it has.
+        .onChange(of: app) { _ in
+            if original == nil, language == .japanese, !japaneseHere { language = .english }
         }
     }
 

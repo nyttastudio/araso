@@ -152,7 +152,7 @@ void BuildLanguages() {
         Json change = Json::object();
         change.set("resetKanji", true);
         Apply(change, true);
-    }, japanese, row);
+    }, japaneseUsed, row);
     row->addStretch(1);
     Note(T("Kanji you pick come first next time."));
 }
