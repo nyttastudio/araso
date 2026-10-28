@@ -247,9 +247,12 @@ public final class HeuristicEngine: DecisionEngine, @unchecked Sendable {
             // against a Korean word on the same keys (손, 애가, 몸).
             let knownEnglish = known && (!knownKorean || (english.level(keys) ?? 0) <= EnglishModel.extraLevel)
             // Judged on the finished reading while typing too: the preview must show what Space commits,
-            // and a kana score without the end of the phrase runs higher (ふっりれき passed as one).
-            let knownJapanese = !known && (j.map { $0.composition.isClean && $0.composition.kanaCount >= japanesePhrase.kana } ?? false)
-                && ((context.partial ? japanese?.score(keys: keys, partial: false)?.averageLogProbability : j?.averageLogProbability) ?? -.infinity) >= japanesePhrase.score
+            // a kana score without the end of the phrase runs higher (ふっりれき passed as one), and a
+            // last n is pending while typing, so the partial reading of すみません isn't clean.
+            let finished = context.partial && j != nil ? japanese?.score(keys: keys, partial: false) : j
+            let knownJapanese = !known && (finished.map {
+                $0.composition.isClean && $0.composition.kanaCount >= japanesePhrase.kana && $0.averageLogProbability >= japanesePhrase.score
+            } ?? false)
             let knownIn: [Language: Bool] = [.english: knownEnglish, .korean: knownKorean, .japanese: knownJapanese]
             if knownIn[previous] == false, knownIn.contains(where: { $0.key != previous && $0.value }) {
                 bias *= switchBiasFactor

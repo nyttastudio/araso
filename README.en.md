@@ -624,7 +624,10 @@ private to macOS, so where it can't be loaded the app's own
 ### Held-out results
 
 2,011 English words, 1,987 Korean words and 2,000 Japanese phrases from held-out sentences,
-never used to build the models (`tools/prepare.sh`):
+never used to build the models (`tools/prepare.sh`). Held out from the models (letter statistics,
+word lists), not from the decision rules, whose thresholds were set looking at these numbers. For
+text the rules were not set on, the prose evaluation on this repository's Korean documents
+(`tools/eval_text.py`, about 6,600 tokens) gives 99.44% (English + particle 96.35%):
 
 | | Japanese off (en/ko) | Japanese on (en/ko/ja) |
 | --- | --- | --- |
