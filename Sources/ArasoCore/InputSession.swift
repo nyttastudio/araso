@@ -54,8 +54,8 @@ public extension TextClient {
 ///   Return         commit the word as shown, and nothing else (the next Return is the app's);
 ///                  with `returnConfirmsOnly` off the app gets it too, except after Japanese
 ///   anything else  commit and let the app handle the key
-///   ⌘ going down   the word goes in (a held one with its boundary) before the shortcut (`commandPressed`;
-///                  Windows's Ctrl only a held word, `heldWordOnly`)
+///   ⌘ going down   the word goes in (a held one with its boundary) before the shortcut
+///                  (`commandPressed`; Ctrl on Windows and Linux only a held one, `heldWordOnly`)
 /// While converting to kanji (candidate window open):
 ///   Space / ↓      next candidate          ↑      previous candidate
 ///   1–9            commit that candidate   Return commit the selected candidate
@@ -661,19 +661,20 @@ public final class InputSession {
         }
     }
 
-    /// The ⌘ key went down (Ctrl on Windows). The word being typed goes in now, a held word with
-    /// its boundary, before the shortcut: an app that acts on the shortcut itself never shows the
-    /// input method the key (Ghostty's ⌘V and ⌘⌫ are its own keybindings), so it pasted over the
-    /// underlined word, and its ⌘⌫ (a line delete there) skipped that word for the text before it
-    /// (the underlined word wasn't text to it yet). The price is a ⌘ pressed and let go mid-word:
-    /// the letters after it start a new word. With nothing being typed a ⌘ changes nothing, as
-    /// before: the flip window stays open for the switch key. With `heldWordOnly` a word without a boundary keeps composing: on Windows the
-    /// shortcut reaches the text service as a key and `.other` puts the word in first, so there
-    /// is nothing to fix and a Ctrl let go on its own (AltGr sends a virtual left Ctrl) would only
-    /// split the word. As after any shortcut, what comes next isn't known (the paste never
-    /// reaches the input method either), so the run is read again from the field. Returns whether
-    /// a word went in: the caller redraws the strip only then, or a ⌘ that changed nothing would
-    /// start the learned capsule over.
+    /// The ⌘ key went down (Ctrl on Windows and Linux). The word being typed goes in now, a held
+    /// word with its boundary, before the shortcut: an app that acts on the shortcut itself never
+    /// shows the input method the key (Ghostty's ⌘V and ⌘⌫ are its own keybindings), so it pasted
+    /// over the underlined word, and its ⌘⌫ (a line delete there) skipped that word for the text
+    /// before it (the underlined word wasn't text to it yet). The price is a ⌘ pressed and let go
+    /// mid-word: the letters after it start a new word. With nothing being typed a ⌘ changes
+    /// nothing, as before: the flip window stays open for the switch key. With `heldWordOnly` a
+    /// word without a boundary keeps composing: on Windows and Linux the shortcut reaches the text
+    /// service (or the fcitx5 addon) as a key and `.other` puts the word in first, so there is
+    /// nothing to fix and a Ctrl let go on its own (AltGr sends a virtual left Ctrl) would only
+    /// split the word. As after any shortcut, what comes next isn't known (the paste never reaches
+    /// the input method either), so the run is read again from the field. Returns whether a word
+    /// went in: the caller redraws the strip only then, or a ⌘ that changed nothing would start the
+    /// learned capsule over.
     @discardableResult
     public func commandPressed(client: TextClient, heldWordOnly: Bool) -> Bool {
         if heldWordOnly, heldBoundary == nil { return false }
