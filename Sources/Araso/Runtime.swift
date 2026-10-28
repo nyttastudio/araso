@@ -135,7 +135,12 @@ final class Runtime {
             engine = Self.makeEngine(japanese: japanese)
             japaneseLoaded = japanese
         }
-        if japanese, converter == nil || new.japaneseEngine != settings.japaneseEngine {
+        if !japanese {
+            // Nowhere uses Japanese any more: drop the converter and its dictionary, after saving
+            // the kanji learned.
+            converter?.save()
+            converter = nil
+        } else if converter == nil || new.japaneseEngine != settings.japaneseEngine {
             converter?.save()
             converter = Self.makeConverter(new)
         }
