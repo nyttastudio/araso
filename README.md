@@ -134,6 +134,8 @@ fcitx5 입력기로 도는 같은 입력기입니다. 단어 판단, 사전, 학
 
 1. fcitx5를 설치하고 입력기로 쓰도록 하세요(Ubuntu: `sudo apt install fcitx5 fcitx5-frontend-gtk3 fcitx5-frontend-gtk4 fcitx5-frontend-qt5`,
    24.04부터는 `fcitx5-frontend-qt6`도. 그다음 `im-config -n fcitx5`와 로그아웃. 22.04에는 `fcitx5-frontend-qt6`가 없어 Qt 6 앱에는 입력되지 않습니다).
+   설정 창은 Qt 5로 돕니다. 묶음에 Qt가 들어 있지 않으니 Arch는 `qt5-base`, Fedora는 `qt5-qtbase-gui`를 설치하세요.
+   빠져 있으면 `install.sh`가 설치 명령을 알려 줍니다.
 2. [Linux 베타](https://github.com/nyttastudio/araso/releases/tag/linux-beta-1)에서 아키텍처(`uname -m`)에 맞는
    `Araso-linux-<아키텍처>.tar.gz`를 받아 풀고 그 안의 `./install.sh`를 실행하세요. 관리자 암호를 묻습니다.
    소스에서 설치하려면(Swift 6.2, CMake, fcitx5 개발 파일, Qt 6가 필요합니다. 목록은
