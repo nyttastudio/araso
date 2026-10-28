@@ -11,6 +11,10 @@ final class Runtime {
     private(set) var settings: Settings
     private(set) var engine: DictionaryEngine
     private(set) var converter: JapaneseConverter?
+    /// Whether the engine has the Japanese model and the converter is made: Japanese is on in the
+    /// Languages tab, or an app turns it on itself (`AppPolicies.turnsJapaneseOn`). Where it is on
+    /// is each session's to pick, from its app's policy.
+    private(set) var japaneseLoaded: Bool
     private(set) var generation = 0
     /// The controller of the text field in front, which a vim mode change is about.
     weak var active: InputController?
@@ -25,8 +29,9 @@ final class Runtime {
         LatinLayout.active = settings.latinLayout
         KoreanLayout.active = settings.koreanLayout
         LatinLayout.activeRomaji = settings.japaneseLayout
-        engine = Self.makeEngine(japanese: settings.japanese)
-        converter = settings.japanese ? Self.makeConverter(settings) : nil
+        japaneseLoaded = Self.needsJapanese(settings)
+        engine = Self.makeEngine(japanese: japaneseLoaded)
+        converter = japaneseLoaded ? Self.makeConverter(settings) : nil
         let center = DistributedNotificationCenter.default()
         center.addObserver(forName: SettingsNotice.changed, object: nil, queue: .main) { note in
             let kanjiReset = note.object as? String == SettingsNotice.kanjiReset
@@ -45,6 +50,10 @@ final class Runtime {
     /// Order of authority: the user's dictionary (words added, or corrected the same way twice;
     /// one correction only nudges), then mixed-word splitting
     /// (github에, x에, hello월드, githubで), then the heuristic.
+    private static func needsJapanese(_ settings: Settings) -> Bool {
+        settings.japanese || AppPolicies.load().turnsJapaneseOn
+    }
+
     private static func makeEngine(japanese: Bool) -> DictionaryEngine {
         let heuristic = HeuristicEngine(japanese: japanese ? JapaneseModel.shared : nil)
         let engine = DictionaryEngine(base: SplittingEngine(base: heuristic, english: heuristic.english,
@@ -64,7 +73,7 @@ final class Runtime {
 
     func makeSession() -> InputSession {
         let session = InputSession(engine: engine, policies: AppPolicies.load(),
-                                   converter: settings.japanese ? converter : nil,
+                                   converter: converter,
                                    japaneseEnabled: settings.japanese, liveConversion: settings.liveConversion,
                                    returnConfirmsOnly: settings.returnConfirmsOnly)
         session.replacements = textReplacements
@@ -94,7 +103,8 @@ final class Runtime {
         change(&policy)
         policies.set(policy, for: app)
         do { try policies.save() } catch { NSLog("Araso: could not save apps.json: %@", error.localizedDescription) }
-        generation += 1
+        // Also loads or drops the Japanese model when this app was the only one to want it.
+        apply(settings)
         SettingsNotice.postFromInputMethod()
     }
 
@@ -103,7 +113,7 @@ final class Runtime {
         var policies = AppPolicies.load()
         policies.overrides[app] = nil
         do { try policies.save() } catch { NSLog("Araso: could not save apps.json: %@", error.localizedDescription) }
-        generation += 1
+        apply(settings)
         SettingsNotice.postFromInputMethod()
     }
 
@@ -120,10 +130,12 @@ final class Runtime {
     }
 
     private func apply(_ new: Settings) {
-        if new.japanese != settings.japanese {
-            engine = Self.makeEngine(japanese: new.japanese)
+        let japanese = Self.needsJapanese(new)
+        if japanese != japaneseLoaded {
+            engine = Self.makeEngine(japanese: japanese)
+            japaneseLoaded = japanese
         }
-        if new.japanese, converter == nil || new.japaneseEngine != settings.japaneseEngine {
+        if japanese, converter == nil || new.japaneseEngine != settings.japaneseEngine {
             converter?.save()
             converter = Self.makeConverter(new)
         }
@@ -139,7 +151,7 @@ final class Runtime {
         if kanjiReset {
             // Drop the converter without saving, so its memory doesn't come back.
             converter = nil
-            if settings.japanese { converter = Self.makeConverter(settings) }
+            if japaneseLoaded { converter = Self.makeConverter(settings) }
         }
         engine.reload()
         apply(Settings.load())

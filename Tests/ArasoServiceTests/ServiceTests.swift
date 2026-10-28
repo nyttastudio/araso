@@ -465,6 +465,22 @@ final class Harness {
         #expect(menu.contains { $0.title.contains("일시정지") })
     }
 
+    /// The app's own Japanese switch: off here with Japanese on in the settings, and back to
+    /// following them on a second select.
+    @Test func menuTurnsJapaneseOffInTheApp() throws {
+        let h = try Harness(settings: #"{ "japanese": true }"#)
+        var select = ServiceRequest(op: .menuSelect, client: h.client)
+        select.item = "app.japanese"
+        _ = h.send(select)
+        #expect(AppPolicies.load().overrides["notepad.exe"]?.japanese == false)
+        let menu = h.send(ServiceRequest(op: .menu, client: h.client)).reply.menu ?? []
+        #expect(menu.first { $0.id == "app.japanese" }?.checked == false)
+        h.type("kyouha ")
+        #expect(!h.document.text.contains("き"), "\(h.document.text)")
+        _ = h.send(select)
+        #expect(AppPolicies.load().overrides["notepad.exe"]?.japanese == nil)
+    }
+
     @Test func readingsForTheDictionaryEditor() throws {
         let h = try Harness()
         var request = ServiceRequest(op: .readings)

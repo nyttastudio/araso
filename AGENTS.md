@@ -220,6 +220,13 @@ run `scripts/install.sh` again afterwards.
 **Per-app policy** (`AppPolicy.swift`): in `apps.json`, `"*"` is the user's default and an app
 entry names only the keys that differ; a key ending in `.` matches as a prefix. There is no
 built-in app list, so add an entry only when the user asks for one.
+- `japanese` (an app's entry only; nil follows `Settings.japanese`) turns Japanese on or off in one
+  app. The engine is shared, so it has the Japanese model whenever Japanese is on in the settings or
+  some app turns it on (`AppPolicies.turnsJapaneseOn`, `Runtime`/`ServiceRuntime.japaneseLoaded`);
+  where it is off, `InputSession.japaneseEnabled` (picked again on `activate`) asks it with
+  `DecisionContext.japanese` false, which `HeuristicEngine`, `SplittingEngine` and
+  `DictionaryEngine.withParticle` read as no Japanese model, and hands out no converter.
+  `AppJapaneseTests`.
 
 **Resources.** Data files are found by `Resources.swift`: `Contents/Resources` in the app, the
 source tree in development. SPM resource bundles are avoided on purpose, because they'd sit outside

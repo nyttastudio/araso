@@ -142,7 +142,7 @@ public final class SplittingEngine: DecisionEngine, @unchecked Sendable {
         // English word + particle, Korean (github에) or with Japanese on Japanese (githubで),
         // when that reading beats the whole token in one language. Before English + Korean
         // word: beautywo is beauty + を, not beau + 쇼재.
-        switch particles.split(keys, japaneseOn: japanese != nil) {
+        switch particles.split(keys, japaneseOn: japanese != nil && context.japanese) {
         case .korean(let mixed)?:
             return Decision(language: .mixed, confidence: Self.confidence, output: mixed.text,
                             explanation: "split \(mixed.english)+\(mixed.korean)")

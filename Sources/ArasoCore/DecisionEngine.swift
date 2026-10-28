@@ -62,12 +62,17 @@ public struct DecisionContext: Sendable {
     public var nudge: Language?
     /// The app typed into, for the user's dictionary entries limited to apps.
     public var app: String?
+    /// Japanese is a reading here, if the engine has its model: false in an app that turns it off
+    /// (`AppPolicy.japanese`), where the words are decided as with Japanese off everywhere.
+    public var japanese: Bool
 
-    public init(previousLanguage: Language? = nil, partial: Bool = false, nudge: Language? = nil, app: String? = nil) {
+    public init(previousLanguage: Language? = nil, partial: Bool = false, nudge: Language? = nil, app: String? = nil,
+                japanese: Bool = true) {
         self.previousLanguage = previousLanguage
         self.partial = partial
         self.nudge = nudge
         self.app = app
+        self.japanese = japanese
     }
 }
 
@@ -189,6 +194,8 @@ public final class HeuristicEngine: DecisionEngine, @unchecked Sendable {
         if DubeolsikLayout.hasEnglishOnlyCapital(keys) {
             return Decision(language: .english, confidence: 0.99, output: keys, explanation: "uppercase outside QWERTOP")
         }
+        let japanese = context.japanese ? self.japanese : nil
+        let segmenter = context.japanese ? self.segmenter : nil
 
         var e = english.averageLogProbability(keys.filter(\.isLetter))
         // Also while typing: the preview must show what Space/Return will commit.

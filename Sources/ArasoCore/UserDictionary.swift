@@ -455,7 +455,7 @@ public final class DictionaryEngine: DecisionEngine, @unchecked Sendable {
             decision.rememberedKeys = keys
             return decision
         }
-        if let split = withParticle(keys) { return split }
+        if let split = withParticle(keys, japanese: context.japanese) { return split }
         var context = context
         if let entry, entry.strength == .weak { context.nudge = entry.language }
         return base.decide(keys, context: context)
@@ -468,8 +468,10 @@ public final class DictionaryEngine: DecisionEngine, @unchecked Sendable {
     /// one-key word. An English word, as in `ParticleSplitter`, needs 3 letters unless it has
     /// capitals (so + が is そが), and doesn't split keys that read as a Korean word or one with
     /// a particle (sha + 들을 is 놈들을) or as clean romaji (toki + は is ときは). The same
-    /// confidence as the engine's own splits, so a Strict app splits too.
-    func withParticle(_ keys: String) -> Decision? {
+    /// confidence as the engine's own splits, so a Strict app splits too. Japanese particles only
+    /// with `japanese` (off in an app that turns Japanese off).
+    func withParticle(_ keys: String, japanese: Bool = true) -> Decision? {
+        let japaneseParticles = japaneseParticles && japanese
         guard keys.count >= 3, !english.isKnownWord(keys) else { return nil }
         let chars = Array(keys)
         let fronts = lock.withLock {

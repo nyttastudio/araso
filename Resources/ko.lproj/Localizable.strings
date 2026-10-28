@@ -34,6 +34,7 @@
 "Strict" = "엄격하게";
 "Switch keys" = "언어 바꾸기 키";
 "After Space / punctuation" = "Space·문장부호 뒤";
+"Off: words here are Korean or English only, as with Japanese off. On: Japanese here even when it is off under Languages." = "끔: 이 앱에서는 일본어를 끈 것처럼 한국어·영어로만 가립니다. 켬: 언어 탭에서 일본어를 꺼 두어도 이 앱에서는 일본어를 씁니다.";
 "Hold" = "밑줄 유지";
 "Finish" = "단어 확정";
 "Hold: Space or punctuation goes inside the underline, so the word can still be changed until the next word starts. For terminals." = "밑줄 유지: Space나 문장부호가 밑줄 안에 들어가, 다음 단어를 칠 때까지 단어를 바꿀 수 있습니다. 터미널용입니다.";
@@ -74,6 +75,7 @@
 "Conversion: Normal" = "변환 기준: 보통";
 "Conversion: Strict" = "변환 기준: 엄격하게";
 "Hold the Word After Space or Punctuation" = "Space·문장부호 뒤에도 단어 유지";
+"Japanese Input in This App" = "이 앱에서 일본어 입력";
 "Esc Switches Language" = "Esc로 언어 바꾸기";
 "Use Default Settings in This App" = "이 앱에서 기본 설정 따르기";
 "Pause in This Text Field (%@)" = "이 입력창에서 일시정지 (%@)";

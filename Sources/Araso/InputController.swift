@@ -442,6 +442,9 @@ final class InputController: IMKInputController {
                     enabled: policy.enabled, indent: 2, value: app)
                 add(L("Hold the Word After Space or Punctuation"), #selector(toggleHoldSpace(_:)), on: policy.holdSpace,
                     enabled: policy.enabled, indent: 2, value: app)
+                // On or off here whatever the Languages tab says; the item under them is that tab's.
+                add(L("Japanese Input in This App"), #selector(toggleAppJapanese(_:)),
+                    on: policy.japanese(default: runtime.settings.japanese), enabled: policy.enabled, indent: 2, value: app)
                 if listed {
                     add(L("Use Default Settings in This App"), #selector(removeAppEntry(_:)), indent: 1, value: app)
                 }
@@ -518,6 +521,15 @@ final class InputController: IMKInputController {
         guard let app = appOf(sender) else { return }
         MainActor.assumeIsolated {
             Runtime.shared.updatePolicy(for: app) { $0.holdSpace.toggle() }
+        }
+    }
+
+    @objc func toggleAppJapanese(_ sender: Any?) {
+        guard let app = appOf(sender) else { return }
+        MainActor.assumeIsolated {
+            let japaneseOn = Runtime.shared.settings.japanese
+            // Back to what the Languages tab says: the app follows it again.
+            Runtime.shared.updatePolicy(for: app) { $0.japanese = $0.japanese(default: japaneseOn) == japaneseOn ? !japaneseOn : nil }
         }
     }
 

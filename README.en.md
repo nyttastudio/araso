@@ -80,7 +80,8 @@ inspired me to build one input method for all three.
    open it and follow the steps. It installs into `/Library/Input Methods` and registers the input source.
 2. Pick **Araso** in the input menu in the menu bar.
 3. To mix in Japanese as in the examples above, turn on **Japanese Input** in the input menu.
-   **Japanese is off by default.**
+   **Japanese is off by default.** In an app you don't type Japanese in (an editor, a terminal), turn
+   off **Japanese Input in This App** in the app's part of the menu: words there are Korean or English only.
 
 It runs on macOS 13 or later, on Apple silicon and Intel, and is notarized by Apple. It takes ~50 MB of
 memory (plus the ~35 MB Japanese dictionary when Japanese is on) and ~47 MB on disk, with nothing
@@ -448,9 +449,10 @@ From the input menu (the menu bar, while Araso is selected) you can:
 
 - pause Araso in this text field (like the pause key)
 - turn word conversion on or off for the app in front, set its conversion threshold
-  (Normal/Strict), whether Esc switches languages and whether the word is held after Space or
-  punctuation, or drop its settings. Those are greyed while conversion is off
-- turn Japanese Input and Live Conversion on or off
+  (Normal/Strict), whether Esc switches languages, whether the word is held after Space or
+  punctuation and whether Japanese is on in it, or drop its settings. Those are greyed while
+  conversion is off
+- turn Japanese Input (the default, for every app without its own) and Live Conversion on or off
 - undo the last learned word, see and forget the words the dictionary changed lately, and open Try
   Typing, the dictionary or the settings window
 
@@ -460,7 +462,7 @@ The settings window has these panes, and changes apply at once.
 | --- | --- |
 | Languages | converting words on or off, Japanese on or off, the Layouts card (Hangul: 2-set, 3-set final, 3-set 390; English and romaji: QWERTY, Colemak, Colemak-DH), Japanese input and its options, resetting the kanji candidate order |
 | Keys | the language switch keys, Return, the pause key |
-| Apps | how sure a word must be to convert (Normal, Strict) and per-app behavior (`apps.json`) |
+| Apps | how sure a word must be to convert (Normal, Strict) and per-app behavior: Japanese, switch keys, after Space / punctuation (`apps.json`) |
 | Dictionary | words you added and words learned, in one list (`dictionary.json`): **+** to type keys and pick their reading (English, Korean, Japanese) and app; from a row's ⋯, keep a learned word for good or remove it. A word corrected once shows how long until it's forgotten |
 | Try Typing | how each word was decided, with scores, and adding its keys to the dictionary |
 | About | version, what changed, updates, uninstall |
@@ -528,6 +530,7 @@ unless you list it.
 | `switchKeys` | `["rightOption", "shiftEscape"]` | The keys that switch readings ([language switch keys](#language-switch-keys)): `"rightOption"` (right ⌥ tapped alone), `"optionSpace"` (⌥Space), `"rightShift"` (right ⇧ tapped alone), `"escape"` (Esc), `"shiftEscape"` (⇧Esc). A key not chosen goes to the app. `escapeToApp`, from 0.1.8 and earlier, is read and carried over. |
 | `holdSpace` | `false` | Space or a punctuation mark (not a digit) goes inside the underline instead of ending the word. Like a word being typed, a switch key changes it and Delete deletes; the next word puts it in with that character. For terminals, which can't change a committed word, so set per app only (not in `"*"`); Return only confirms it, and text replacements don't fire. |
 | `fullWidth` | `true` | `false` keeps numbers and spaces half-width in this app whatever the full-width settings say (terminals, code editors). |
+| `japanese` | none | Japanese in this app. Left out, it follows `japanese` in `settings.json`; `false` decides words here between Korean and English only (no conversion, no live conversion) even with Japanese on, and `true` types Japanese here even with it off. Per app only. |
 
 </details>
 
@@ -638,6 +641,8 @@ text the rules were not set on, the prose evaluation on this repository's Korean
 | | Japanese off (en/ko) | Japanese on (en/ko/ja) |
 | --- | --- | --- |
 | Accuracy | 99.80% | 99.62% |
+
+With Japanese on, an app that turns it off in its own settings is decided as in the left column (en/ko).
 
 Kanji conversion, top candidate exactly matching the original text (held-out Tatoeba):
 

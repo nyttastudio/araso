@@ -465,8 +465,8 @@ struct SeamMark: View {
 struct SettingsView: View {
     @ObservedObject var model: SettingsModel
 
-    /// Wide enough for the Apps pane's four menus on a row.
-    static let size = NSSize(width: 920, height: 640)
+    /// Wide enough for the Apps pane's five menus on a row.
+    static let size = NSSize(width: 980, height: 640)
 
     var body: some View {
         HStack(spacing: 0) {
@@ -988,6 +988,15 @@ private struct AppRowView: View {
                             model.setEntry(for: row.id) { $0.conversionThreshold = value }
                         }
                     }
+                    // The default is the Languages tab's Japanese: an app can have it on or off whatever that says.
+                    Field(title: L("Japanese"), inherited: row.entry.japanese == nil) {
+                        FieldMenu(own: row.entry.japanese.map { $0 ? L("On") : L("Off") },
+                                  inherited: model.settings.japanese ? L("On") : L("Off"),
+                                  choices: [(L("On"), true), (L("Off"), false)]) { value in
+                            model.setEntry(for: row.id) { $0.japanese = value }
+                        }
+                    }
+                    .help(L("Off: words here are Korean or English only, as with Japanese off. On: Japanese here even when it is off under Languages."))
                     Field(title: L("Switch keys"), inherited: row.entry.switchKeys == nil) {
                         SwitchKeysMenu(own: row.entry.switchKeys, taken: model.settings.pauseKey.switchKey,
                                        effective: row.entry.applied(to: defaultPolicy).switchKeys,

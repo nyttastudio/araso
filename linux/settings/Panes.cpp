@@ -359,9 +359,12 @@ void BuildApps() {
     Heading(T("Exceptions — only apps that differ"));
     const Json &apps = g.model["apps"];
     if (apps.size() == 0) Note(T("None. Add an app that should work differently."));
-    QTreeWidget *list = List({T("App"), T("Convert words"), T("Conversion"), T("Switch keys"), T("After Space / punctuation")},
-                             {150, 110, 110, 150, 130}, 150);
+    QTreeWidget *list = List({T("App"), T("Convert words"), T("Conversion"), T("Japanese"), T("Switch keys"),
+                              T("After Space / punctuation")},
+                             {150, 110, 110, 90, 150, 130}, 150);
     QString defaultConversion = strict ? T("Strict") : T("Normal");
+    // An app's Japanese follows the settings' Japanese unless its entry names its own.
+    bool japaneseOn = g.model["settings"]["japanese"].asBool(false);
     int selectedRow = -1;
     std::vector<std::string> names;
     for (const Json &item : apps.items()) {
@@ -371,6 +374,7 @@ void BuildApps() {
         QString keys = KeyNames(own["switchKeys"]);
         Row(list, {Q(app), Value(entry, "enabled", OnOff(own["enabled"].asBool(true)), OnOff(policy["enabled"].asBool(true))),
                    Value(entry, "conversionThreshold", own["conversionThreshold"].asNumber() >= Strict() ? T("Strict") : T("Normal"), defaultConversion),
+                   Value(entry, "japanese", OnOff(own["japanese"].asBool(japaneseOn)), OnOff(japaneseOn)),
                    Value(entry, "switchKeys", keys.isEmpty() ? T("None — can't switch") : keys, KeyNames(policy["switchKeys"])),
                    Value(entry, "holdSpace", own["holdSpace"].asBool() ? T("Hold") : T("Finish"), T("Finish"))});
         if (app == g.selectedApp) selectedRow = static_cast<int>(names.size());
@@ -420,6 +424,8 @@ void BuildApps() {
     };
     tri("enabled", T("Convert words"), OnOff(policy["enabled"].asBool(true)), T("On"), T("Off"), Json(true), Json(false));
     tri("conversionThreshold", T("Conversion"), defaultConversion, T("Strict"), T("Normal"), Json(Strict()), Json(0.5));
+    tri("japanese", T("Japanese"), OnOff(japaneseOn), T("On"), T("Off"), Json(true), Json(false));
+    Note(T("Off: words here are Korean or English only, as with Japanese off. On: Japanese here even when it is off under Languages."), 20);
     tri("holdSpace", T("After Space / punctuation"), T("Finish"), T("Hold"), T("Finish"), Json(true), Json(false));
     tri("fullWidth", T("Full-width"), T("On"), T("On"), T("Off"), Json(true), Json(false));
     Note(T("Hold: Space or punctuation goes inside the underline, so the word can still be changed until the next word starts. For terminals."), 20);
