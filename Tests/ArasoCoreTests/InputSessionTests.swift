@@ -18,6 +18,8 @@ final class FakeTextField: TextClient {
     var insertions: [String] = []
     /// The clause being converted, as the input method last marked it (nil: plain marked text).
     var selectedClause: NSRange?
+    /// False for a field whose composition is always at the caret (fcitx5).
+    var marksAnywhere = true
 
     func setMarkedText(_ s: String, selectedClause: NSRange, replacing range: NSRange?) {
         if let range { setMarkedText(s, replacing: range) } else { setMarkedText(s) }

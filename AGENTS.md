@@ -122,6 +122,18 @@ tests use `FakeTextField`). It owns the preview and hysteresis, commits, Esc rea
   candidate window and with live conversion. `AppPolicies.migrateSwitchKey` moves the
   `switchKey` of builds between 0.1.8 and 0.1.9 (settings.json, never released) into `"*"`; an
   entry's `escapeToApp` (0.1.8 and earlier) still applies until the entry names its own `switchKeys`.
+- Words of the line can be fixed later (`Fixing`, `FixingTests`): `finalize` keeps each word that
+  went in with a boundary in `recent` (20, cleared by Return and `activate`, kept across clicks and
+  arrows, each checked against the field when used). A `.cycle` (not Esc, often the app's) with the
+  caret on one, or right after its space, marks it again where it is, read the next way; the
+  switch key cycles the clause, ←/→ resize it as in kanji conversion (whole next words past a
+  word's end, a cut inside one leaving the rest read on its own), Return on a cut settles the front,
+  Esc and Delete revert, a mark the app didn't put there drops the fix untouched (`markLanded`),
+  and anything else confirms by putting the fix and the rest of the line in at once
+  (`replaceThroughEnd`), so the caret ends where it was typing. Only through the field itself
+  (`uncased`: Caps Lock's client would change the rest of the line). `caretMoved` lists an unsure
+  word's readings (`fixHintConfidence`) after an arrow the app took. Not where a composition is only
+  at the caret (`TextClient.marksAnywhere`, `TextContext.marksAtCaret`: fcitx5, Windows floating).
 - Return on an underlined word only confirms it (`returnConfirmsOnly`, on by default); off, the
   app gets the Return too, except after Japanese.
 - Vim reports its modes through `scripts/vim/araso.{lua,vim}` (`Araso --vim <mode> --app

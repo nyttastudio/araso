@@ -155,6 +155,15 @@ final class InputController: IMKInputController {
             // The raw field: this `handle` notes Caps Lock for the word first, then applies `cased`.
             let handled = session.handle(key, client: IMKClient(input, marks: self), capsLock: event.modifierFlags.contains(.capsLock))
             syncStrip(input)
+            if !handled, [KeyCode.left, KeyCode.right, KeyCode.up, KeyCode.down].contains(event.keyCode) {
+                // The app moves the caret after this returns: then a word Araso wasn't sure of, if
+                // the caret is on one, lists its readings under it (`caretMoved`).
+                DispatchQueue.main.async { [weak self] in
+                    guard let self, self.session.caretMoved(client: self.textClient(input)) else { return }
+                    self.wordRect = nil
+                    self.syncStrip(input)
+                }
+            }
             // The settings window's typing test shows how each word was decided; only there.
             if session.app == Bundle.main.bundleIdentifier, let trace = session.lastTrace {
                 TypingTrace(trace).post()

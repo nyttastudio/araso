@@ -12,6 +12,8 @@ final class FakeDocument {
     var composition: NSRange?
     var cursor = 0
     var readable = true
+    /// The composition can only be at the caret (fcitx5's preedit).
+    var marksAtCaret = false
     /// The clause the last mark drew as the one being converted.
     var clause: [Int]?
 
@@ -23,6 +25,7 @@ final class FakeDocument {
         var context = TextContext(selection: [cursor, 0], marked: composition.map { [$0.location, $0.length] },
                                   text: ns.substring(with: NSRange(location: start, length: end - start)), start: start)
         if !readable { context.unreadable = true }
+        if marksAtCaret { context.marksAtCaret = true }
         return context
     }
 
@@ -195,6 +198,33 @@ final class Harness {
         // The readings it went through, listed under the word.
         #expect(h.ui?.readings?.tags.contains("KO") == true)
         #expect(h.ui?.readings?.texts.contains("ㅗ디ㅣㅐ") == true)
+    }
+
+    /// A word earlier in the line, the caret moved onto it: the switch key composes it again where
+    /// it is, read the next way, and Enter puts it in. The text service sends nothing after the
+    /// caret, so the caret stays after the word.
+    @Test func switchKeyFixesAWordEarlierInTheLine() throws {
+        let h = try Harness()
+        h.type("hello world ")
+        h.document.cursor = 5 // right after hello: what is after the caret isn't sent
+        #expect(h.tap(Keys.rightAlt, Keys.rightAltUp))
+        #expect(h.document.text == "ㅗ디ㅣㅐ world ")
+        #expect(h.document.composition == NSRange(location: 0, length: 4))
+        #expect(h.ui?.readings?.texts.contains("ㅗ디ㅣㅐ") == true)
+        h.press(Keys.enter)
+        #expect(h.document.text == "ㅗ디ㅣㅐ world ")
+        #expect(h.document.composition == nil)
+    }
+
+    /// Where the composition is always at the caret (fcitx5), a word earlier in the line stays.
+    @Test func noFixingWhereTheCompositionIsAtTheCaret() throws {
+        let h = try Harness()
+        h.document.marksAtCaret = true
+        h.type("hello world ")
+        h.document.cursor = 2
+        _ = h.tap(Keys.rightAlt, Keys.rightAltUp)
+        #expect(h.document.text == "hello world ")
+        #expect(h.document.composition == nil)
     }
 
     @Test func aCorrectionMadeTwiceIsMarkedAndListedInTheMenu() throws {

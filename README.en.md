@@ -343,6 +343,21 @@ next reading, and pressing it again keeps cycling. Deleting the space or punctua
 that chance; any other key ends it. This needs the caret still right after the word, and an app that
 lets Araso read the text there.
 
+A word earlier in the line can be fixed too. Put the caret on it (click, or ⌥← a word at a time) and
+tap right ⌥ (or ⇧Esc, or ⌥Space if chosen): the word is underlined again, read the next way. The
+caret may be anywhere in the word, or just after its space. Tapping again keeps cycling, and as in
+Japanese conversion the thick underline is the part being fixed: → makes it a key longer, taking in
+the next word past the end of one (`dkssud gktpdy` → `안녕 하세요`); ← makes it shorter, and a cut
+inside a word leaves the rest of its keys to be read on their own (`hellofmf` → `hello` + `를`).
+Return on such a front part settles it and goes on with the rest. Return or any other key puts the
+fix in and takes the caret back to the end of the line; Esc (where it isn't a switch key) and Delete
+put everything back. A whole word fixed
+is learned as a correction right after the commit is; a cut word isn't. When an arrow key leaves the
+caret on a word Araso wasn't sure of, its readings show in the strip under it first. Words before a
+Return can't be fixed, nor words changed by hand since. On Linux (fcitx5), and on Windows in apps
+where Araso keeps the word itself, an underline can only be at the caret, so this isn't there; on
+Windows the text after the caret can't be read, so the caret has to be right after the word.
+
 A word corrected once leans that way from then on: a close call (`so`/`내`) turns, a clear one
 doesn't, so a stray switch doesn't do much. It is forgotten after 30 days unless corrected or typed
 that way again. Correct the same keys the same way a second time and Araso always writes them so, also with a
