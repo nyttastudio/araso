@@ -52,11 +52,21 @@ $sudo sh -c "
 # fcitx5 loads addons as it starts: restart a running one. It restarts itself (D-Bus), so it keeps
 # the desktop's environment; one started here would have this shell's, and over SSH that has no
 # display, so the settings window it opens from the tray couldn't start.
+# It won't when it can't come back by itself (CanRestart false: holding a Wayland compositor's
+# socket, as under KDE or sway), and then says nothing; the user restarts it on the desktop.
+controller() {  # method: its reply, through whichever D-Bus tool there is
+  dbus-send --session --print-reply --dest=org.fcitx.Fcitx5 /controller "org.fcitx.Fcitx.Controller1.$1" 2>/dev/null ||
+    gdbus call --session --dest org.fcitx.Fcitx5 --object-path /controller --method "org.fcitx.Fcitx.Controller1.$1" 2>/dev/null
+}
 if pgrep -u "$(id -u)" -x fcitx5 >/dev/null 2>&1; then
-  dbus-send --session --print-reply --dest=org.fcitx.Fcitx5 /controller org.fcitx.Fcitx.Controller1.Restart >/dev/null 2>&1 ||
-    gdbus call --session --dest org.fcitx.Fcitx5 --object-path /controller --method org.fcitx.Fcitx.Controller1.Restart >/dev/null 2>&1 ||
+  if ! can=$(controller CanRestart); then
     fcitx5 -r -d >/dev/null 2>&1 || true
-  echo "Restarted fcitx5."
+    echo "Restarted fcitx5."
+  elif echo "$can" | grep -q true && controller Restart >/dev/null; then
+    echo "Restarted fcitx5."
+  else
+    echo "Restart fcitx5 to load Araso: log out and back in, or run fcitx5 -r in a terminal on the desktop."
+  fi
 fi
 cat <<'MSG'
 Araso is installed. Add it once in fcitx5's settings: Input Method → Available Input Method →
