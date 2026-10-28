@@ -47,7 +47,11 @@ public struct Release: Equatable, Sendable {
     /// install. False for an answer that isn't a release, or whose `asset` is there but unreadable.
     public static func lacks(_ asset: String, gitHubJSON data: Data) -> Bool {
         struct Answer: Decodable {
-            struct Asset: Decodable { let name: String }
+            // As `init?(gitHubJSON:)` reads them: an asset it couldn't read isn't a release either.
+            struct Asset: Decodable {
+                let name: String
+                let browser_download_url: URL
+            }
             let tag_name: String
             let assets: [Asset]
         }

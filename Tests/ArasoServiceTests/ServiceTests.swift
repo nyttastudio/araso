@@ -591,7 +591,8 @@ final class Harness {
         let unreadable = #"""
         { "tag_name": "v9.0.0", "assets": [ { "name": "Araso-linux-x86_64.tar.gz", "browser_download_url": null } ] }
         """#
-        for body in [nil, "", #"{"message": "API rate limit exceeded"}"#, unreadable] {
+        let broken = #"{ "tag_name": "v9.0.0", "assets": [ { "name": "Araso.pkg" } ] }"#
+        for body in [nil, "", #"{"message": "API rate limit exceeded"}"#, unreadable, broken] {
             release.body = body
             let failed = h.runtime.handle(release)
             #expect(failed.upToDate == nil && failed.error == "no release")
