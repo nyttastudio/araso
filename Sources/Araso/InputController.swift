@@ -30,7 +30,7 @@ final class InputController: IMKInputController {
         let fresh = runtime.makeSession()
         if let old = current?.session {
             old.commit(client: client().map { old.cased(IMKClient($0 as IMKTextInput, marks: self)) })
-            old.saveConverter(unless: runtime.converter)
+            old.saveConverter(unless: runtime.converter, discarded: runtime.discardedConverters)
             fresh.activate(app: old.app)
         }
         current = (fresh, runtime.generation)

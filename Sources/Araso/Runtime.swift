@@ -15,6 +15,8 @@ final class Runtime {
     /// Languages tab, or an app turns it on itself (`AppPolicies.turnsJapaneseOn`). Where it is on
     /// is each session's to pick, from its app's policy.
     private(set) var japaneseLoaded: Bool
+    /// Converters a kanji reset threw away, which a replaced session must not save.
+    let discardedConverters = DiscardedConverters()
     private(set) var generation = 0
     /// The controller of the text field in front, which a vim mode change is about.
     weak var active: InputController?
@@ -154,7 +156,9 @@ final class Runtime {
     /// The settings window changed files: read them again.
     private func reloadFromDisk(kanjiReset: Bool) {
         if kanjiReset {
-            // Drop the converter without saving, so its memory doesn't come back.
+            // Drop the converter without saving, so its memory doesn't come back, and keep the
+            // sessions still holding it from saving it.
+            discardedConverters.insert(converter)
             converter = nil
             if japaneseLoaded { converter = Self.makeConverter(settings) }
         }

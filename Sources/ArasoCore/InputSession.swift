@@ -193,10 +193,12 @@ public final class InputSession {
     public let engine: DictionaryEngine
     private let japaneseConverter: JapaneseConverter?
     /// Saves the converter this session was made with, unless it is `current` (the one the runtime
-    /// keeps, which saves itself): a session replaced after a settings change dropped its converter
-    /// commits what it was converting first, and the kanji picked there would be lost.
-    public func saveConverter(unless current: JapaneseConverter?) {
-        guard let japaneseConverter, japaneseConverter !== current else { return }
+    /// keeps, which saves itself) or one a kanji reset threw away (saving it would bring back what
+    /// the reset deleted): a session replaced or detached after a settings change dropped its
+    /// converter commits what it was converting first, and the kanji picked there would be lost.
+    public func saveConverter(unless current: JapaneseConverter?, discarded: DiscardedConverters? = nil) {
+        guard let japaneseConverter, japaneseConverter !== current,
+              discarded?.contains(japaneseConverter) != true else { return }
         japaneseConverter.save()
     }
 

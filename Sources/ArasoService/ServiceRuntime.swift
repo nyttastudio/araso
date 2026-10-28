@@ -76,6 +76,8 @@ public final class ServiceRuntime {
     /// Whether the engine has the Japanese model: Japanese is on in the settings, or an app turns
     /// it on itself (`AppPolicies.turnsJapaneseOn`). Each session picks where it is on.
     private var japaneseLoaded = false
+    /// Converters a kanji reset threw away, which a replaced or detached session must not save.
+    private let discardedConverters = DiscardedConverters()
     public private(set) var generation = 0
     private var clients: [Int: Client] = [:]
     private var nextClient = 1
@@ -180,6 +182,7 @@ public final class ServiceRuntime {
         case .detach:
             if let id = request.client, let client = clients.removeValue(forKey: id) {
                 client.session.commit(client: nil)
+                client.session.saveConverter(unless: converter, discarded: discardedConverters)
                 converter?.save()
             }
             response = ServiceResponse()
@@ -361,7 +364,7 @@ public final class ServiceRuntime {
         guard client.generation != generation else { return client.session }
         let fresh = makeSession()
         client.session.commit(client: field)
-        client.session.saveConverter(unless: converter)
+        client.session.saveConverter(unless: converter, discarded: discardedConverters)
         fresh.activate(app: client.session.app ?? client.app)
         client.session = fresh
         client.generation = generation
@@ -665,7 +668,9 @@ public final class ServiceRuntime {
     /// The settings window changed files: read them again.
     public func reloadFromDisk(kanjiReset: Bool) {
         if kanjiReset {
-            // Drop the converter without saving, so its memory doesn't come back.
+            // Drop the converter without saving, so its memory doesn't come back, and keep the
+            // sessions still holding it from saving it.
+            discardedConverters.insert(converter)
             converter = nil
             if japaneseLoaded, configuration.converter { converter = Self.makeConverter(settings) }
         }

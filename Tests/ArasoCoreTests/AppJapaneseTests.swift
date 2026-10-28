@@ -70,6 +70,11 @@ import Testing
         #expect(converter.saves == 0)
         s.saveConverter(unless: nil)
         #expect(converter.saves == 1)
+        // Thrown away by a kanji reset: never saved again.
+        let discarded = DiscardedConverters()
+        discarded.insert(converter)
+        s.saveConverter(unless: nil, discarded: discarded)
+        #expect(converter.saves == 1)
     }
 
     /// Japanese on in the Languages tab, off in Xcode: there the words are Korean or English only.
