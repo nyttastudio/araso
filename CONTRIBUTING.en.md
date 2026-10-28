@@ -68,6 +68,9 @@ Tests aren't enough: a split once looked right in the CLI and never reached real
 ```sh
 scripts/install.sh                           # release build, self-test, install into ~/Library/Input Methods
 /usr/bin/log show --last 10m --predicate 'subsystem == "com.nyttastudio.inputmethod.Araso"' --info --debug
+                                             # (debug lines are kept only after, once: sudo /usr/bin/log config --mode "level:debug,persist:debug"
+                                             #  --subsystem com.nyttastudio.inputmethod.Araso; without it, while reproducing:
+                                             #  /usr/bin/log stream --predicate 'subsystem == "com.nyttastudio.inputmethod.Araso"' --level debug)
 ```
 
 - A change reaches real typing only after `scripts/install.sh`. A copy started with `open` or from

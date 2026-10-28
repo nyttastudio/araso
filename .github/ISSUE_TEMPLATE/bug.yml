@@ -91,4 +91,6 @@ body:
         macOS에서 멈추거나 입력이 안 될 때는 문제가 생긴 직후 터미널에서 아래 명령을 실행해 결과를 붙여 주세요. 친 글자는 기록되지 않습니다.
         On macOS, if it hangs or stops typing, run this in Terminal right after it happens and paste the output. It never contains typed text.
         `/usr/bin/log show --last 10m --predicate 'subsystem == "com.nyttastudio.inputmethod.Araso"' --info --debug`
+        debug 줄은 미리 `sudo /usr/bin/log config --mode "level:debug,persist:debug" --subsystem com.nyttastudio.inputmethod.Araso`를 해 둔 경우에만 남습니다. 안 했어도 info 줄만으로 충분하니 그대로 붙여 주세요.
+        Debug lines are kept only if `sudo /usr/bin/log config --mode "level:debug,persist:debug" --subsystem com.nyttastudio.inputmethod.Araso` was run beforehand; without it the info lines are enough, paste them as they are.
       render: text

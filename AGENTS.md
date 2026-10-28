@@ -42,6 +42,9 @@ scripts/typing-test/run.sh                   # real key events into the settings
 scripts/record-demo/record.sh                # the README demo's footage: real typing into Safari through the installed app
 scripts/record-demo/render.sh                # → docs/media/demo.gif and build/demo/web/demo.mp4 + poster (the website's araso/)
 /usr/bin/log show --last 10m --predicate 'subsystem == "com.nyttastudio.inputmethod.Araso"' --info --debug
+                                             # (debug lines are kept only after, once: sudo /usr/bin/log config --mode "level:debug,persist:debug"
+                                             #  --subsystem com.nyttastudio.inputmethod.Araso; without it, while reproducing:
+                                             #  /usr/bin/log stream --predicate 'subsystem == "com.nyttastudio.inputmethod.Araso"' --level debug)
 windows/scripts/check-cross.sh [x86_64|x86|aarch64]   # Windows C++ (text service + host) built with zig, here
 linux/scripts/build.sh [--test] [--tar]       # on Linux: bridge + fcitx5 addon + araso-settings → build/linux/package
 linux/scripts/typing-test/run.sh              # with Docker (a Mac too): that, then real typing on a clean Ubuntu (Xvfb)

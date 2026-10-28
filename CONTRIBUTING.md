@@ -69,6 +69,9 @@ swift run araso-cli -v "dkssud hello"        # 영어/한국어 판단과 점수
 ```sh
 scripts/install.sh                           # 릴리스 빌드, 자체 점검, ~/Library/Input Methods에 설치
 /usr/bin/log show --last 10m --predicate 'subsystem == "com.nyttastudio.inputmethod.Araso"' --info --debug
+                                             # (debug 줄은 한 번 sudo /usr/bin/log config --mode "level:debug,persist:debug"
+                                             #  --subsystem com.nyttastudio.inputmethod.Araso 를 해 둔 뒤에만 남습니다. 안 했으면 재현하면서
+                                             #  /usr/bin/log stream --predicate 'subsystem == "com.nyttastudio.inputmethod.Araso"' --level debug)
 ```
 
 - 바뀐 코드는 `scripts/install.sh`로 설치해야 실제 입력에 반영됩니다. `open`이나 `build/`에서 실행한
