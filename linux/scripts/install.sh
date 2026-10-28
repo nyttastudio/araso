@@ -49,9 +49,13 @@ $sudo sh -c "
   if command -v gtk-update-icon-cache >/dev/null 2>&1; then gtk-update-icon-cache -q /usr/share/icons/hicolor || true; fi
 "
 
-# fcitx5 loads addons as it starts: restart a running one (as this user, in this session).
+# fcitx5 loads addons as it starts: restart a running one. It restarts itself (D-Bus), so it keeps
+# the desktop's environment; one started here would have this shell's, and over SSH that has no
+# display, so the settings window it opens from the tray couldn't start.
 if pgrep -u "$(id -u)" -x fcitx5 >/dev/null 2>&1; then
-  fcitx5 -r -d >/dev/null 2>&1 || true
+  dbus-send --session --print-reply --dest=org.fcitx.Fcitx5 /controller org.fcitx.Fcitx.Controller1.Restart >/dev/null 2>&1 ||
+    gdbus call --session --dest org.fcitx.Fcitx5 --object-path /controller --method org.fcitx.Fcitx.Controller1.Restart >/dev/null 2>&1 ||
+    fcitx5 -r -d >/dev/null 2>&1 || true
   echo "Restarted fcitx5."
 fi
 cat <<'MSG'
