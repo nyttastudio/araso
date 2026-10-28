@@ -988,11 +988,14 @@ public final class InputSession {
         }
         let next = entry.language.next(for: entry.keys, japanese: japaneseEnabled, splits: engineSplits(entry.keys))
         guard next != entry.language else { return false }
-        // The words after it, while each follows the one before and is as it went in.
+        // The words after it, while each follows the one before and is as it went in. Only when the
+        // word's own space or symbol is as it went in too (`touchedEntry` checks the word alone, all a
+        // text service sends up to the caret): a piece's boundary is written back as it was, while
+        // the last piece's is `trailing`, the field's own.
         var pieces = [piece(entry)]
         var wordEnd = entry.location + utf16(pieces[0].text)
         var following = entry.location + utf16(entry.text)
-        for later in recent.dropFirst(index + 1) {
+        for later in intact(entry) ? Array(recent.dropFirst(index + 1)) : [] {
             guard later.location == following, intact(later) else { break }
             pieces.append(piece(later))
             wordEnd = later.location + utf16(pieces[pieces.count - 1].text)
@@ -1098,6 +1101,7 @@ public final class InputSession {
             // The app didn't mark the line where it is: nothing of the fix is in the field, and writing
             // over the marked text would hit other text. Dropped; the key is handled as if it never began.
             self.fixing = nil
+            if key == .delete { return true } // Delete was to put the word back: it is as it was
             return handle(key, client: cased)
         }
         if key == .cycle || (key == .escape && policy.switchKeys.contains(.escape) && vimMode == nil) {

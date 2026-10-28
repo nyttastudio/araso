@@ -366,4 +366,29 @@ import Testing
         session.handle(.enter, client: field)
         #expect(session.engine.correctedOnce("hello", app: nil) == nil)
     }
+
+    /// A word whose space was changed since (pasted over with another character) is fixed alone: the
+    /// character after it stays as the field has it.
+    @Test func aChangedBoundaryStaysAsTheFieldHasIt() {
+        type("hello world again ")
+        field.text = "hello_world again "
+        caret(at: 0)
+        session.handle(.cycle, client: field)
+        #expect(session.fixing?.pieces.count == 1)
+        session.handle(.enter, client: field)
+        #expect(field.text == "\(korean("hello"))_world again ")
+    }
+
+    /// A mark the app didn't put there: Delete, meant to put the word back, isn't the app's either.
+    @Test func deleteOnAMarkTheAppDidntPutThere() {
+        type("hello world ")
+        caret(at: 1)
+        session.handle(.cycle, client: field)
+        field.text = "hello world "
+        field.marked = NSRange(location: NSNotFound, length: 0)
+        field.cursor = 12
+        #expect(session.handle(.delete, client: field))
+        #expect(field.text == "hello world ")
+        #expect(session.fixing == nil)
+    }
 }
