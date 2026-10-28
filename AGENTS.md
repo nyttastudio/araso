@@ -132,7 +132,8 @@ tests use `FakeTextField`). It owns the preview and hysteresis, commits, Esc rea
   mark the app didn't put there drops the fix untouched (`markLanded`), and anything else confirms
   with one insert over the marked text, so the caret ends where it was typing. One mark and one
   insert because macOS text views mark and insert at the caret whatever range is named (the
-  settings window's typing pane: real keys, 2026-10-28); for the same reason the caret has to be at
+  settings window's typing pane and Notes: real keys, 2026-10-28; marking with the caret elsewhere
+  lost text in both); for the same reason the caret has to be at
   the word's start there (`TextClient.marksFromCaret`, as ⌥← leaves it). ⇧← on the word being typed
   makes it a fix (`startFixingTyped`; `Key.shiftLeft`/`.shiftRight`, elsewhere ←/→). Only through the field itself
   (`uncased`: Caps Lock's client would change the rest of the line). `caretMoved` lists an unsure
