@@ -1027,8 +1027,11 @@ public final class InputSession {
         let marked = client.markedRange()
         guard shown != .japanese, marked.location != NSNotFound, marked.length > 0,
               let original = client.text(in: marked) else { return false }
-        let piece = Fixing.Piece(keys: keys, decided: committedLanguage(), language: shown, text: original, boundary: "",
-                                 typedBoundary: nil, learns: !inURLRun)
+        // A reading the user chose with the switch key is a correction of Araso's: the piece counts
+        // as having gone in as Araso's, so confirming the chosen one learns it.
+        let decided = committedLanguage()
+        let piece = Fixing.Piece(keys: keys, decided: decided, language: forcedByUser ? decided : shown, text: original,
+                                 boundary: "", typedBoundary: nil, learns: !inURLRun)
         fixing = Fixing(start: marked.location, original: original, shown: original, firstEntry: recent.count,
                         pieces: [piece], trailing: "", language: shown)
         keys = ""

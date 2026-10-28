@@ -88,6 +88,7 @@ enum Keys {
     static let shiftEscape = WindowsKey(vk: KeyMapper.vkEscape, scan: 0x01, shift: true)
     static let back = WindowsKey(vk: KeyMapper.vkBack, scan: 0x0E)
     static let enter = WindowsKey(vk: KeyMapper.vkReturn, scan: 0x1C)
+    static let left = WindowsKey(vk: KeyMapper.vkLeft, scan: 0x4B, extended: true)
     static let space = key(" ")
 }
 
@@ -211,6 +212,10 @@ final class Harness {
         #expect(h.document.text == "ㅗ디ㅣㅐ world ")
         #expect(h.document.composition == NSRange(location: 0, length: 4))
         #expect(h.ui?.readings?.texts.contains("ㅗ디ㅣㅐ") == true)
+        // The text service asks first whether a key is kept: while fixing, ← and Return are.
+        #expect(h.send(ServiceRequest(op: .test, client: h.client, key: Keys.left)).reply.handled)
+        #expect(h.send(ServiceRequest(op: .test, client: h.client, key: Keys.enter)).reply.handled)
+        #expect(h.document.composition == NSRange(location: 0, length: 4)) // the test changed nothing
         h.press(Keys.enter)
         #expect(h.document.text == "ㅗ디ㅣㅐ world ")
         #expect(h.document.composition == nil)

@@ -338,4 +338,16 @@ import Testing
         #expect(session.fixing == nil)
         #expect(field.text == "\(korean("hello")) world ")
     }
+
+    /// A reading chosen with the switch key on the word being typed, then fixed with the arrows and
+    /// confirmed whole, is learned as the correction it is.
+    @Test func aChosenReadingFixedWholeIsLearned() {
+        type("helloab")
+        while session.readings?.languages[session.readings!.selected] != .korean { session.handle(.cycle, client: field) }
+        session.handle(.left, client: field) // a key shorter
+        session.handle(.right, client: field) // whole again
+        #expect(session.fixing?.cut == nil)
+        session.handle(.enter, client: field)
+        #expect(session.engine.correctedOnce("helloab", app: nil) == .korean)
+    }
 }
