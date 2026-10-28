@@ -407,4 +407,18 @@ import Testing
         #expect(field.marked.location == NSNotFound)
         #expect(session.fixing == nil)
     }
+
+    /// Marked text the app reports over the word itself isn't taken away when the fix is dropped: it
+    /// may be the word's own text.
+    @Test func aMarkOverTheWordIsLeft() {
+        type("hello world ")
+        caret(at: 1)
+        session.handle(.cycle, client: field)
+        field.text = "hello world "
+        field.marked = NSRange(location: 0, length: 3) // over hel, not where the fix put it
+        field.cursor = 3
+        session.handle(.enter, client: field)
+        #expect(field.text.hasPrefix("hel"))
+        #expect(session.fixing == nil)
+    }
 }

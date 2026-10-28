@@ -1101,7 +1101,7 @@ public final class InputSession {
             // The app didn't mark the line where it is: nothing of the fix is in the field, and writing
             // over the marked text would hit other text. Dropped; the key is handled as if it never began.
             self.fixing = nil
-            dropMisplacedMark(client)
+            dropMisplacedMark(fixing, client)
             if key == .delete { return true } // Delete was to put the word back: it is as it was
             return handle(key, client: cased)
         }
@@ -1283,7 +1283,7 @@ public final class InputSession {
         let (text, _) = fixingText(&fixing)
         guard let cased else { return }
         let client = Self.uncased(cased)
-        guard markLanded(fixing, client) else { return dropMisplacedMark(client) }
+        guard markLanded(fixing, client) else { return dropMisplacedMark(fixing, client) }
         client.insertText(text, replacing: nil)
         let later = Array(recent.dropFirst(fixing.firstEntry + fixing.pieces.count))
         let delta = utf16(text) - utf16(fixing.original)
@@ -1340,10 +1340,14 @@ public final class InputSession {
     }
 
     /// A fix's marked text the app put somewhere else (at the caret): taken away, so the app can't
-    /// put it in there later. The text the fix was for is as it was.
-    private func dropMisplacedMark(_ client: TextClient) {
+    /// put it in there later. Only clear of the text the fix was for: marked text over any of it may
+    /// be that text, which taking it away would delete.
+    private func dropMisplacedMark(_ fixing: Fixing, _ client: TextClient) {
         let marked = client.markedRange()
-        if marked.location != NSNotFound, marked.length > 0 { client.setMarkedText("") }
+        let original = NSRange(location: fixing.start, length: utf16(fixing.original))
+        guard marked.location != NSNotFound, marked.length > 0,
+              NSIntersectionRange(marked, original).length == 0 else { return }
+        client.setMarkedText("")
     }
 
     /// Where the app had the marked text, and where the fix had put it, when a fix was dropped for
