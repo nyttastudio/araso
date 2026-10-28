@@ -54,18 +54,26 @@ $sudo sh -c "
 # display, so the settings window it opens from the tray couldn't start.
 # It won't when it can't come back by itself (CanRestart false: holding a Wayland compositor's
 # socket, as under KDE or sway), and then says nothing; the user restarts it on the desktop.
-controller() {  # method: its reply, through whichever D-Bus tool there is
-  dbus-send --session --print-reply --dest=org.fcitx.Fcitx5 /controller "org.fcitx.Fcitx.Controller1.$1" 2>/dev/null ||
+# fcitx5 before 5.1 (Ubuntu 22.04's 5.0.14) has Restart but no CanRestart.
+controller() {  # method: its reply
+  if command -v dbus-send >/dev/null 2>&1; then
+    dbus-send --session --print-reply --dest=org.fcitx.Fcitx5 /controller "org.fcitx.Fcitx.Controller1.$1" 2>/dev/null
+  else
     gdbus call --session --dest org.fcitx.Fcitx5 --object-path /controller --method "org.fcitx.Fcitx.Controller1.$1" 2>/dev/null
+  fi
 }
 if pgrep -u "$(id -u)" -x fcitx5 >/dev/null 2>&1; then
-  if ! can=$(controller CanRestart); then
+  desktop="Restart fcitx5 to load Araso: log out and back in, or run fcitx5 -r in a terminal on the desktop."
+  if ! command -v dbus-send >/dev/null 2>&1 && ! command -v gdbus >/dev/null 2>&1; then
     fcitx5 -r -d >/dev/null 2>&1 || true
     echo "Restarted fcitx5."
-  elif echo "$can" | grep -q true && controller Restart >/dev/null; then
+  elif can=$(controller CanRestart) && ! echo "$can" | grep -q true; then
+    # fcitx5 -r doesn't replace it either then: only a new session does.
+    echo "fcitx5 can't restart itself here: log out and back in to load Araso."
+  elif controller Restart >/dev/null; then
     echo "Restarted fcitx5."
   else
-    echo "Restart fcitx5 to load Araso: log out and back in, or run fcitx5 -r in a terminal on the desktop."
+    echo "$desktop"
   fi
 fi
 cat <<'MSG'
