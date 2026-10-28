@@ -32,6 +32,8 @@ scripts/release.sh                           # universal build → build/release
 swift run araso-cli -v "dkssud hello"     # English/Korean decision with scores
 printf 'keys\tprevious\n' | swift run araso-cli --decide --japanese   # previous: english|korean|japanese|empty
 printf 'きょうは\n' | swift run araso-cli --convert                    # AzooKey candidates (ARASO_ENGINE=apple: macOS's)
+printf 'Arasork\n' | swift run araso-cli --split --japanese          # the particle splitter's readings and lead
+python3 tools/eval_text.py .build/release/araso-cli --japanese --list README.md   # accuracy on this repo's Korean prose
 tools/prepare.sh [--models]                  # held-out accuracy (downloads into tools/data, gitignored)
 scripts/typing-test/run.sh                   # real key events into the settings window's typing pane through the installed app
 scripts/record-demo/record.sh                # the README demo's footage: real typing into Safari through the installed app
@@ -64,7 +66,8 @@ guards; an entry limited to apps applies to the keys as a whole, by `DecisionCon
 (`MixedWord.swift`) → `HeuristicEngine`. Plan for the rest of the dictionary: `docs/user-dictionary.md`.
 - `SplittingEngine` handles English + Korean particle (`github에`), a single letter + particle
   (`xdp` → `x에`, not 도/나 after a lowercase letter), English + whole Korean word (`hello월드`,
-  using `Data/korean_vocabulary.txt`, which `HeuristicEngine` also uses for its Korean word floor;
+  using `Data/korean_vocabulary.txt` plus `KoreanModel.loanwords` (developer and product words the
+  2018 subtitles lack: 깃허브, 노션), which `HeuristicEngine` also uses for its Korean word floor;
   its words seen under 10 times, `isRareVocabularyWord`, count for that floor only) and English + Japanese particle
   (`githubで`). Its decisions have confidence 0.98 (`SplittingEngine.confidence`), above Strict
   (0.97), so they split in a strict app too.
@@ -73,13 +76,21 @@ guards; an entry limited to apps applies to the keys as a whole, by `DecisionCon
   as Korean (a vocabulary word, or one with a particle, gets a floor), as unknown English and as
   kana, from word and particle log-probabilities (`Weights`). An acronym or name and a Korean word
   (`PC카톡`) switch language at `switchCost`; an ordinary word and a Korean word (`hello월드`) pay
-  `wordSwitchCost`, tuned so no word of `en_50k.txt` splits. What's left as shape checks there:
+  `wordSwitchCost`, tuned so no word of `en_50k.txt` splits; that cut is also the bar a particle split
+  has to clear, at the same cost (Lega + 새를 must not bar Legato + 를). An unknown word written as a
+  name (a capital, then lowercase: Araso, Esc) pays no `unknownFront` before a core particle
+  (`afterNameParticles`: not 도/나/이 or an ending, whose keys end names: Neleh, Kursk, Jordi, Thiago).
+  What's left as shape checks there:
   clean romaji and Korean throughout stay whole, and an acronym a lingering Shift could explain
   (`TM`, `EU`) needs an unseen syllable (`뗘`) and a known word after it. Fix a wrong split there,
   by the scores or the word lists, not with a rule for the case; the weights were tuned with
   `tools/eval_particles.py` and the wrong-split checks below.
 - `HeuristicEngine` scores the keys per keystroke as English, Korean and Japanese, then nudges
-  toward the previous word's language.
+  toward the previous word's language, less (`switchBiasFactor`) when the keys are a word of
+  another language: a known English word (not a rare one, SCOWL above `extraLevel`, against a
+  Korean word on the same keys: `ths` 손), a known Korean word, or clean kana of 4+ at
+  `japanesePhrase`'s score (`inumanisentaku` after English). A dictionary word with a capital on
+  a Korean shift key inside (`wOrk`, 쟤가) gets no English floor.
 - `render(_:as: .mixed)` uses the engine's split when the engine makes one, else the plain
   particle split (what an Esc-forced mixed reading shows).
 
@@ -241,6 +252,11 @@ runtime.
     fills the dictionary with every eval.tsv word, and with en_50k's top 20k as English, and
     requires no eval.tsv row to split (skipped without tools/data; `ARASO_TOOLS_DATA=<main
     checkout>/tools/data` from a worktree).
+  - For a split or a bias on real prose, `tools/eval_text.py` runs this repository's Korean documents
+    (README.md, CONTRIBUTING.md, docs/url-run.md, docs/user-dictionary.md, .github/release-notes.md)
+    with the previous word's language from the text; `--list` prints the misses. For a front that is a
+    name, also run `tools/data/en_50k.txt` with the first letter capitalized, after nothing, Korean and
+    English, and diff the decisions. `araso-cli --split` prints `ParticleSplitter.scored`'s detail.
   - For English + particle, `tools/eval_particles.py` types word × particle through a session
     (`araso-cli --type`) and reports accuracy per kind, plus words that must stay English.
   - The CLI only shows the engine's decision, so also test through a session: an earlier split

@@ -70,6 +70,10 @@ public struct ParticleSplitter: Sendable {
     static let coreJapanese: Set<String> = ["で", "に", "を", "は", "が", "の", "と", "も"]
     /// Particles that follow a noun most of the time: they score `coreParticle`.
     static let coreKorean: Set<String> = Set("에 에서 에게 을 를 은 는 이 가 도 로 으로 와 과 의 만 까지 부터 랑 이랑 한테 처럼 보다".split(separator: " ").map(String.init))
+    /// Core particles whose keys no English name ends in, after which an unknown word written as
+    /// a name (Araso, Esc) pays no `unknownFront`. Not 도, 나 and 이 (eh, sk, di: Neleh, Kursk,
+    /// Jordi), nor the endings (해 is go: Thiago).
+    static let afterNameParticles: Set<String> = coreKorean.subtracting(["도", "나", "이"])
 
     public init(english: EnglishModel, korean: KoreanModel = KoreanModel(), japanese: JapaneseModel? = nil,
                 weights: Weights = Weights()) {
@@ -92,7 +96,7 @@ public struct ParticleSplitter: Sendable {
         guard n >= 3, !english.isKnownWord(keys) else { return nil }
         var best: (split: Split, score: Double)?
         func offer(_ split: Split, front: String, particle: Double, korean: String? = nil) {
-            guard let w = frontScore(front) else { return }
+            guard let w = frontScore(front, asName: korean.map(Self.afterNameParticles.contains) ?? false) else { return }
             var particle = particle
             if let korean, w == weights.acronym,
                MixedWord.particleAgrees(korean, final: MixedWord.finalSound(ofAcronym: front)) == true {
@@ -161,11 +165,13 @@ public struct ParticleSplitter: Sendable {
             let knownKorean = isKoreanWordOrWordWithParticle(composed.text)
             guard knownKorean || readsAsKorean(back), let (w, capitals) = frontReading(front) else { continue }
             let k = koreanScore(back) * Double(back.count)
-            best = max(best, (w + k - weights.switchCost) / Double(chars.count))
-            guard mayStand, !capitals || mayStandAsWord(front, englishOnlyCapital: englishOnlyCapital, knownKorean: knownKorean)
-            else { continue }
+            // At the cost the cut would pay standing: Lega + 새를 at `switchCost` barred Legato + 를,
+            // a better reading than the cut itself at `wordSwitchCost`.
             let cost = capitals ? weights.switchCost : weights.wordSwitchCost
             let score = (w + k - cost) / Double(chars.count)
+            best = max(best, score)
+            guard mayStand, !capitals || mayStandAsWord(front, englishOnlyCapital: englishOnlyCapital, knownKorean: knownKorean)
+            else { continue }
             if split.map({ score > $0.score }) ?? true {
                 split = (MixedWord(english: front, koreanKeys: back, korean: composed.text), score)
             }
@@ -195,11 +201,13 @@ public struct ParticleSplitter: Sendable {
         return composed.syllables.allSatisfy { korean.syllableLogProbability($0) > KoreanModel.unknownSyllableLogP }
     }
 
-    /// The front as English (log-probability of the word); nil when it can't be one.
-    func frontScore(_ front: String) -> Double? { frontReading(front)?.score }
+    /// The front as English (log-probability of the word); nil when it can't be one. `asName`:
+    /// an unknown word written as a name (a capital, then lowercase) is as likely as any word to
+    /// have this particle after it.
+    func frontScore(_ front: String, asName: Bool = false) -> Double? { frontReading(front, asName: asName)?.score }
 
     /// `frontScore`, and whether the front is an acronym or a name typed with its capitals.
-    func frontReading(_ front: String) -> (score: Double, capitals: Bool)? {
+    func frontReading(_ front: String, asName: Bool = false) -> (score: Double, capitals: Bool)? {
         guard front.count >= 2, front.allSatisfy({ $0.isASCII && $0.isLetter }) else { return nil }
         // Capitals that are all shifted jamo in keys that spell clean Hangul are Korean typed
         // with shift (akffkRod: 말라깽, tkrlRns: 사기꾼), not an acronym or a name.
@@ -217,7 +225,12 @@ public struct ParticleSplitter: Sendable {
         if let level = english.level(front), level <= EnglishModel.knownLevel {
             return (max(spelling, weights.knownBase - weights.perLevel * Double(level)), false)
         }
-        return (spelling - weights.unknownWord - weights.unknownFront, false)
+        // Written as a name, a capital then lowercase (Araso, Esc, Raycast), an unknown word takes
+        // a core particle as often as a known one does (Araso가, Esc를): no `unknownFront` there.
+        // Not before every suffix: names end in the keys of 도, 나, 이, 해 (Neleh, Kursk, Jordi,
+        // Thiago) and of Japanese particles (Porto, Varga) far more often than Araso도 is typed.
+        let name = asName && front.first!.isUppercase && front.dropFirst().allSatisfy(\.isLowercase)
+        return (spelling - weights.unknownWord - (name ? 0 : weights.unknownFront), false)
     }
 
     /// GitHub, VSCode, iPhone, macOS: a capital inside, and the part from the last capital a

@@ -59,6 +59,15 @@ import Testing
         #expect(field.text == "きょうはいいてんk")
     }
 
+    /// A Japanese phrase after an English word is shown as kana before Space too, also when its
+    /// last letter is an n still pending while typing (すみませn, かんぜn: the fourth kana only
+    /// with that n): the phrase is judged on its finished reading, as the commit is.
+    @Test(arguments: [("sumimasen", "すみませn"), ("shinkansen", "しんかんせn"), ("inumanisentaku", "いぬまにせんたく"), ("kanzen", "かんぜn"), ("shinbun", "しんぶn"), ("ninjin", "にんじn")])
+    func japanesePhraseAfterEnglishIsShownAsKana(keys: String, kana: String) {
+        type("hello " + keys)
+        #expect(field.text == "hello " + kana, Comment(rawValue: field.text))
+    }
+
     /// A capital is never romaji, as in macOS's Japanese input method: ⇧P shows P while typed
     /// (not the p of a letter waiting for its vowel), and ⇧O is O, not お.
     @Test func capitalLetterIsNotRomaji() {

@@ -54,7 +54,7 @@ Hello, worldhasaishonopuroguramudesu␣.           →  Hello, worldは最初の
 - **Kanji conversion**: clause by clause, with live conversion, through the engine of macOS's own Japanese input, its candidates on Araso's card, nine to a page.
 - **Per app**: Strict in a terminal, off in a game. It follows vim's modes, and a pause key passes keys straight through.
 - **On this Mac only**: keystrokes never leave the input method. A keystroke's preview takes at most ~3 ms.
-- **99.5% accurate**: on about 6,000 held-out words and phrases (Japanese on, [held-out results](#held-out-results)).
+- **99.6% accurate**: on about 6,000 held-out words and phrases (Japanese on, [held-out results](#held-out-results)).
 
 ## Contents
 
@@ -559,6 +559,8 @@ in as typed, in English with half-width symbols, until the next space (`https://
   reading the whole token as Hangul or as English. The more common the English word (or an acronym
   or name typed in capitals) and the less the whole reads as a Korean word, the likelier the split.
   - `githubdp` → `github에`, `UIrkxdmsrjs` → `UI같은건`, `formdptj` → `form에서` (래그 is no word).
+    A name the list doesn't know splits before a core particle when it starts with a capital:
+    `Arasork` → `Araso가`, `Escfmf` → `Esc를`.
     `gosemfdmf` stays `핸들을`.
   - Of 은/는, 을/를 and 이/가, the form that fits the end of the word before counts as likelier. An
     acronym ends as its last letter is said (`TMdms` → `TM은`, 티엠), and whole Hangul with the wrong
@@ -602,11 +604,17 @@ in as typed, in English with half-width symbols, until the next space (`https://
 
 **4. Heuristic**
 
-- English: character trigrams, and a floor for words in the SCOWL list, by how common they are
-- Korean: 2-set syllable frequencies, and a floor for words seen in Korean text
+- English: character trigrams, and a floor for words in the SCOWL list, by how common they are. A
+  word with a capital after its first letter (`wOrk`) isn't how anyone types English, so it gets no
+  floor and competes with `쟤가` on scores.
+- Korean: 2-set syllable frequencies, and a floor for words seen in Korean text. Developer and
+  product words the subtitle corpus (2018) lacks (깃허브, 리액트, 노션, 도커: about 220) come from a
+  list in the app and get the same floor.
 - Japanese: romaji → kana trigrams, with English words inside the phrase split out
-- The nudge is weaker when the keys are a word of another language and not of the previous one,
-  which is someone switching language.
+- The nudge is weaker when the keys are a word of another language and not of the previous one
+  (`내가` after English, or clean kana of four or more: `inumanisentaku`), which is someone switching
+  language. A rare English word (`ths`, `dork`) doesn't hold it against a Korean word on the same
+  keys (`손`, `애가`).
 - A known English word needs a clear Japanese win before it turns into kana.
 
 </details>
@@ -622,11 +630,14 @@ private to macOS, so where it can't be loaded the app's own
 ### Held-out results
 
 2,011 English words, 1,987 Korean words and 2,000 Japanese phrases from held-out sentences,
-never used to build the models (`tools/prepare.sh`):
+never used to build the models (`tools/prepare.sh`). Held out from the models (letter statistics,
+word lists), not from the decision rules, whose thresholds were set looking at these numbers. For
+text the rules were not set on, the prose evaluation on this repository's Korean documents
+(`tools/eval_text.py`, about 6,600 tokens) gives 99.44% (English + particle 96.35%):
 
 | | Japanese off (en/ko) | Japanese on (en/ko/ja) |
 | --- | --- | --- |
-| Accuracy | 99.82% | 99.50% |
+| Accuracy | 99.80% | 99.62% |
 
 Kanji conversion, top candidate exactly matching the original text (held-out Tatoeba):
 
@@ -647,11 +658,11 @@ most frequent English and Korean words are also scored after each kind of word
 
 | | after nothing | after the same language | after the other | after Japanese |
 | --- | --- | --- | --- | --- |
-| Korean words | 9 / 33 | 2 / 15 | 14 / 63 | 9 / 34 |
-| English words | 2 / 47 | 0 / 21 | 8 / 71 | 2 / 86 |
+| Korean words | 9 / 31 | 2 / 13 | 10 / 55 | 9 / 32 |
+| English words | 2 / 48 | 0 / 24 | 8 / 71 | 2 / 86 |
 
 Before the SCOWL and Korean word lists and the switch-aware nudge, that was 94 / 785 in all; now
-it is 46 / 370. These lists were used while tuning those rules, so they're a guide, not a
+it is 42 / 360. These lists were used while tuning those rules, so they're a guide, not a
 held-out score. Many remaining misses are genuinely ambiguous keys: `so`/내, `go`/해, `did`/양.
 
 </details>
