@@ -118,11 +118,14 @@ final class InputController: IMKInputController {
         guard let event, let input = sender as? IMKTextInput else { return false }
         if event.type == .flagsChanged {
             MainActor.assumeIsolated {
-                // ⌘ going down: a held word goes in before the shortcut, since an app may act on
-                // the shortcut without showing it to the input method (Ghostty pastes on ⌘V itself).
+                // ⌘ going down: the word being typed goes in before the shortcut, since an app may
+                // act on the shortcut without showing it to the input method (Ghostty pastes on ⌘V
+                // and deletes on ⌘⌫ itself).
                 if event.keyCode == KeyCode.leftCommand || event.keyCode == KeyCode.rightCommand,
                    event.modifierFlags.contains(.command) {
-                    session.commandPressed(client: textClient(input))
+                    if session.commandPressed(client: textClient(input), heldWordOnly: false) {
+                        syncStrip(input) // a conversion's candidates went in with it: the strip goes too
+                    }
                 }
                 pauseTapChanged(event, client: input)
                 switchTapChanged(event, client: input)

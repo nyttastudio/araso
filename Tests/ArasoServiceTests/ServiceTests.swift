@@ -316,6 +316,19 @@ final class Harness {
         #expect(h.document.text == "안녕 ")
     }
 
+    /// Ctrl+V reaches the text service as a key, and `.other` puts the word in before the app gets it,
+    /// so a word without a boundary keeps composing on Ctrl: a Ctrl let go on its own, or the
+    /// virtual left Ctrl that AltGr sends with a symbol, doesn't split the word.
+    @Test func ctrlGoingDownLeavesAWordWithoutABoundaryComposing() throws {
+        let h = try Harness()
+        h.type("dkss")
+        h.press(Keys.leftCtrl)
+        #expect(h.document.composition != nil)
+        h.type("ud")
+        #expect(h.document.text == "안녕")
+        #expect(h.document.composition != nil)
+    }
+
     @Test func shortcutsGoToTheAppUnlessAWordIsInProgress() throws {
         let h = try Harness()
         let ctrlS = WindowsKey(vk: 0x53, scan: 0x1F, ctrl: true)

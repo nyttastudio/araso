@@ -120,7 +120,8 @@ the same code as on macOS; kanji conversion is AzooKey's.
 Where it differs from macOS:
 
 - Ctrl plays ⌘'s part: right Ctrl (the 한자 key) tapped alone pauses, and right Alt (the 한/영
-  key) tapped alone switches readings.
+  key) tapped alone switches readings. Ctrl going down puts in only a held word; a word being
+  typed keeps composing (a key such as Ctrl+V does reach Araso, and the word goes in then).
 - Apps are named by program (`notepad.exe`), and the settings files are in `%APPDATA%\Araso`.
 - Text replacements come from `replacements.json` in that folder (`{"addr": ["123 Main St"]}`),
   and Araso replaces them itself.
@@ -161,7 +162,9 @@ and distributions like it (glibc 2.35 or later).
 Where it differs from macOS:
 
 - Ctrl plays ⌘'s part: right Ctrl (the 한자 key) tapped alone pauses, and right Alt (the 한/영
-  key) tapped alone switches readings. fcitx5 turns input methods on and off with 한/영, but in a
+  key) tapped alone switches readings. Ctrl going down puts in only a held word; a word being
+  typed keeps composing (a key such as Ctrl+V does reach Araso, and the word goes in then).
+  fcitx5 turns input methods on and off with 한/영, but in a
   field Araso types in, Araso takes it first as its switch key.
 - Araso starts on in every text field: the first time it starts, it turns on fcitx5's Active By
   Default. Off (**On in every text field** under Languages in the settings window), a field starts
@@ -253,7 +256,7 @@ While a word is being typed it is underlined and shows the language Araso expect
 | `-` | commit, then `-` | ー |
 | Return | commit only (press again for a newline or to send; a setting) | commit as shown, kana or live-converted kanji (no newline) |
 | ⌃K / F7, ⌃J / F6 | (the app's shortcut) | katakana / hiragana (Space flips, Return commits) |
-| Tab, arrows, ⌘/⌃/⌥ | commit, the app gets the key | same |
+| Tab, arrows, ⌘/⌃/⌥ | commit, the app gets the key (⌘ commits the moment it goes down, so ⌘V pastes after the word and a delete on ⌘⌫ doesn't skip it) | same |
 | **Right ⌘** (tapped on its own; a setting) | [pause](#pause) / resume Araso in this text field | same |
 
 <details>
@@ -368,9 +371,10 @@ end the word but goes inside the underline too.
 
 - While underlined it is the word being typed: a language switch key changes it (`dkssud.` →
   `안녕.`, the mark stays as typed), and Delete deletes (the space or mark first).
-- Starting the next word puts it in with that character. So does pressing ⌘, so a ⌘V pastes after
-  the word (a terminal pastes on ⌘V itself, without showing Araso the key); after that a switch key
-  can't change the word any more.
+- Starting the next word puts it in with that character. So does pressing ⌘ (as it does for any
+  underlined word in any app), so a ⌘V pastes after the word and a ⌘⌫ doesn't skip it to delete the text
+  before (a terminal acts on ⌘V and ⌘⌫ itself, without showing Araso the key); after that a switch
+  key can't change the word any more.
 - Only one character is held: after `안녕.` a Space or a second mark ends the word and is handled as
   with holding off (to the app, usually; after a word that went in as Japanese, by the rules for
   symbols after Japanese text).

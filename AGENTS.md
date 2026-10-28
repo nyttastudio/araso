@@ -151,11 +151,18 @@ tests use `FakeTextField`). It owns the preview and hysteresis, commits, Esc rea
   its boundary in one `insertText`. Ghostty sends text committed on a letter key as text and
   encodes nothing for a key the IME consumed while composing, which is what makes this work there;
   it reports its mouse selection as the caret, so the post-commit flip window can't.
-- ⌘ going down (`commandPressed`, from flagsChanged) commits a held word too, and resets the run
-  as a shortcut does: Ghostty acts on ⌘V itself without showing the input method the key, and
-  pasted over the marked text. A word without a boundary isn't committed by ⌘ (the next letters
-  would start a new word). A Hyper key (⌃⌥⇧⌘ at once), which the switch and pause taps ignore,
-  counts as ⌘ here.
+- ⌘ going down (`commandPressed`, from flagsChanged) commits the word being typed, in every app,
+  with or without a boundary (a held word goes in with its boundary), and resets the run as a
+  shortcut does: Ghostty acts on ⌘V and ⌘⌫ itself without showing the input method the key, so
+  the paste replaced the underlined word and its ⌘⌫ (a line delete there) skipped that word for
+  the text before it (the underlined word wasn't text to it yet). With nothing being typed a ⌘
+  changes nothing. The cost is that a ⌘ let go mid-word starts a new word with the next
+  letters (`CommandWhileComposingTests`). The strip is synced after it, since a conversion's
+  candidates go in with the word. On Windows and Linux `ServiceRuntime` passes `heldWordOnly:
+  true`: Ctrl+V does reach the text service (or the fcitx5 addon) as a key (`.other` commits
+  first), so only a held word goes in, and a Ctrl let go on its own or AltGr's virtual left Ctrl
+  doesn't split the word. A Hyper key
+  (⌃⌥⇧⌘ at once), which the switch and pause taps ignore, counts as ⌘ here.
 
 **Windows** (docs/windows-port.md): `ArasoService` (Swift, portable, tested on macOS too) is
 what InputMethodKit and `Runtime` are here: a session per text service over a snapshot of the field
