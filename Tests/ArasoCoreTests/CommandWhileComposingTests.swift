@@ -59,6 +59,25 @@ import Testing
         #expect(field.text != "안녕 ")
     }
 
+    /// With nothing being typed, ⌘ leaves what the strip shows alone: the readings a switch key
+    /// listed and the word a correction just taught stay up for the redraw that never comes.
+    @Test func commandWithNothingTypedKeepsReadingsAndLearned() {
+        type("dkssud ")
+        session.handle(.cycle, client: field)
+        let readings = session.readings
+        #expect(readings != nil)
+        #expect(!session.commandPressed(client: field, heldWordOnly: false))
+        #expect(session.readings == readings)
+
+        type("rjtm ")
+        session.handle(.cycle, client: field)
+        type(" ") // closes the flip window: the correction is learned
+        let learned = session.learned
+        #expect(learned != nil)
+        #expect(!session.commandPressed(client: field, heldWordOnly: false))
+        #expect(session.learned == learned)
+    }
+
     /// The caller redraws the strip only when ⌘ put a word in: a ⌘ that changed nothing says so,
     /// or the capsule saying a word was learned would start over on every ⌘S.
     @Test func commandSaysWhetherItPutAWordIn() {
