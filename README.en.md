@@ -148,7 +148,7 @@ and distributions like it (glibc 2.35 or later).
    The settings window runs on Qt 5, which the package doesn't carry: on Arch install `qt5-base`, on
    Fedora `qt5-qtbase-gui`. When it's missing, `install.sh` says which command installs it.
 2. Download `Araso-linux-<arch>.tar.gz` for your architecture (`uname -m`) from the
-   [Linux beta](https://github.com/nyttastudio/araso/releases/tag/linux-beta-1), unpack it and run
+   [Linux beta](https://github.com/nyttastudio/araso/releases/tag/linux-beta-2), unpack it and run
    its `./install.sh`; it asks for your password. To install from source instead (Swift 6.2, CMake,
    fcitx5's development files and Qt 6; the list is in [docs/linux-port.md](docs/linux-port.md)):
 
