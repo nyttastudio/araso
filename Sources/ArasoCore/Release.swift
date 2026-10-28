@@ -42,14 +42,18 @@ public struct Release: Equatable, Sendable {
         notes = Self.changes(in: answer.body ?? "")
     }
 
-    /// The version of a release GitHub answered with, whatever its assets: a release without this
-    /// platform's file (a beta's platform before its files go into regular releases) still says
-    /// the check reached GitHub.
-    public static func version(gitHubJSON data: Data) -> String? {
-        struct Answer: Decodable { let tag_name: String }
-        guard let answer = try? JSONDecoder().decode(Answer.self, from: data) else { return nil }
+    /// Whether GitHub answered with a release that has no `asset` at all (a beta's platform before
+    /// its files go into regular releases): the check reached GitHub, there is just nothing to
+    /// install. False for an answer that isn't a release, or whose `asset` is there but unreadable.
+    public static func lacks(_ asset: String, gitHubJSON data: Data) -> Bool {
+        struct Answer: Decodable {
+            struct Asset: Decodable { let name: String }
+            let tag_name: String
+            let assets: [Asset]
+        }
+        guard let answer = try? JSONDecoder().decode(Answer.self, from: data) else { return false }
         let version = answer.tag_name.hasPrefix("v") ? String(answer.tag_name.dropFirst()) : answer.tag_name
-        return isVersion(version) ? version : nil
+        return isVersion(version) && !answer.assets.contains { $0.name == asset }
     }
 
     /// A note split into its bold lead and the rest: `**텍스트 대치**: 약어를…` → ("텍스트 대치",

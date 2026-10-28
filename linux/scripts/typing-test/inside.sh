@@ -95,9 +95,10 @@ field; xdotool key Hangul_Hanja; xdotool type --delay 80 "dkssud "; xdotool key 
 expect "the 한자 key pauses" "dkssud 안녕 "
 
 # vim's mode (scripts/vim sends it): in normal mode every key goes straight to the app. The mode
-# goes to the addon's socket directly, so the keys typed before it must have reached fcitx5 first
-# (they come through X and the app): without the pause, insert overtook the last ones (dks녕).
-field; araso-settings --vim normal; sleep 0.3; xdotool type --delay 80 "dkssud "; sleep 0.8
+# goes to the addon's socket directly, so the keys typed before it must have reached the field
+# first (they come through X and the app): without waiting, insert overtook the last ones (dks녕).
+field; araso-settings --vim normal; sleep 0.3; xdotool type --delay 80 "dkssud "
+for _ in $(seq 25); do [ "$(cat /tmp/out.txt 2>/dev/null)" = "dkssud " ] && break; sleep 0.2; done
 araso-settings --vim insert; sleep 0.3; xdotool type --delay 80 "dkssud "; araso-settings --vim off
 expect "vim's normal mode passes keys, insert mode decides" "dkssud 안녕 "
 

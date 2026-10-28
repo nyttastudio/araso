@@ -584,8 +584,14 @@ final class Harness {
         #expect(answer.upToDate == true)
         #expect(answer.release == nil && answer.error == nil)
         #expect(h.runtime.model().update == nil)
-        // No answer from GitHub, or not a release, is still a failed check.
-        for body in [nil, "", #"{"message": "API rate limit exceeded"}"#] {
+        // The answer is kept, so the daily check finds nothing newer either.
+        #expect(UpdateStore.read()?.body == release.body)
+        // No answer from GitHub, not a release, or this platform's file unreadable is still a
+        // failed check.
+        let unreadable = #"""
+        { "tag_name": "v9.0.0", "assets": [ { "name": "Araso-linux-x86_64.tar.gz", "browser_download_url": null } ] }
+        """#
+        for body in [nil, "", #"{"message": "API rate limit exceeded"}"#, unreadable] {
             release.body = body
             let failed = h.runtime.handle(release)
             #expect(failed.upToDate == nil && failed.error == "no release")
