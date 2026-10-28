@@ -361,6 +361,7 @@ public final class ServiceRuntime {
         guard client.generation != generation else { return client.session }
         let fresh = makeSession()
         client.session.commit(client: field)
+        client.session.saveConverter(unless: converter)
         fresh.activate(app: client.session.app ?? client.app)
         client.session = fresh
         client.generation = generation

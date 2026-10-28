@@ -183,7 +183,10 @@ public struct AppPolicies: Sendable {
 
     /// What every app uses unless its own entry says otherwise.
     public var defaultPolicy: AppPolicy {
-        overrides[Self.defaultKey]?.applied(to: .standard) ?? .standard
+        // The default's Japanese is the Languages tab's: a "*" entry naming it is left out.
+        var policy = overrides[Self.defaultKey]?.applied(to: .standard) ?? .standard
+        policy.japanese = nil
+        return policy
     }
 
     /// The apps the user listed (the default entry excluded).
@@ -194,7 +197,7 @@ public struct AppPolicies: Sendable {
     /// Whether some app turns Japanese on itself: the Japanese model and converter are needed even
     /// with it off in the Languages tab.
     public var turnsJapaneseOn: Bool {
-        overrides.values.contains { $0.japanese == true }
+        overrides.contains { $0.key != Self.defaultKey && $0.value.japanese == true }
     }
 
     /// Whether Japanese is on somewhere, given the Languages tab's setting: there, or in an app of
@@ -210,6 +213,8 @@ public struct AppPolicies: Sendable {
 
     /// Sets the default, naming only what differs from Araso's own.
     public mutating func setDefault(_ policy: AppPolicy) {
+        var policy = policy
+        policy.japanese = nil // the Languages tab's
         let entry = AppPolicy.Override(difference: policy, from: .standard)
         overrides[Self.defaultKey] = entry == AppPolicy.Override() ? nil : entry
     }

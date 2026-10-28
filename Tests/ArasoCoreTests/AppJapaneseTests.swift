@@ -44,6 +44,34 @@ import Testing
         #expect(policies.turnsJapaneseOn)
     }
 
+    /// The default's Japanese is the Languages tab's: a "*" entry naming it changes nothing.
+    @Test func defaultEntryDoesNotSetJapanese() {
+        var policies = AppPolicies(overrides: [AppPolicies.defaultKey: AppPolicy.Override(japanese: true)])
+        #expect(policies.defaultPolicy.japanese == nil)
+        #expect(policies.policy(for: "com.apple.Safari").japanese == nil)
+        #expect(!policies.turnsJapaneseOn)
+        policies.setDefault(AppPolicy(japanese: true))
+        #expect(policies.overrides[AppPolicies.defaultKey] == nil)
+    }
+
+    /// A session replaced after its converter was dropped saves what it learned; one whose
+    /// converter the runtime still keeps leaves that to the runtime.
+    @Test func replacedSessionSavesItsConverter() {
+        final class Counting: JapaneseConverter {
+            var saves = 0
+            func candidates(for kana: String) -> [ConversionCandidate] { [.init(text: kana, kanaCount: kana.count)] }
+            func learn(_ candidate: ConversionCandidate, for kana: String) {}
+            func save() { saves += 1 }
+        }
+        let converter = Counting()
+        let store = FileManager.default.temporaryDirectory.appendingPathComponent("araso-appja-\(UUID().uuidString).json")
+        let s = InputSession(engine: DictionaryEngine(base: trilingual, storeURL: store), converter: converter, japaneseEnabled: true)
+        s.saveConverter(unless: converter)
+        #expect(converter.saves == 0)
+        s.saveConverter(unless: nil)
+        #expect(converter.saves == 1)
+    }
+
     /// Japanese on in the Languages tab, off in Xcode: there the words are Korean or English only.
     @Test func appTurnsJapaneseOff() {
         let s = session(japanese: true, apps: ["com.apple.dt.Xcode": AppPolicy.Override(japanese: false)])

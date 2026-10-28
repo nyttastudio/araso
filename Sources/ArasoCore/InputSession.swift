@@ -192,6 +192,14 @@ public final class InputSession {
 
     public let engine: DictionaryEngine
     private let japaneseConverter: JapaneseConverter?
+    /// Saves the converter this session was made with, unless it is `current` (the one the runtime
+    /// keeps, which saves itself): a session replaced after a settings change dropped its converter
+    /// commits what it was converting first, and the kanji picked there would be lost.
+    public func saveConverter(unless current: JapaneseConverter?) {
+        guard let japaneseConverter, japaneseConverter !== current else { return }
+        japaneseConverter.save()
+    }
+
     /// The kana→kanji converter, only where Japanese is on: an app that turns it off gets no
     /// conversion and no live conversion, as with Japanese off everywhere.
     public var converter: JapaneseConverter? { japaneseEnabled ? japaneseConverter : nil }
