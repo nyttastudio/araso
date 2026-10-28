@@ -168,6 +168,8 @@ final class SettingsModel: ObservableObject {
     }
     @Published private(set) var defaultPolicy = AppPolicy.standard
     @Published private(set) var apps: [AppRow] = []
+    /// Japanese on under Languages or in an app of its own: its options apply then.
+    var japaneseUsed: Bool { settings.japanese || apps.contains { $0.entry.japanese == true } }
     /// dictionary.json: the user's words first, then learned ones, each by keys.
     @Published private(set) var entries: [UserDictionary.Entry] = []
 
@@ -609,7 +611,7 @@ private struct GeneralPane: View {
                     .fixedSize()
                 }
                 SeamRow(title: L("Romaji"),
-                        detail: model.settings.japanese ? nil : L("Used with Japanese on.")) {
+                        detail: model.japaneseUsed ? nil : L("Used with Japanese on.")) {
                     Picker(L("Romaji"), selection: Binding(get: { model.settings.japaneseLayout },
                                                            set: { model.set(\.japaneseLayout, $0) })) {
                         Text(String(format: L("Same as English (%@)"), model.settings.latinLayout.name))
@@ -618,10 +620,10 @@ private struct GeneralPane: View {
                     }
                     .labelsHidden()
                     .fixedSize()
-                    .disabled(!model.settings.japanese)
+                    .disabled(!model.japaneseUsed)
                 }
             }
-            if model.settings.japanese {
+            if model.japaneseUsed {
                 SeamCard(title: L("Japanese input")) {
                     SeamToggleRow(title: L("Live conversion"), detail: L("Shows the top kanji candidate as you type."),
                                   isOn: binding(\.liveConversion))

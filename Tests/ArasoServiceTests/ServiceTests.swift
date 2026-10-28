@@ -481,6 +481,29 @@ final class Harness {
         #expect(AppPolicies.load().overrides["notepad.exe"]?.japanese == nil)
     }
 
+    /// With Japanese off in the settings and on in one app, the dictionary editor offers the
+    /// Japanese reading (for every app, and for that app, not for another one).
+    @Test func readingsOfferJapaneseWhereAnAppHasIt() throws {
+        let h = try Harness(settings: #"{ "japanese": false }"#, apps: #"{ "line.exe": { "japanese": true } }"#)
+        var request = ServiceRequest(op: .readings)
+        request.keys = "sushi"
+        #expect(h.runtime.handle(request).choices?.contains { $0.language == "japanese" } == true)
+        request.app = "line.exe"
+        #expect(h.runtime.handle(request).choices?.contains { $0.language == "japanese" } == true)
+        request.app = "code.exe"
+        #expect(h.runtime.handle(request).choices?.contains { $0.language == "japanese" } == false)
+    }
+
+    /// The dictionary editor's preview decides as a session in the app would.
+    @Test func decideFollowsTheAppsJapanese() throws {
+        let h = try Harness(settings: #"{ "japanese": true }"#, apps: #"{ "code.exe": { "japanese": false } }"#)
+        var request = ServiceRequest(op: .decide)
+        request.keys = "konnichiha"
+        #expect(h.runtime.handle(request).decision?.language == "japanese")
+        request.app = "code.exe"
+        #expect(h.runtime.handle(request).decision?.language != "japanese")
+    }
+
     @Test func readingsForTheDictionaryEditor() throws {
         let h = try Harness()
         var request = ServiceRequest(op: .readings)

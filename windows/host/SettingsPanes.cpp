@@ -38,6 +38,9 @@ void BuildLanguages() {
     const Json &settings = g.model["settings"];
     const Json &policy = g.model["defaultPolicy"];
     bool japanese = settings["japanese"].asBool();
+    // Its options apply wherever Japanese is on: in the settings, or in an app of its own.
+    bool japaneseUsed = japanese;
+    for (const Json &item : g.model["apps"].items()) japaneseUsed = japaneseUsed || item["entry"]["japanese"].asBool(false);
 
     Heading(L("Languages"));
     Check(L("Convert words"), policy["enabled"].asBool(true), true, [](bool on) {
@@ -63,7 +66,7 @@ void BuildLanguages() {
     const Json &romaji = settings["japaneseLayout"];
     int romajiIndex = romaji.isString() ? LatinIndex(romaji.asString()) + 1 : 0;
     Combo(L("Romaji"), {L("Same as English (%@)", {kLatinNames[latin]}), kLatinNames[0], kLatinNames[1], kLatinNames[2]},
-          romajiIndex, japanese, [](int index) {
+          romajiIndex, japaneseUsed, [](int index) {
               ChangeSettings([index](Json &s) {
                   if (index <= 0) s.remove("japaneseLayout");
                   else s.set("japaneseLayout", kLatinLayouts[index - 1]);
@@ -72,13 +75,13 @@ void BuildLanguages() {
     Note(L("Used with Japanese on."), S(160));
 
     Heading(L("Japanese input"));
-    Check(L("Live conversion"), settings["liveConversion"].asBool(), japanese,
+    Check(L("Live conversion"), settings["liveConversion"].asBool(), japaneseUsed,
           [](bool on) { ChangeSettings([on](Json &s) { s.set("liveConversion", on); }); });
     Note(L("Shows the top kanji candidate as you type."), S(20));
-    Check(L("Full-width numbers"), settings["fullWidthDigits"].asBool(), japanese,
+    Check(L("Full-width numbers"), settings["fullWidthDigits"].asBool(), japaneseUsed,
           [](bool on) { ChangeSettings([on](Json &s) { s.set("fullWidthDigits", on); }); });
     Note(L("１２３ after Japanese; Space offers 123."), S(20));
-    Check(L("Full-width space"), settings["fullWidthSpace"].asBool(), japanese,
+    Check(L("Full-width space"), settings["fullWidthSpace"].asBool(), japaneseUsed,
           [](bool on) { ChangeSettings([on](Json &s) { s.set("fullWidthSpace", on); }); });
     Note(L("A full-width space after Japanese; Shift+Space types the other width."), S(20));
     Make(L"STATIC", L("Kanji candidate order"), SS_NOPREFIX | SS_CENTERIMAGE, Pad(), g.y, S(200), S(28), g.font);

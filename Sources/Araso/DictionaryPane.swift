@@ -260,12 +260,15 @@ struct EntrySheet: View {
         return nil
     }
 
-    /// The readings the keys have: Korean when they make Hangul, Japanese when it's on and
-    /// they make kana.
+    /// The readings the keys have: Korean when they make Hangul, Japanese when it's on where the
+    /// entry applies (its app, or some app for an entry for every app) and they make kana.
     private var choices: [Language] {
         var choices: [Language] = [.english]
         if !keys.isEmpty, HangulComposer.compose(keys: keys) != nil { choices.append(.korean) }
-        if model.settings.japanese || language == .japanese, !keys.isEmpty,
+        let policies = AppPolicies.load()
+        let japanese = app.map { policies.policy(for: $0).japanese(default: model.settings.japanese) }
+            ?? policies.japaneseUsed(default: model.settings.japanese)
+        if japanese || language == .japanese, !keys.isEmpty,
            RomajiComposer.compose(keys).strayLetters == 0 { choices.append(.japanese) }
         return choices
     }

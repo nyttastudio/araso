@@ -453,7 +453,7 @@ final class InputController: IMKInputController {
 
             add(L("Japanese Input"), #selector(toggleJapanese(_:)), on: runtime.settings.japanese)
             add(L("Live Conversion"), #selector(toggleLiveConversion(_:)), on: runtime.settings.liveConversion,
-                enabled: runtime.settings.japanese, indent: 1)
+                enabled: runtime.japaneseLoaded, indent: 1) // also where only an app has Japanese on
 
             menu.addItem(.separator())
             if let keys = runtime.engine.lastLearned {

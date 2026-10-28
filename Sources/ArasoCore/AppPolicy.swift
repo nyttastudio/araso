@@ -197,6 +197,11 @@ public struct AppPolicies: Sendable {
         overrides.values.contains { $0.japanese == true }
     }
 
+    /// Whether Japanese is on somewhere, given the Languages tab's setting: there, or in an app of
+    /// its own. What its options (live conversion, romaji layout, full width) and a dictionary entry
+    /// for every app go by.
+    public func japaneseUsed(default japaneseOn: Bool) -> Bool { japaneseOn || turnsJapaneseOn }
+
     public func policy(for bundleIdentifier: String?) -> AppPolicy {
         let base = defaultPolicy
         guard let id = bundleIdentifier, id != Self.defaultKey else { return base }

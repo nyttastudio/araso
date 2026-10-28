@@ -89,6 +89,9 @@ void BuildLanguages() {
     const Json &settings = g.model["settings"];
     const Json &policy = g.model["defaultPolicy"];
     bool japanese = settings["japanese"].asBool();
+    // Its options apply wherever Japanese is on: in the settings, or in an app of its own.
+    bool japaneseUsed = japanese;
+    for (const Json &item : g.model["apps"].items()) japaneseUsed = japaneseUsed || item["entry"]["japanese"].asBool(false);
 
     Heading(T("Languages"));
     // Not a setting of Araso's: fcitx5's, which the input method changes (the window may not write
@@ -123,7 +126,7 @@ void BuildLanguages() {
     const Json &romaji = settings["japaneseLayout"];
     int romajiIndex = romaji.isString() ? LatinIndex(romaji.asString()) + 1 : 0;
     Combo(T("Romaji"), {T("Same as English (%@)", {kLatinNames[latin]}), kLatinNames[0], kLatinNames[1], kLatinNames[2]},
-          romajiIndex, japanese, [](int index) {
+          romajiIndex, japaneseUsed, [](int index) {
               ChangeSettings([index](Json &s) {
                   if (index <= 0) s.remove("japaneseLayout");
                   else s.set("japaneseLayout", kLatinLayouts[index - 1]);
@@ -132,13 +135,13 @@ void BuildLanguages() {
     Note(T("Used with Japanese on."), 160);
 
     Heading(T("Japanese input"));
-    Check(T("Live conversion"), settings["liveConversion"].asBool(), japanese,
+    Check(T("Live conversion"), settings["liveConversion"].asBool(), japaneseUsed,
           [](bool on) { ChangeSettings([on](Json &s) { s.set("liveConversion", on); }); });
     Note(T("Shows the top kanji candidate as you type."), 20);
-    Check(T("Full-width numbers"), settings["fullWidthDigits"].asBool(), japanese,
+    Check(T("Full-width numbers"), settings["fullWidthDigits"].asBool(), japaneseUsed,
           [](bool on) { ChangeSettings([on](Json &s) { s.set("fullWidthDigits", on); }); });
     Note(T("１２３ after Japanese; Space offers 123."), 20);
-    Check(T("Full-width space"), settings["fullWidthSpace"].asBool(), japanese,
+    Check(T("Full-width space"), settings["fullWidthSpace"].asBool(), japaneseUsed,
           [](bool on) { ChangeSettings([on](Json &s) { s.set("fullWidthSpace", on); }); });
     Note(T("A full-width space after Japanese; Shift+Space types the other width."), 20);
     auto *row = Line();

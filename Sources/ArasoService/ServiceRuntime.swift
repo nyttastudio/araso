@@ -211,7 +211,13 @@ public final class ServiceRuntime {
         case .decide:
             response = ServiceResponse()
             if let keys = request.keys, !keys.isEmpty {
-                let decision = engine.decide(keys, context: DecisionContext(app: request.app))
+                // As a session in that app decides: a word remembered as Japanese where it is off is
+                // decided again without what was learned (InputSession.decide).
+                let japanese = AppPolicies.load().policy(for: request.app).japanese(default: settings.japanese)
+                var decision = engine.decide(keys, context: DecisionContext(app: request.app, japanese: japanese))
+                if decision.language == .japanese, !japanese {
+                    decision = engine.base.decide(keys, context: DecisionContext(app: request.app, japanese: false))
+                }
                 response.decision = TraceInfo(keys: keys, previous: nil, language: decision.language.rawValue,
                                               confidence: decision.confidence, output: decision.output,
                                               explanation: decision.explanation, partial: false)
@@ -219,7 +225,11 @@ public final class ServiceRuntime {
         case .readings:
             response = ServiceResponse()
             let keys = request.keys ?? ""
-            let languages: [Language] = keys.isEmpty ? [] : Language.english.cycle(for: keys, japanese: settings.japanese)
+            // Japanese where the entry applies: its app, or some app when it is for every app.
+            let policies = AppPolicies.load()
+            let japanese = request.app.map { policies.policy(for: $0).japanese(default: settings.japanese) }
+                ?? policies.japaneseUsed(default: settings.japanese)
+            let languages: [Language] = keys.isEmpty ? [] : Language.english.cycle(for: keys, japanese: japanese)
             response.choices = languages.map { Choice(language: $0.rawValue, text: UserDictionary.reading(keys, as: $0)) }
         case .shortcut:
             response = ServiceResponse()
@@ -536,7 +546,8 @@ public final class ServiceRuntime {
             items.append(.line)
         }
         add("japanese", L("Japanese Input"), on: settings.japanese)
-        add("live", L("Live Conversion"), on: settings.liveConversion, enabled: settings.japanese, indent: 1)
+        // Also where only an app has Japanese on.
+        add("live", L("Live Conversion"), on: settings.liveConversion, enabled: japaneseLoaded, indent: 1)
         items.append(.line)
         if let keys = engine.lastLearned { add("undo", L("Undo Last Learned (%@)", keys)) }
         // What the dictionary decided lately, to tell whether a word went in because of it and forget it.
