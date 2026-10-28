@@ -437,6 +437,10 @@ public final class InputSession {
 
     /// Returns true when the key was consumed.
     public func handle(_ key: Key, client: TextClient) -> Bool {
+        // A switch key just changed the word being typed: as in kanji conversion, ←/→ then change how
+        // much of it is fixed (`startFixingTyped`). Before that, ← puts the word in and goes to the app.
+        let switched = readings != nil && !keys.isEmpty && conversion == nil
+        let arrow = key == .left || key == .right || key == .shiftLeft || key == .shiftRight
         readings = nil
         learned = nil
         let inKoreanSymbols = afterKoreanSymbol
@@ -462,7 +466,7 @@ public final class InputSession {
             return true
         }
         if fixing != nil { return handleFixing(key, client: client) }
-        if key == .shiftLeft, startFixingTyped(client) { return handleFixing(key, client: client) }
+        if key == .shiftLeft || (switched && arrow), startFixingTyped(client) { return handleFixing(key, client: client) }
         if conversion != nil { return handleConverting(key, client: client) }
         if case .printable(let ch) = key, printableContinuesWord(ch, client) {
             return handle(.letter(ch), client: client)

@@ -287,4 +287,21 @@ import Testing
         #expect(field.text.hasSuffix(" world"))
         #expect(session.fixing == nil)
     }
+
+    /// After a switch key changed the word being typed, ← and → change how much of it is fixed, as
+    /// in kanji conversion; before one, ← puts the word in.
+    @Test func arrowsAfterASwitchOnTheWordBeingTyped() throws {
+        type("helloab")
+        session.handle(.cycle, client: field) // another reading of the word
+        #expect(session.handle(.left, client: field))
+        let fixing = try #require(session.fixing)
+        #expect(fixing.cut == 6)
+        session.handle(.left, client: field)
+        #expect(session.fixing?.cut == 5)
+        session.handle(.right, client: field)
+        #expect(session.fixing?.cut == 6)
+        session.handle(.escape, client: field) // all back, as it was before the arrows
+        #expect(session.fixing == nil)
+        #expect(field.marked.location == NSNotFound)
+    }
 }

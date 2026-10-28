@@ -134,8 +134,12 @@ tests use `FakeTextField`). It owns the preview and hysteresis, commits, Esc rea
   insert because macOS text views mark and insert at the caret whatever range is named (the
   settings window's typing pane and Notes: real keys, 2026-10-28; marking with the caret elsewhere
   lost text in both); for the same reason the caret has to be at
-  the word's start there (`TextClient.marksFromCaret`, as ⌥← leaves it). ⇧← on the word being typed
-  makes it a fix (`startFixingTyped`; `Key.shiftLeft`/`.shiftRight`, elsewhere ←/→). Only through the field itself
+  the word's start there (`TextClient.marksFromCaret`, as ⌥← leaves it). ⇧← on the word being typed,
+  or ←/→ right after a switch key changed it, makes it a fix (`startFixingTyped`; `Key.shiftLeft`/
+  `.shiftRight`, elsewhere ←/→). Not the word just committed: marking it needs the caret moved
+  back first, and an insert to do that right after the switch key's went in at the caret (Notes and
+  the typing pane, tried both ways); making that switch a fix broke the learned capsule, Caps Lock
+  and 3-set boundaries. Only through the field itself
   (`uncased`: Caps Lock's client would change the rest of the line). `caretMoved` lists an unsure
   word's readings (`fixHintConfidence`) after an arrow the app took. Not where a composition is only
   at the caret (`TextClient.marksAnywhere`, `TextContext.marksAtCaret`: fcitx5, Windows floating).
