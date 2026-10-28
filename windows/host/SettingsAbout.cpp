@@ -76,7 +76,9 @@ void ReleaseChecked(std::string *body) {
     if (!body->empty()) request.set("body", *body);
     Json answer = Request(request);
     delete body;
-    if (!answer["release"].isObject()) {
+    if (answer["upToDate"].asBool()) {
+        g.updateStatus = L("Araso is up to date");
+    } else if (!answer["release"].isObject()) {
         g.updateStatus = L("Couldn't reach GitHub. Try again later.");
     } else if (answer["release"]["newer"].asBool()) {
         g.updateStatus = L("Araso %@ is available", {Wide(answer["release"]["version"].asString())});

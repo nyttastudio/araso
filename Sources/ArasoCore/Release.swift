@@ -42,6 +42,16 @@ public struct Release: Equatable, Sendable {
         notes = Self.changes(in: answer.body ?? "")
     }
 
+    /// The version of a release GitHub answered with, whatever its assets: a release without this
+    /// platform's file (a beta's platform before its files go into regular releases) still says
+    /// the check reached GitHub.
+    public static func version(gitHubJSON data: Data) -> String? {
+        struct Answer: Decodable { let tag_name: String }
+        guard let answer = try? JSONDecoder().decode(Answer.self, from: data) else { return nil }
+        let version = answer.tag_name.hasPrefix("v") ? String(answer.tag_name.dropFirst()) : answer.tag_name
+        return isVersion(version) ? version : nil
+    }
+
     /// A note split into its bold lead and the rest: `**텍스트 대치**: 약어를…` → ("텍스트 대치",
     /// "약어를…"). A note without a bold lead is all title.
     public static func headline(of note: String) -> (title: String, detail: String?) {

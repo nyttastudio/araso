@@ -191,6 +191,11 @@ public final class ServiceRuntime {
             if let body = request.body, let release = Release(gitHubJSON: Data(body.utf8), asset: asset) {
                 UpdateStore.write(body: body, checked: now)
                 response.release = ReleaseInfo(release, current: configuration.version)
+            } else if let body = request.body, Release.version(gitHubJSON: Data(body.utf8)) != nil {
+                // GitHub answered, but its latest release has no file for this platform: nothing to
+                // install, so this copy is up to date.
+                UpdateStore.write(body: body, checked: now)
+                response.upToDate = true
             } else {
                 UpdateStore.write(body: nil, checked: now)
                 response.error = "no release"

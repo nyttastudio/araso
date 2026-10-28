@@ -573,6 +573,25 @@ final class Harness {
         #expect(h.runtime.model().update?.version == "9.0.0")
     }
 
+    @Test func aReleaseWithoutThisPlatformsFileIsUpToDate() throws {
+        let h = try Harness(platform: "linux", asset: "Araso-linux-x86_64.tar.gz")
+        var release = ServiceRequest(op: .release)
+        release.body = #"""
+        { "tag_name": "v9.0.0", "html_url": "https://example.com/r", "body": "",
+          "assets": [ { "name": "Araso.pkg", "browser_download_url": "https://example.com/Araso.pkg" } ] }
+        """#
+        let answer = h.runtime.handle(release)
+        #expect(answer.upToDate == true)
+        #expect(answer.release == nil && answer.error == nil)
+        #expect(h.runtime.model().update == nil)
+        // No answer from GitHub, or not a release, is still a failed check.
+        for body in [nil, "", #"{"message": "API rate limit exceeded"}"#] {
+            release.body = body
+            let failed = h.runtime.handle(release)
+            #expect(failed.upToDate == nil && failed.error == "no release")
+        }
+    }
+
     @Test func tryTypingTraceOnlyInTheHostsOwnField() throws {
         let own = try Harness(app: "arasohost.exe")
         own.type("dkssud")
