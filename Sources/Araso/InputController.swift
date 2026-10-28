@@ -155,7 +155,7 @@ final class InputController: IMKInputController {
             // The raw field: this `handle` notes Caps Lock for the word first, then applies `cased`.
             let handled = session.handle(key, client: IMKClient(input, marks: self), capsLock: event.modifierFlags.contains(.capsLock))
             syncStrip(input)
-            if !handled, [KeyCode.left, KeyCode.right, KeyCode.up, KeyCode.down].contains(event.keyCode) {
+            if !handled, key != .shiftLeft, key != .shiftRight, [KeyCode.left, KeyCode.right, KeyCode.up, KeyCode.down].contains(event.keyCode) {
                 // The app moves the caret after this returns: then a word Araso wasn't sure of, if
                 // the caret is on one, lists its readings under it (`caretMoved`).
                 DispatchQueue.main.async { [weak self] in
@@ -374,8 +374,8 @@ final class InputController: IMKInputController {
         case KeyCode.delete: return .delete
         case KeyCode.escape: return .escape
         case KeyCode.returnKey, KeyCode.keypadEnter: return .enter
-        case KeyCode.left: return .left
-        case KeyCode.right: return .right
+        case KeyCode.left: return event.modifierFlags.contains(.shift) ? .shiftLeft : .left
+        case KeyCode.right: return event.modifierFlags.contains(.shift) ? .shiftRight : .right
         case KeyCode.down: return .down
         case KeyCode.up: return .up
         default: break

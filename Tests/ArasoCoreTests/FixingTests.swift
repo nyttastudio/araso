@@ -264,4 +264,27 @@ import Testing
         caret(at: 0)
         #expect(!session.caretMoved(client: field)) // hello is sure: no list
     }
+
+    /// ⇧← on the word being typed cuts it, as on a word fixed later; ← alone still puts it in.
+    @Test func shiftLeftCutsTheWordBeingTyped() throws {
+        type("helloab")
+        #expect(session.handle(.shiftLeft, client: field))
+        session.handle(.shiftLeft, client: field)
+        let fixing = try #require(session.fixing)
+        #expect(fixing.cut == 5)
+        #expect(field.selectedClause == NSRange(location: 0, length: 5))
+        while session.fixing?.language != .korean { session.handle(.cycle, client: field) }
+        #expect(field.text.hasPrefix(korean("hello")))
+        session.handle(.enter, client: field) // hello settled; ab is the clause now
+        #expect(session.fixing?.settled == korean("hello"))
+        session.handle(.enter, client: field)
+        #expect(field.text.hasPrefix(korean("hello")))
+        #expect(field.marked.location == NSNotFound)
+        #expect(session.keys.isEmpty)
+
+        type(" world")
+        #expect(!session.handle(.left, client: field)) // ← puts world in and goes to the app
+        #expect(field.text.hasSuffix(" world"))
+        #expect(session.fixing == nil)
+    }
 }

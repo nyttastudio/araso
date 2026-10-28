@@ -121,8 +121,8 @@ public enum KeyMapper {
         case vkBack: return .delete
         case vkEscape: return .escape
         case vkReturn: return .enter
-        case vkLeft: return .left
-        case vkRight: return .right
+        case vkLeft: return key.shift ? .shiftLeft : .left
+        case vkRight: return key.shift ? .shiftRight : .right
         case vkDown: return .down
         case vkUp: return .up
         default: break

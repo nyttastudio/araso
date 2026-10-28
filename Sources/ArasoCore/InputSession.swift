@@ -82,7 +82,8 @@ public extension TextClient {
 ///   Delete         the app deletes the space or punctuation; the word can still be changed.
 /// A word earlier in the line, the caret on it (`Fixing`):
 ///   `.cycle`       mark it again where it is, read the next way; again: the next reading
-///   ←/→            the part being fixed a key shorter or longer (the next word past a word's end)
+///   ←/→ (⇧ too)    the part being fixed a key shorter or longer (the next word past a word's end);
+///                  ⇧← on the word being typed cuts it the same way
 ///   Return         settle a cut front part, else put the fix in; Esc (where it isn't a switch key)
 ///                  and Delete put it all back; anything
 ///                  else puts it in and goes on. The caret goes back to the end of the line.
@@ -106,6 +107,9 @@ public final class InputSession {
         /// ←/→: while converting, shorten or lengthen the first clause; otherwise like `other`.
         case left
         case right
+        /// ⇧←/⇧→: the same, and ⇧← on the word being typed cuts it, as in fixing a past word.
+        case shiftLeft
+        case shiftRight
         /// ⌃K / F7 and ⌃J / F6: the Japanese reading as katakana / hiragana.
         case katakana
         case hiragana
@@ -458,6 +462,7 @@ public final class InputSession {
             return true
         }
         if fixing != nil { return handleFixing(key, client: client) }
+        if key == .shiftLeft, startFixingTyped(client) { return handleFixing(key, client: client) }
         if conversion != nil { return handleConverting(key, client: client) }
         if case .printable(let ch) = key, printableContinuesWord(ch, client) {
             return handle(.letter(ch), client: client)
@@ -713,7 +718,7 @@ public final class InputSession {
             showKanaForms(key == .katakana, client: client)
             return true
 
-        case .up, .down, .left, .right, .other:
+        case .up, .down, .left, .right, .shiftLeft, .shiftRight, .other:
             commit(client: client)
             previousLanguage = nil
             resetRun()
@@ -1006,6 +1011,33 @@ public final class InputSession {
     /// How far after the last word the line is read for its end (UTF-16 units).
     private static let trailingLookAhead = 64
 
+    /// The word being typed, cut by ⇧← as a word fixed later would be: it becomes the fix, marked as
+    /// it is, and stops being typed (Return or a key puts it in, as a fix). Not a held word, Japanese
+    /// (its kana and conversion are the candidate window's), or one typed with Caps Lock (the fix
+    /// writes to the field as it is).
+    private func startFixingTyped(_ client: TextClient) -> Bool {
+        guard keys.count > 1, conversion == nil, heldBoundary == nil, !capsWord, client.marksAnywhere else { return false }
+        let shown = forced ?? pinned ?? previewLanguage ?? decide(partial: true).language
+        let marked = client.markedRange()
+        guard shown != .japanese, marked.location != NSNotFound, marked.length > 0,
+              let original = client.text(in: marked) else { return false }
+        let piece = Fixing.Piece(keys: keys, decided: committedLanguage(), language: shown, text: original, boundary: "",
+                                 typedBoundary: nil, learns: !inURLRun)
+        fixing = Fixing(start: marked.location, original: original, shown: original, firstEntry: recent.count,
+                        pieces: [piece], trailing: "", language: shown)
+        keys = ""
+        forced = nil
+        forcedByUser = false
+        pinned = nil
+        syllableStart = nil
+        addedNMarker = false
+        liveSuppressed = false
+        liveKept = nil
+        previewLanguage = nil
+        enginePreview = nil
+        return true
+    }
+
     /// The word of the line the caret is on (anywhere in it) or right after the space of, if it is
     /// still as it went in: its index in `recent`, and where the caret is. Where the field is read
     /// only up to the caret (Windows), the caret has to be after the word; where marked text goes
@@ -1067,7 +1099,7 @@ public final class InputSession {
             return true
         }
         switch key {
-        case .left:
+        case .left, .shiftLeft:
             let keys = fixing.pieces[0].keys
             if let cut = fixing.cut {
                 guard cut > 1 else { return true }
@@ -1079,8 +1111,11 @@ public final class InputSession {
             } else {
                 return true
             }
+            // A shorter clause may not have the reading the word had (a split, or Korean on stray keys).
+            let cycle = clauseCycle(fixing)
+            if !cycle.contains(fixing.language), let first = cycle.first { fixing.language = first }
 
-        case .right:
+        case .right, .shiftRight:
             if let cut = fixing.cut {
                 fixing.cut = cut + 1 < fixing.pieces[0].keys.count ? cut + 1 : nil
             } else if fixing.count < fixing.pieces.count,
@@ -1679,8 +1714,9 @@ public final class InputSession {
             showConversion(client)
             return true
 
-        case .left, .right:
-            if conversion.language == .japanese, let resized = resizeFirstClause(conversion, by: key == .left ? -1 : 1) {
+        case .left, .right, .shiftLeft, .shiftRight:
+            let shorter = key == .left || key == .shiftLeft
+            if conversion.language == .japanese, let resized = resizeFirstClause(conversion, by: shorter ? -1 : 1) {
                 self.conversion = resized
                 showConversion(client)
             }

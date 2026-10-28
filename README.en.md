@@ -350,7 +350,9 @@ start). Tapping again keeps cycling, and as in
 Japanese conversion the thick underline is the part being fixed: → makes it a key longer, taking in
 the next word past the end of one (`dkssud gktpdy` → `안녕 하세요`); ← makes it shorter, and a cut
 inside a word leaves the rest of its keys to be read on their own (`hellofmf` → `hello` + `를`).
-Return on such a front part settles it and goes on with the rest. Return or any other key puts the
+Return on such a front part settles it and goes on with the rest. ⇧←/⇧→ do the same, and ⇧← on the
+word being typed cuts it the same way (`helloab`, ⇧←⇧← → `hello` | `ab`; ← alone puts the word in
+and moves the caret, as before). Return or any other key puts the
 fix in and takes the caret back to the end of the line; Esc (where it isn't a switch key) and Delete
 put everything back. A whole word fixed
 is learned as a correction right after the commit is; a cut word isn't. When an arrow key leaves the
