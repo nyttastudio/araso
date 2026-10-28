@@ -383,7 +383,7 @@ private final class StripCell: NSView {
 /// views move, never the window, so what moves stays in step and keeps its shadow.
 @MainActor enum StripHUD {
     private enum Shown: Equatable {
-        case readings([String], [Mark?])
+        case readings([String], [Mark?], numbered: Bool)
         case candidates([String], page: Int)
     }
 
@@ -432,13 +432,15 @@ private final class StripCell: NSView {
         choose = nil
         generation += 1
         let marks = readings.texts.indices.map { readings.mark($0) }
-        let next = Shown.readings(readings.texts, marks)
+        let next = Shown.readings(readings.texts, marks, numbered: readings.numbered)
         if isUp, !settling, shown == next {
             select(readings.selected)
         } else {
             settling = false
             pageStart = 0
-            build(readings.texts.indices.map { StripCell(readings.texts[$0], mark: marks[$0]) }, layout: .row,
+            build(readings.texts.indices.map {
+                StripCell(readings.texts[$0], number: readings.numbered && $0 < 9 ? $0 + 1 : nil, mark: marks[$0])
+            }, layout: .row,
                   selected: readings.selected, word: word)
         }
         shown = next

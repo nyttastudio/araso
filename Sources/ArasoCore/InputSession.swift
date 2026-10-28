@@ -169,6 +169,8 @@ public final class InputSession {
         /// The reading the keys were corrected to once: the engine leans to it, and choosing it
         /// again learns it for good.
         public var once: Int? = nil
+        /// The digits pick a reading (1 for the first), as in the candidate window: while fixing.
+        public var numbered = false
     }
 
     /// A correction the dictionary just took: the first one (the engine leans that way from now
@@ -1131,6 +1133,16 @@ public final class InputSession {
                 return true
             }
 
+        case .printable(let ch) where ch.isNumber:
+            // A digit picks that reading of the clause, as in the candidate window; past the list it
+            // confirms, and the app types it.
+            let cycle = clauseCycle(fixing)
+            guard let n = ch.wholeNumberValue, n >= 1, n <= cycle.count else {
+                confirmFixing(client: client)
+                return handle(key, client: cased)
+            }
+            fixing.language = cycle[n - 1]
+
         case .enter where fixing.cut != nil:
             // The clause is settled; the rest of the word becomes the clause.
             let cut = fixing.cut!, piece = fixing.pieces[0]
@@ -1223,6 +1235,7 @@ public final class InputSession {
         fixing.shown = text
         client.setMarkedText(text, selectedClause: clause, replacing: range)
         readings = clauseReadings(fixing)
+        readings?.numbered = true
     }
 
     /// The readings the switch key goes through for the clause, listed under it as for a word being

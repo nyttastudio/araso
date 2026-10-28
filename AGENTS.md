@@ -140,7 +140,8 @@ tests use `FakeTextField`). It owns the preview and hysteresis, commits, Esc rea
   back first, and an insert to do that right after the switch key's went in at the caret (Notes and
   the typing pane, tried both ways); making that switch a fix broke the learned capsule, Caps Lock
   and 3-set boundaries. Only through the field itself
-  (`uncased`: Caps Lock's client would change the rest of the line). `caretMoved` lists an unsure
+  (`uncased`: Caps Lock's client would change the rest of the line). The strip lists the clause's readings
+  (`clauseReadings`), numbered (`Readings.numbered`): a digit picks one. `caretMoved` lists an unsure
   word's readings (`fixHintConfidence`) after an arrow the app took. Not where a composition is only
   at the caret (`TextClient.marksAnywhere`, `TextContext.marksAtCaret`: fcitx5, Windows floating).
 - Return on an underlined word only confirms it (`returnConfirmsOnly`, on by default); off, the

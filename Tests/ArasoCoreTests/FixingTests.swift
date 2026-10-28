@@ -321,4 +321,21 @@ import Testing
         #expect(session.readings?.texts == ["hell", korean("hell")])
         #expect(session.readings?.selected == 1)
     }
+
+    /// While fixing, a digit picks that reading of the clause, numbered in the strip; a digit past
+    /// the list confirms and is typed.
+    @Test func digitsPickAReading() {
+        type("hello world ")
+        caret(at: 0)
+        session.handle(.cycle, client: field)
+        #expect(session.readings?.numbered == true)
+        #expect(session.handle(.printable("1"), client: field)) // hello, English
+        #expect(field.text == "hello world ")
+        #expect(session.fixing?.language == .english)
+        session.handle(.printable("2"), client: field)
+        #expect(field.text == "\(korean("hello")) world ")
+        #expect(!session.handle(.printable("7"), client: field)) // none: confirmed, and the app types it
+        #expect(session.fixing == nil)
+        #expect(field.text == "\(korean("hello")) world ")
+    }
 }

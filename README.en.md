@@ -350,7 +350,8 @@ start). Tapping again keeps cycling, and as in
 Japanese conversion the thick underline is the part being fixed: → makes it a key longer, taking in
 the next word past the end of one (`dkssud gktpdy` → `안녕 하세요`); ← makes it shorter, and a cut
 inside a word leaves the rest of its keys to be read on their own (`hellofmf` → `hello` + `를`).
-The strip under it follows, listing the readings of the part being fixed. Return on such a front
+The strip under it follows, listing the readings of the part being fixed, numbered: a digit
+switches to that reading, as in the candidate window. Return on such a front
 part settles it and goes on with the rest. ⇧←/⇧→ do the same. The word being
 typed can be cut the same way: after a switch key changed its reading ←/→ do it, before that ⇧←
 (`helloab`, ⇧←⇧← → `hello` | `ab`; ← before a switch puts the word in and moves the caret, as
