@@ -1222,11 +1222,30 @@ public final class InputSession {
         let (text, clause) = fixingText(&fixing)
         fixing.shown = text
         client.setMarkedText(text, selectedClause: clause, replacing: range)
-        if fixing.cut == nil, fixing.count == 1, let piece = fixing.pieces.first {
-            readings = readings(of: piece.keys, as: fixing.language, decided: piece.decided) { keys, language in
-                self.committedReading(keys, as: language)
-            }
+        readings = clauseReadings(fixing)
+    }
+
+    /// The readings the switch key goes through for the clause, listed under it as for a word being
+    /// typed: a whole word's own (with what the dictionary says of it), a cut's front part's, or the
+    /// words of a longer clause read together.
+    private func clauseReadings(_ fixing: Fixing) -> Readings? {
+        guard let first = fixing.pieces.first else { return nil }
+        let render: (String, Language) -> String = { keys, language in self.committedReading(keys, as: language) }
+        if let cut = fixing.cut {
+            let head = String(first.keys.prefix(cut))
+            let own = engine.decide(head, context: DecisionContext(app: app, japanese: japaneseEnabled)).language
+            return readings(of: head, as: fixing.language, decided: own, rendered: render)
         }
+        if fixing.count == 1 { return readings(of: first.keys, as: fixing.language, decided: first.decided, rendered: render) }
+        let cycle = clauseCycle(fixing)
+        guard cycle.count > 1, let selected = cycle.firstIndex(of: fixing.language) else { return nil }
+        let words = fixing.pieces.prefix(fixing.count)
+        let texts = cycle.map { language in
+            words.enumerated().map { i, piece in
+                render(piece.keys, language) + (i < words.count - 1 ? piece.boundary(in: language) : "")
+            }.joined()
+        }
+        return Readings(texts: texts, languages: cycle, selected: selected)
     }
 
     /// The fix goes in as shown, the caret at the end of the line; whole words changed are

@@ -304,4 +304,21 @@ import Testing
         #expect(session.fixing == nil)
         #expect(field.marked.location == NSNotFound)
     }
+
+    /// The strip lists the clause's readings after ←/→ too: a cut's front part, or the words of a
+    /// longer clause read together.
+    @Test func readingsFollowTheClause() {
+        type("hello world again ")
+        caret(at: 0)
+        session.handle(.cycle, client: field)
+        #expect(session.readings?.texts == ["hello", korean("hello")])
+        session.handle(.right, client: field) // hello world
+        #expect(session.readings?.texts == ["hello world", "\(korean("hello")) \(korean("world"))"])
+        #expect(session.readings?.selected == 1)
+        session.handle(.left, client: field) // hello again
+        session.handle(.left, client: field) // hell|o
+        #expect(session.fixing?.cut == 4)
+        #expect(session.readings?.texts == ["hell", korean("hell")])
+        #expect(session.readings?.selected == 1)
+    }
 }
