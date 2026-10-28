@@ -1278,8 +1278,15 @@ public final class InputSession {
     /// The field has the line marked where the fix put it: an app that ignores a replacement range
     /// for marked text leaves the word as it was (and the marked text, if any, elsewhere).
     private func markLanded(_ fixing: Fixing, _ client: TextClient) -> Bool {
-        client.markedRange() == NSRange(location: fixing.start, length: utf16(fixing.shown))
+        let wanted = NSRange(location: fixing.start, length: utf16(fixing.shown))
+        let marked = client.markedRange()
+        if marked != wanted { fixingDropped = (marked, wanted) }
+        return marked == wanted
     }
+
+    /// Where the app had the marked text, and where the fix had put it, when a fix was dropped for
+    /// it (`markLanded`): positions only, for the log.
+    public var fixingDropped: (marked: NSRange, wanted: NSRange)?
 
     // MARK: - Japanese conversion
 

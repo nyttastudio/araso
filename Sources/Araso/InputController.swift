@@ -154,6 +154,11 @@ final class InputController: IMKInputController {
             noteWordRect(input)
             // The raw field: this `handle` notes Caps Lock for the word first, then applies `cased`.
             let handled = session.handle(key, client: IMKClient(input, marks: self), capsLock: event.modifierFlags.contains(.capsLock))
+            if let dropped = session.fixingDropped {
+                session.fixingDropped = nil
+                // Positions only, never text.
+                log.notice("fix dropped: marked \(NSStringFromRange(dropped.marked), privacy: .public) wanted \(NSStringFromRange(dropped.wanted), privacy: .public) app=\(self.session.app ?? "?", privacy: .public)")
+            }
             syncStrip(input)
             if !handled, key != .shiftLeft, key != .shiftRight, [KeyCode.left, KeyCode.right, KeyCode.up, KeyCode.down].contains(event.keyCode) {
                 // The app moves the caret after this returns: then a word Araso wasn't sure of, if
