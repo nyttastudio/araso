@@ -293,6 +293,8 @@ public struct ServiceResponse: Codable, Equatable, Sendable {
     public var shortcutName: String?
     public var problem: String?
     public var error: String?
+    /// For `release`: GitHub answered, and its latest release has no file this platform installs.
+    public var upToDate: Bool?
     /// Clients with edits waiting (`pending`): the host tells their text services to ask.
     public var notify: [Int]?
 
