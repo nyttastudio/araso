@@ -89,6 +89,9 @@ void BuildLanguages() {
     const Json &settings = g.model["settings"];
     const Json &policy = g.model["defaultPolicy"];
     bool japanese = settings["japanese"].asBool();
+    // Its options apply wherever Japanese is on: in the settings, or in an app of its own.
+    bool japaneseUsed = japanese;
+    for (const Json &item : g.model["apps"].items()) japaneseUsed = japaneseUsed || item["entry"]["japanese"].asBool(false);
 
     Heading(T("Languages"));
     // Not a setting of Araso's: fcitx5's, which the input method changes (the window may not write
@@ -123,7 +126,7 @@ void BuildLanguages() {
     const Json &romaji = settings["japaneseLayout"];
     int romajiIndex = romaji.isString() ? LatinIndex(romaji.asString()) + 1 : 0;
     Combo(T("Romaji"), {T("Same as English (%@)", {kLatinNames[latin]}), kLatinNames[0], kLatinNames[1], kLatinNames[2]},
-          romajiIndex, japanese, [](int index) {
+          romajiIndex, japaneseUsed, [](int index) {
               ChangeSettings([index](Json &s) {
                   if (index <= 0) s.remove("japaneseLayout");
                   else s.set("japaneseLayout", kLatinLayouts[index - 1]);
@@ -132,13 +135,13 @@ void BuildLanguages() {
     Note(T("Used with Japanese on."), 160);
 
     Heading(T("Japanese input"));
-    Check(T("Live conversion"), settings["liveConversion"].asBool(), japanese,
+    Check(T("Live conversion"), settings["liveConversion"].asBool(), japaneseUsed,
           [](bool on) { ChangeSettings([on](Json &s) { s.set("liveConversion", on); }); });
     Note(T("Shows the top kanji candidate as you type."), 20);
-    Check(T("Full-width numbers"), settings["fullWidthDigits"].asBool(), japanese,
+    Check(T("Full-width numbers"), settings["fullWidthDigits"].asBool(), japaneseUsed,
           [](bool on) { ChangeSettings([on](Json &s) { s.set("fullWidthDigits", on); }); });
     Note(T("１２３ after Japanese; Space offers 123."), 20);
-    Check(T("Full-width space"), settings["fullWidthSpace"].asBool(), japanese,
+    Check(T("Full-width space"), settings["fullWidthSpace"].asBool(), japaneseUsed,
           [](bool on) { ChangeSettings([on](Json &s) { s.set("fullWidthSpace", on); }); });
     Note(T("A full-width space after Japanese; Shift+Space types the other width."), 20);
     auto *row = Line();
@@ -149,7 +152,7 @@ void BuildLanguages() {
         Json change = Json::object();
         change.set("resetKanji", true);
         Apply(change, true);
-    }, japanese, row);
+    }, japaneseUsed, row);
     row->addStretch(1);
     Note(T("Kanji you pick come first next time."));
 }
@@ -359,9 +362,12 @@ void BuildApps() {
     Heading(T("Exceptions — only apps that differ"));
     const Json &apps = g.model["apps"];
     if (apps.size() == 0) Note(T("None. Add an app that should work differently."));
-    QTreeWidget *list = List({T("App"), T("Convert words"), T("Conversion"), T("Switch keys"), T("After Space / punctuation")},
-                             {150, 110, 110, 150, 130}, 150);
+    QTreeWidget *list = List({T("App"), T("Convert words"), T("Conversion"), T("Japanese"), T("Switch keys"),
+                              T("After Space / punctuation")},
+                             {150, 110, 110, 90, 150, 130}, 150);
     QString defaultConversion = strict ? T("Strict") : T("Normal");
+    // An app's Japanese follows the settings' Japanese unless its entry names its own.
+    bool japaneseOn = g.model["settings"]["japanese"].asBool(false);
     int selectedRow = -1;
     std::vector<std::string> names;
     for (const Json &item : apps.items()) {
@@ -371,6 +377,7 @@ void BuildApps() {
         QString keys = KeyNames(own["switchKeys"]);
         Row(list, {Q(app), Value(entry, "enabled", OnOff(own["enabled"].asBool(true)), OnOff(policy["enabled"].asBool(true))),
                    Value(entry, "conversionThreshold", own["conversionThreshold"].asNumber() >= Strict() ? T("Strict") : T("Normal"), defaultConversion),
+                   Value(entry, "japanese", OnOff(own["japanese"].asBool(japaneseOn)), OnOff(japaneseOn)),
                    Value(entry, "switchKeys", keys.isEmpty() ? T("None — can't switch") : keys, KeyNames(policy["switchKeys"])),
                    Value(entry, "holdSpace", own["holdSpace"].asBool() ? T("Hold") : T("Finish"), T("Finish"))});
         if (app == g.selectedApp) selectedRow = static_cast<int>(names.size());
@@ -420,6 +427,8 @@ void BuildApps() {
     };
     tri("enabled", T("Convert words"), OnOff(policy["enabled"].asBool(true)), T("On"), T("Off"), Json(true), Json(false));
     tri("conversionThreshold", T("Conversion"), defaultConversion, T("Strict"), T("Normal"), Json(Strict()), Json(0.5));
+    tri("japanese", T("Japanese"), OnOff(japaneseOn), T("On"), T("Off"), Json(true), Json(false));
+    Note(T("Off: words here are Korean or English only, as with Japanese off. On: Japanese here even when it is off under Languages."), 20);
     tri("holdSpace", T("After Space / punctuation"), T("Finish"), T("Hold"), T("Finish"), Json(true), Json(false));
     tri("fullWidth", T("Full-width"), T("On"), T("On"), T("Off"), Json(true), Json(false));
     Note(T("Hold: Space or punctuation goes inside the underline, so the word can still be changed until the next word starts. For terminals."), 20);

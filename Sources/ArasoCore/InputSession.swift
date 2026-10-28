@@ -191,8 +191,25 @@ public final class InputSession {
     }
 
     public let engine: DictionaryEngine
-    public let converter: JapaneseConverter?
-    public var japaneseEnabled: Bool
+    private let japaneseConverter: JapaneseConverter?
+    /// Saves the converter this session was made with, unless it is `current` (the one the runtime
+    /// keeps, which saves itself) or one a kanji reset threw away (saving it would bring back what
+    /// the reset deleted): a session replaced or detached after a settings change dropped its
+    /// converter commits what it was converting first, and the kanji picked there would be lost.
+    public func saveConverter(unless current: JapaneseConverter?, discarded: DiscardedConverters? = nil) {
+        guard let japaneseConverter, japaneseConverter !== current,
+              discarded?.contains(japaneseConverter) != true else { return }
+        japaneseConverter.save()
+    }
+
+    /// The kana→kanji converter, only where Japanese is on: an app that turns it off gets no
+    /// conversion and no live conversion, as with Japanese off everywhere.
+    public var converter: JapaneseConverter? { japaneseEnabled ? japaneseConverter : nil }
+    /// Japanese as the Languages tab sets it: what an app without its own `japanese` gets.
+    public let japaneseDefault: Bool
+    /// Japanese in the app typed into (`AppPolicy.japanese`, else the Languages tab), picked again
+    /// on `activate`. Off, the engine is asked without Japanese, as with it off everywhere.
+    public var japaneseEnabled: Bool { policy.japanese(default: japaneseDefault) }
     public private(set) var keys = ""
     public private(set) var app: String?
     public private(set) var policy = AppPolicy.standard
@@ -300,12 +317,12 @@ public final class InputSession {
         self.engine = engine
         self.policies = policies
         policy = policies.defaultPolicy
-        self.converter = converter
-        self.japaneseEnabled = japaneseEnabled
+        japaneseConverter = converter
+        japaneseDefault = japaneseEnabled
         self.liveConversion = liveConversion
         self.returnConfirmsOnly = returnConfirmsOnly
-        if japaneseEnabled, let model = JapaneseModel.shared {
-            segmenter = JapaneseSegmenter(english: EnglishModel.shared, japanese: model)
+        if japaneseEnabled || policies.turnsJapaneseOn, let model = JapaneseModel.shared {
+            japaneseSegmenter = JapaneseSegmenter(english: EnglishModel.shared, japanese: model)
         }
     }
 
@@ -934,7 +951,7 @@ public final class InputSession {
         guard forced == nil, ch == "-" || ch == "'", previewLanguage == .english,
               !EnglishModel.shared.isKnownWord(keys),
               RomajiComposer.compose(keys, partial: true).strayLetters == 0 else { return false }
-        let context = DecisionContext(previousLanguage: previousLanguage, partial: true, app: app)
+        let context = DecisionContext(previousLanguage: previousLanguage, partial: true, app: app, japanese: japaneseEnabled)
         return engine.decide(keys + String(ch), context: context).language == .japanese
     }
 
@@ -957,8 +974,10 @@ public final class InputSession {
         return nil
     }
 
-    /// Splits English words out of a Japanese phrase (google in kyouhagoogledekensaku).
-    public var segmenter: JapaneseSegmenter?
+    /// Splits English words out of a Japanese phrase (google in kyouhagoogledekensaku), only
+    /// where Japanese is on, as `converter`.
+    public var segmenter: JapaneseSegmenter? { japaneseEnabled ? japaneseSegmenter : nil }
+    private var japaneseSegmenter: JapaneseSegmenter?
 
     /// Kana for the keys, with any English words inside the phrase kept as typed.
     private func japaneseReading(partial: Bool) -> String {
@@ -1470,18 +1489,18 @@ public final class InputSession {
             lastTrace = Trace(keys: keys, previous: previousLanguage, decision: decision, partial: partial)
             return decision
         }
-        var d = engine.decide(keys, context: DecisionContext(previousLanguage: previousLanguage, partial: partial, app: app))
+        var d = engine.decide(keys, context: DecisionContext(previousLanguage: previousLanguage, partial: partial, app: app, japanese: japaneseEnabled))
         // A word learned as Japanese while Japanese was on: with it off, the engine without what
         // was learned decides it (sushi stays sushi, not すし). Turned on again, it is learned again.
         if d.language == .japanese, !japaneseEnabled {
-            d = engine.base.decide(keys, context: DecisionContext(previousLanguage: previousLanguage, partial: partial, app: app))
+            d = engine.base.decide(keys, context: DecisionContext(previousLanguage: previousLanguage, partial: partial, app: app, japanese: japaneseEnabled))
         }
         // While typing, a consonant at the end may still be waiting for its vowel, which keeps
         // Japanese close and a Korean word under a Strict app's threshold until the word ends
         // (qud: 0.60 while typed, 0.98 at Space). The word as it would go in now decides, so the
         // preview shows what Space commits (병), not English that turns Korean on Space.
         if partial, d.language == .korean, d.confidence < policy.conversionThreshold {
-            let now = engine.decide(keys, context: DecisionContext(previousLanguage: previousLanguage, partial: false, app: app))
+            let now = engine.decide(keys, context: DecisionContext(previousLanguage: previousLanguage, partial: false, app: app, japanese: japaneseEnabled))
             if now.language == .korean, now.confidence >= policy.conversionThreshold { d = now }
         }
         // Typed with Caps Lock, keys that are loose jamo throughout, two or more, are an acronym
@@ -1602,7 +1621,7 @@ public final class InputSession {
         let remembered = engine.rememberedLanguage(keys, app: app)
         let once = engine.correctedOnce(keys, app: app)
         let own = remembered == nil && once == nil ? decided
-            : engine.ownDecision(keys, context: DecisionContext(app: app)).language
+            : engine.ownDecision(keys, context: DecisionContext(app: app, japanese: japaneseEnabled)).language
         return Readings(texts: cycle.map { rendered(keys, $0) }, languages: cycle, selected: selected,
                         own: cycle.firstIndex(of: own), remembered: remembered.flatMap { cycle.firstIndex(of: $0) },
                         once: once.flatMap { cycle.firstIndex(of: $0) })
@@ -1638,7 +1657,7 @@ public final class InputSession {
               // Only what reads as Korean on its own: a Japanese phrase whose start happens to
               // spell Hangul (chanwo…, 초무をころした) stays whole. Judged without context, since
               // right after Japanese everything leans Japanese.
-              engine.decide(keys, context: DecisionContext(partial: true, app: app)).language == .korean else { return }
+              engine.decide(keys, context: DecisionContext(partial: true, app: app, japanese: japaneseEnabled)).language == .korean else { return }
         let chars = Array(keys)
         for cut in 4...(chars.count - 3) {
             let front = String(chars[..<cut]), back = String(chars[cut...])
@@ -1660,7 +1679,7 @@ public final class InputSession {
     /// A known English word, one with a Korean particle (google에서), or romaji the engine is
     /// sure is Japanese (no word starts with っ or ん: that cut takes a letter from the Korean).
     private func isOtherLanguageWord(_ keys: String) -> Bool {
-        let decision = engine.decide(keys, context: DecisionContext(previousLanguage: .korean, partial: true, app: app))
+        let decision = engine.decide(keys, context: DecisionContext(previousLanguage: .korean, partial: true, app: app, japanese: japaneseEnabled))
         switch decision.language {
         case .english: return keys.count >= 3 && EnglishModel.shared.isKnownWord(keys)
         case .mixed: return true
@@ -1693,7 +1712,7 @@ public final class InputSession {
                   RomajiComposer.compose(front).isClean,
                   // Not an English word with a particle (linderman isn't linで그무).
                   segmenter?.englishWithParticle(front) == nil,
-                  case let decision = engine.decide(front, context: DecisionContext(previousLanguage: previousLanguage, app: app)),
+                  case let decision = engine.decide(front, context: DecisionContext(previousLanguage: previousLanguage, app: app, japanese: japaneseEnabled)),
                   decision.language == .japanese, decision.confidence >= 0.9 else { continue }
             keys = front
             let japanese = committedJapanese()

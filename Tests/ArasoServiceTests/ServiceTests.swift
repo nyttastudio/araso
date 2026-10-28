@@ -465,6 +465,46 @@ final class Harness {
         #expect(menu.contains { $0.title.contains("일시정지") })
     }
 
+    /// The app's own Japanese switch: off here with Japanese on in the settings, and back to
+    /// following them on a second select.
+    @Test func menuTurnsJapaneseOffInTheApp() throws {
+        let h = try Harness(settings: #"{ "japanese": true }"#)
+        var select = ServiceRequest(op: .menuSelect, client: h.client)
+        select.item = "app.japanese"
+        _ = h.send(select)
+        #expect(AppPolicies.load().overrides["notepad.exe"]?.japanese == false)
+        let menu = h.send(ServiceRequest(op: .menu, client: h.client)).reply.menu ?? []
+        #expect(menu.first { $0.id == "app.japanese" }?.checked == false)
+        h.type("kyouha ")
+        #expect(!h.document.text.contains("き"), "\(h.document.text)")
+        _ = h.send(select)
+        #expect(AppPolicies.load().overrides["notepad.exe"]?.japanese == nil)
+    }
+
+    /// With Japanese off in the settings and on in one app, the dictionary editor offers the
+    /// Japanese reading (for every app, and for that app, not for another one).
+    @Test func readingsOfferJapaneseWhereAnAppHasIt() throws {
+        let h = try Harness(settings: #"{ "japanese": false }"#, apps: #"{ "line.exe": { "japanese": true } }"#)
+        var request = ServiceRequest(op: .readings)
+        request.keys = "sushi"
+        #expect(h.runtime.handle(request).choices?.contains { $0.language == "japanese" } == true)
+        request.app = "line.exe"
+        #expect(h.runtime.handle(request).choices?.contains { $0.language == "japanese" } == true)
+        request.app = "code.exe"
+        #expect(h.runtime.handle(request).choices?.contains { $0.language == "japanese" } == false)
+    }
+
+    /// The dictionary editor's preview decides as a session in the app would.
+    @Test func decideFollowsTheAppsJapanese() throws {
+        let h = try Harness(settings: #"{ "japanese": true }"#, apps: #"{ "code.exe": { "japanese": false } }"#)
+        var request = ServiceRequest(op: .decide)
+        request.keys = "konnichiha"
+        #expect(h.runtime.handle(request).decision?.language == "japanese")
+        request.app = "code.exe"
+        let decision = try #require(h.runtime.handle(request).decision)
+        #expect(["english", "korean"].contains(decision.language))
+    }
+
     @Test func readingsForTheDictionaryEditor() throws {
         let h = try Harness()
         var request = ServiceRequest(op: .readings)

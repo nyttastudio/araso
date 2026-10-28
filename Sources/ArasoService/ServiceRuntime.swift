@@ -73,6 +73,11 @@ public final class ServiceRuntime {
     public private(set) var settings: Settings
     public private(set) var engine: DictionaryEngine
     private var converter: JapaneseConverter?
+    /// Whether the engine has the Japanese model: Japanese is on in the settings, or an app turns
+    /// it on itself (`AppPolicies.turnsJapaneseOn`). Each session picks where it is on.
+    private var japaneseLoaded = false
+    /// Converters a kanji reset threw away, which a replaced or detached session must not save.
+    private let discardedConverters = DiscardedConverters()
     public private(set) var generation = 0
     private var clients: [Int: Client] = [:]
     private var nextClient = 1
@@ -104,8 +109,13 @@ public final class ServiceRuntime {
         LatinLayout.active = settings.latinLayout
         KoreanLayout.active = settings.koreanLayout
         LatinLayout.activeRomaji = settings.japaneseLayout
-        engine = Self.makeEngine(japanese: settings.japanese)
-        converter = settings.japanese && configuration.converter ? Self.makeConverter(settings) : nil
+        japaneseLoaded = Self.needsJapanese(settings)
+        engine = Self.makeEngine(japanese: japaneseLoaded)
+        converter = japaneseLoaded && configuration.converter ? Self.makeConverter(settings) : nil
+    }
+
+    private static func needsJapanese(_ settings: Settings) -> Bool {
+        settings.japanese || AppPolicies.load().turnsJapaneseOn
     }
 
     /// The source tree (Sources/ArasoService/ServiceRuntime.swift), for UI text in development.
@@ -143,7 +153,7 @@ public final class ServiceRuntime {
 
     private func makeSession() -> InputSession {
         let session = InputSession(engine: engine, policies: AppPolicies.load(),
-                                   converter: settings.japanese ? converter : nil,
+                                   converter: converter,
                                    japaneseEnabled: settings.japanese, liveConversion: settings.liveConversion,
                                    returnConfirmsOnly: settings.returnConfirmsOnly)
         session.replacements = replacements.entries
@@ -172,6 +182,7 @@ public final class ServiceRuntime {
         case .detach:
             if let id = request.client, let client = clients.removeValue(forKey: id) {
                 client.session.commit(client: nil)
+                client.session.saveConverter(unless: converter, discarded: discardedConverters)
                 converter?.save()
             }
             response = ServiceResponse()
@@ -203,7 +214,13 @@ public final class ServiceRuntime {
         case .decide:
             response = ServiceResponse()
             if let keys = request.keys, !keys.isEmpty {
-                let decision = engine.decide(keys, context: DecisionContext(app: request.app))
+                // As a session in that app decides: a word remembered as Japanese where it is off is
+                // decided again without what was learned (InputSession.decide).
+                let japanese = AppPolicies.load().policy(for: request.app).japanese(default: settings.japanese)
+                var decision = engine.decide(keys, context: DecisionContext(app: request.app, japanese: japanese))
+                if decision.language == .japanese, !japanese {
+                    decision = engine.base.decide(keys, context: DecisionContext(app: request.app, japanese: false))
+                }
                 response.decision = TraceInfo(keys: keys, previous: nil, language: decision.language.rawValue,
                                               confidence: decision.confidence, output: decision.output,
                                               explanation: decision.explanation, partial: false)
@@ -211,7 +228,11 @@ public final class ServiceRuntime {
         case .readings:
             response = ServiceResponse()
             let keys = request.keys ?? ""
-            let languages: [Language] = keys.isEmpty ? [] : Language.english.cycle(for: keys, japanese: settings.japanese)
+            // Japanese where the entry applies: its app, or some app when it is for every app.
+            let policies = AppPolicies.load()
+            let japanese = request.app.map { policies.policy(for: $0).japanese(default: settings.japanese) }
+                ?? policies.japaneseUsed(default: settings.japanese)
+            let languages: [Language] = keys.isEmpty ? [] : Language.english.cycle(for: keys, japanese: japanese)
             response.choices = languages.map { Choice(language: $0.rawValue, text: UserDictionary.reading(keys, as: $0)) }
         case .shortcut:
             response = ServiceResponse()
@@ -343,6 +364,7 @@ public final class ServiceRuntime {
         guard client.generation != generation else { return client.session }
         let fresh = makeSession()
         client.session.commit(client: field)
+        client.session.saveConverter(unless: converter, discarded: discardedConverters)
         fresh.activate(app: client.session.app ?? client.app)
         client.session = fresh
         client.generation = generation
@@ -522,11 +544,14 @@ public final class ServiceRuntime {
                 enabled: policy.enabled, indent: 2)
             add("app.hold", L("Hold the Word After Space or Punctuation"), on: policy.holdSpace,
                 enabled: policy.enabled, indent: 2)
+            add("app.japanese", L("Japanese Input in This App"), on: policy.japanese(default: settings.japanese),
+                enabled: policy.enabled, indent: 2)
             if listed { add("app.remove", L("Use Default Settings in This App"), indent: 1) }
             items.append(.line)
         }
         add("japanese", L("Japanese Input"), on: settings.japanese)
-        add("live", L("Live Conversion"), on: settings.liveConversion, enabled: settings.japanese, indent: 1)
+        // Also where only an app has Japanese on.
+        add("live", L("Live Conversion"), on: settings.liveConversion, enabled: japaneseLoaded, indent: 1)
         items.append(.line)
         if let keys = engine.lastLearned { add("undo", L("Undo Last Learned (%@)", keys)) }
         // What the dictionary decided lately, to tell whether a word went in because of it and forget it.
@@ -567,12 +592,16 @@ public final class ServiceRuntime {
         case "app.strict": updatePolicy(app) { $0.conversionThreshold = AppPolicy.strictThreshold }
         case "app.escape": updatePolicy(app) { if $0.switchKeys.remove(.escape) == nil { $0.switchKeys.insert(.escape) } }
         case "app.hold": updatePolicy(app) { $0.holdSpace.toggle() }
+        case "app.japanese":
+            let japaneseOn = settings.japanese
+            // Back to what the settings say: the app follows them again.
+            updatePolicy(app) { $0.japanese = $0.japanese(default: japaneseOn) == japaneseOn ? !japaneseOn : nil }
         case "app.remove":
             guard let app else { break }
             var policies = AppPolicies.load()
             policies.overrides[app] = nil
             try? policies.save()
-            generation += 1
+            apply(settings)
             changedFiles = true
         case "japanese": update { $0.japanese.toggle() }
         case "live": update { $0.liveConversion.toggle() }
@@ -609,15 +638,23 @@ public final class ServiceRuntime {
         change(&policy)
         policies.set(policy, for: app)
         try? policies.save()
-        generation += 1
+        // Also loads or drops the Japanese model when this app was the only one to want it.
+        apply(settings)
         changedFiles = true
     }
 
     private func apply(_ new: Settings) {
-        if new.japanese != settings.japanese {
-            engine = Self.makeEngine(japanese: new.japanese)
+        let japanese = Self.needsJapanese(new)
+        if japanese != japaneseLoaded {
+            engine = Self.makeEngine(japanese: japanese)
+            japaneseLoaded = japanese
         }
-        if new.japanese, configuration.converter, converter == nil || new.japaneseEngine != settings.japaneseEngine {
+        if !japanese {
+            // Nowhere uses Japanese any more: drop the converter and its dictionary, after saving
+            // the kanji learned.
+            converter?.save()
+            converter = nil
+        } else if configuration.converter, converter == nil || new.japaneseEngine != settings.japaneseEngine {
             converter?.save()
             converter = Self.makeConverter(new)
         }
@@ -631,9 +668,11 @@ public final class ServiceRuntime {
     /// The settings window changed files: read them again.
     public func reloadFromDisk(kanjiReset: Bool) {
         if kanjiReset {
-            // Drop the converter without saving, so its memory doesn't come back.
+            // Drop the converter without saving, so its memory doesn't come back, and keep the
+            // sessions still holding it from saving it.
+            discardedConverters.insert(converter)
             converter = nil
-            if settings.japanese, configuration.converter { converter = Self.makeConverter(settings) }
+            if japaneseLoaded, configuration.converter { converter = Self.makeConverter(settings) }
         }
         engine.reload()
         apply(Settings.load())
@@ -678,19 +717,19 @@ public final class ServiceRuntime {
             var policies = AppPolicies.load()
             policies.setDefault(info.policy)
             try? policies.save()
-            generation += 1
+            apply(settings)
         }
         if let app = change.app?.trimmingCharacters(in: .whitespaces).lowercased(), !app.isEmpty, let entry = change.entry {
             var policies = AppPolicies.load()
             policies.setEntry(entry, for: app)
             try? policies.save()
-            generation += 1
+            apply(settings)
         }
         if let app = change.removeApp {
             var policies = AppPolicies.load()
             policies.overrides[app] = nil
             try? policies.save()
-            generation += 1
+            apply(settings)
         }
         if var entry = change.addWord {
             if let old = change.replacing, old != entry.id { engine.remove(old) }
