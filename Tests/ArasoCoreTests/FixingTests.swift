@@ -439,4 +439,18 @@ import Testing
         session.handle(.other, client: field) // closes it: learned
         #expect(session.engine.correctedOnce("hello", app: nil) == .korean)
     }
+
+    /// Right after a switch key changed the word just committed, the strip is numbered and a digit
+    /// picks that reading; a digit any other time goes in as typed.
+    @Test func digitsPickRightAfterTheSwitchKey() {
+        type("hello ")
+        #expect(session.handle(.cycle, client: field))
+        #expect(session.readings?.numbered == true)
+        #expect(field.text == "\(korean("hello")) ")
+        #expect(session.handle(.printable("1"), client: field)) // back to English, the first listed
+        #expect(field.text == "hello ")
+        #expect(!session.handle(.printable("9"), client: field)) // none: the app types it
+        type("the 2")
+        #expect(field.text.hasSuffix(" 2")) // no switch before it: the digit goes in
+    }
 }

@@ -341,7 +341,8 @@ phrase live conversion leaves as kana (`たけ`), a switch key switches at once.
 Right after a word is committed with Space or punctuation, a language switch key switches it to its
 next reading, and pressing it again keeps cycling. Deleting the space or punctuation first keeps
 that chance; any other key ends it. This needs the caret still right after the word, and an app that
-lets Araso read the text there.
+lets Araso read the text there. Right after such a switch the strip is numbered, and a digit picks that
+reading (a digit typed without a switch goes in as usual).
 
 A word earlier in the line can be fixed too. Put the caret anywhere in it (click, ⌥←, ⌥→) and tap
 right ⌥ (or ⇧Esc, or ⌥Space if chosen): the line from that word to its end is underlined again, the

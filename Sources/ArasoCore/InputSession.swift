@@ -445,6 +445,7 @@ public final class InputSession {
         // A switch key just changed the word being typed: as in kanji conversion, ←/→ then change how
         // much of it is fixed (`startFixingTyped`). Before that, ← puts the word in and goes to the app.
         let switched = readings != nil && !keys.isEmpty && conversion == nil
+        let listed = readings // what a digit right after a switch picks from
         let arrow = key == .left || key == .right || key == .shiftLeft || key == .shiftRight
         readings = nil
         learned = nil
@@ -497,10 +498,27 @@ public final class InputSession {
         // Esc switches languages where it is a switch key (and no reporting vim owns it); the
         // other switch keys arrive as `.cycle` only where they are chosen.
         let switchesLanguage = key == .cycle || (key == .escape && policy.switchKeys.contains(.escape) && vimMode == nil)
+        // A digit right after a switch key changed the word just committed (or one switched in place):
+        // that reading of the list, numbered under it, as in the candidate window.
+        if case .printable(let ch) = key, keys.isEmpty, let pending, let listed, listed.numbered,
+           let n = ch.wholeNumberValue, n >= 1, n <= listed.languages.count {
+            var current = pending
+            while current.language != listed.languages[n - 1], let changed = cycle(current, client: client),
+                  changed.language != pending.language {
+                current = changed
+            }
+            if current.language == listed.languages[n - 1] {
+                lastCommit = current
+                readings = readings(of: current.keys, as: current.language, decided: current.decided, rendered: committedReading)
+                readings?.numbered = true
+                return true
+            }
+        }
         if switchesLanguage, keys.isEmpty, let pending {
             if let changed = cycle(pending, client: client) {
                 lastCommit = changed
                 readings = readings(of: changed.keys, as: changed.language, decided: changed.decided, rendered: committedReading)
+                readings?.numbered = true
                 return true
             }
         }
@@ -1068,6 +1086,7 @@ public final class InputSession {
         guard let changed = cycle(pending, client: client) else { return false }
         lastCommit = changed
         readings = readings(of: changed.keys, as: changed.language, decided: changed.decided, rendered: committedReading)
+        readings?.numbered = true
         return true
     }
 

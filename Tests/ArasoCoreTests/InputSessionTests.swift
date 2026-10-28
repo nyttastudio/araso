@@ -124,7 +124,7 @@ final class FakeTextField: TextClient {
         session.handle(.escape, client: field)
         #expect(field.text == "안녕 ")
         // dkssud went in as English once: that reading is marked as corrected once.
-        #expect(session.readings == InputSession.Readings(texts: ["dkssud", "안녕"], languages: [.english, .korean], selected: 1, own: 1, once: 0))
+        #expect(session.readings == InputSession.Readings(texts: ["dkssud", "안녕"], languages: [.english, .korean], selected: 1, own: 1, once: 0, numbered: true))
         type("a")
         #expect(session.readings == nil)
         type(" githubdp")
