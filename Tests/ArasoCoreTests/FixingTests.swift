@@ -391,4 +391,20 @@ import Testing
         #expect(field.text == "hello world ")
         #expect(session.fixing == nil)
     }
+
+    /// The app put the fix's marked text at the caret instead: dropping the fix takes it away again.
+    @Test func aMisplacedMarkIsTakenAway() {
+        type("hello world ")
+        caret(at: 1)
+        session.handle(.cycle, client: field)
+        // As an app that marks at the caret would have it: the word as it was, the fix after it.
+        let fixed = korean("hello") + " world"
+        field.text = "hello world " + fixed
+        field.marked = NSRange(location: 12, length: (fixed as NSString).length)
+        field.cursor = NSMaxRange(field.marked)
+        #expect(!session.handle(.enter, client: field)) // the app's Return, after the mark is gone
+        #expect(field.text == "hello world ")
+        #expect(field.marked.location == NSNotFound)
+        #expect(session.fixing == nil)
+    }
 }
