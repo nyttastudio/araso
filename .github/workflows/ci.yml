@@ -5,6 +5,9 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -12,7 +15,8 @@ concurrency:
 jobs:
   # `test` is a required check on main, so the workflow always runs and `test` is skipped (which
   # counts as passing) when nothing the macOS build reads changed: docs, the Windows and Linux
-  # ports, tools/, scripts/ and the other workflows.
+  # ports, tools/, scripts/ and the other workflows. If `changes` itself fails, `test` runs anyway:
+  # a skipped `test` would let the merge through untested.
   changes:
     runs-on: ubuntu-latest
     permissions:
@@ -22,7 +26,7 @@ jobs:
       swift: ${{ steps.filter.outputs.swift }}
     steps:
       - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
+      - uses: dorny/paths-filter@0e4a8c6effa4802afeda77dc8d303f8176d7dfad # v3.0.4
         id: filter
         with:
           predicate-quantifier: every
@@ -42,7 +46,7 @@ jobs:
 
   test:
     needs: changes
-    if: needs.changes.outputs.swift == 'true'
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.swift == 'true') }}
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4

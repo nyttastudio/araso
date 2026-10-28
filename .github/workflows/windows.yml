@@ -19,7 +19,6 @@ on:
     tags: ['v*']
     paths:
       - '**'
-      - '!**/*.md'
       - '!LICENSE'
       - '!docs/**'
       - '!tools/**'
@@ -29,10 +28,10 @@ on:
       - '!linux/**'
       - 'scripts/vim/**'
       - '.github/workflows/windows.yml'
+      - '!**/*.md'
   pull_request:
     paths:
       - '**'
-      - '!**/*.md'
       - '!LICENSE'
       - '!docs/**'
       - '!tools/**'
@@ -42,6 +41,7 @@ on:
       - '!linux/**'
       - 'scripts/vim/**'
       - '.github/workflows/windows.yml'
+      - '!**/*.md'
   workflow_dispatch:
 
 permissions:
