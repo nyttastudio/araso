@@ -159,7 +159,7 @@ int CheckUpdateQuietly() {
     int status = 1;
     FetchRelease(qApp, [&status](const std::string &body) {
         Json answer = Released(body);
-        status = answer["release"].isObject() ? 0 : 1;
+        status = answer["upToDate"].asBool() || answer["release"].isObject() ? 0 : 1;
         TellInputMethod();
         qApp->quit();
     });
