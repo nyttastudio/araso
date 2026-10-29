@@ -151,7 +151,11 @@ tests use `FakeTextField`). It owns the preview and hysteresis, commits, Esc rea
   and 3-set boundaries. Only through the field itself
   (`uncased`: Caps Lock's client would change the rest of the line). The strip lists the clause's readings
   (`clauseReadings`), numbered (`Readings.numbered`): a digit picks one. `caretMoved` lists an unsure
-  word's readings (`fixHintConfidence`) after an arrow the app took. Not where a composition is only
+  word's readings (`fixHintConfidence`) after an arrow the app took, under the word's range it returns:
+  with nothing marked only `firstRect` places it, whose origin comes at the line's top through IMK
+  (TextEdit and Notes, against `attributes(forCharacterIndex:)` for the same marked text, 2026-10-29;
+  the list covered the line), so `InputController.firstRect` moves it down by its height, for the
+  caret's place (`PauseHUD`) too. Not where a composition is only
   at the caret (`TextClient.marksAnywhere`, `TextContext.marksAtCaret`: fcitx5, Windows floating).
 - Return on an underlined word only confirms it (`returnConfirmsOnly`, on by default); off, the
   app gets the Return too, except after Japanese.

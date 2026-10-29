@@ -151,13 +151,13 @@ import Testing
     @Test func caretOnAnUnsureWordListsItsReadings() {
         type("ths hello ")
         caret(at: 1)
-        #expect(session.caretMoved(client: field))
+        #expect(session.caretMoved(client: field) == NSRange(location: 0, length: 1)) // 손, as it is in the field
         #expect(session.readings?.texts == ["ths", "손"])
         #expect(session.readings?.selected == 1)
         caret(at: 5) // hello
         session.handle(.other, client: field) // any key puts the list away
         #expect(session.readings == nil)
-        #expect(!session.caretMoved(client: field))
+        #expect(session.caretMoved(client: field) == nil)
     }
 
     /// Where the composition can only be at the caret (fcitx5), a word earlier in the line stays.
@@ -168,7 +168,7 @@ import Testing
         session.handle(.cycle, client: field)
         #expect(field.text == "hello world ")
         #expect(session.fixing == nil)
-        #expect(!session.caretMoved(client: field))
+        #expect(session.caretMoved(client: field) == nil)
     }
 
     /// A second fix after a first one changed the length of the line: the words after it moved.
@@ -269,7 +269,7 @@ import Testing
         #expect(field.marked.location == NSNotFound)
         #expect(field.cursor == (field.text as NSString).length)
         caret(at: 0)
-        #expect(!session.caretMoved(client: field)) // hello is sure: no list
+        #expect(session.caretMoved(client: field) == nil) // hello is sure: no list
     }
 
     /// The words after the fixed one are never written while it is fixed, only once it goes in, over

@@ -166,8 +166,8 @@ final class InputController: IMKInputController {
                 // The app moves the caret after this returns: then a word Araso wasn't sure of, if
                 // the caret is on one, lists its readings under it (`caretMoved`).
                 DispatchQueue.main.async { [weak self] in
-                    guard let self, self.session.caretMoved(client: self.textClient(input)) else { return }
-                    self.wordRect = nil
+                    guard let self, let word = self.session.caretMoved(client: self.textClient(input)) else { return }
+                    self.wordRect = self.placeOf(word, in: input)
                     self.syncStrip(input)
                 }
             }
@@ -312,6 +312,26 @@ final class InputController: IMKInputController {
         wordRect = NSRect(x: start.minX, y: start.minY, width: endX - start.minX, height: start.height)
     }
 
+    /// Where a word of the field is on screen while nothing is marked, for the list under it.
+    /// `attributes(forCharacterIndex:)` answers only for index 0 then (the start of the text), so
+    /// this is `firstRect`'s.
+    @MainActor private func placeOf(_ word: NSRange, in client: IMKTextInput) -> NSRect? {
+        let rect = Self.firstRect(word, in: client)
+        // Positions only, never text.
+        log.debug("hint word \(rect.debugDescription, privacy: .public)")
+        return Self.plausible(rect) ? rect : nil
+    }
+
+    /// `firstRect(forCharacterRange:)` as a line-height rect, its origin at the line's bottom: through
+    /// IMK it comes with the origin at the top (TextEdit and Notes, for the same marked text as
+    /// `attributes(forCharacterIndex:)`'s, 2026-10-29), which put the list over the line itself.
+    static func firstRect(_ range: NSRange, in client: IMKTextInput) -> NSRect {
+        var actual = NSRange(location: NSNotFound, length: 0)
+        var rect = client.firstRect(forCharacterRange: range, actualRange: &actual)
+        rect.origin.y -= rect.height
+        return rect
+    }
+
     /// The committed word's place for the line under it: from where it started to just before the
     /// caret after it, its own width in the app's font. The end the app reports while it was typed
     /// is only an estimate (TextEdit gives none), and ran past the word into the caret. The
@@ -349,8 +369,7 @@ final class InputController: IMKInputController {
         let selected = client.selectedRange(), marked = client.markedRange()
         // No marked text is NSNotFound in some apps and an empty range in others (TextEdit).
         if marked.location == NSNotFound || marked.length == 0, selected.location != NSNotFound {
-            var actual = NSRange(location: NSNotFound, length: 0)
-            rect = client.firstRect(forCharacterRange: NSRange(location: selected.location, length: 0), actualRange: &actual)
+            rect = Self.firstRect(NSRange(location: selected.location, length: 0), in: client)
             if Self.plausible(rect) { return rect }
         }
         _ = client.attributes(forCharacterIndex: 0, lineHeightRectangle: &rect)

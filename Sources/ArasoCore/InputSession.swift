@@ -1172,18 +1172,20 @@ public final class InputSession {
 
     /// The caret was moved by a key the app took (an arrow): when it now rests on a word of the line
     /// Araso wasn't sure of, its readings are listed under it as a switch key would list them, so
-    /// what the switch key will make of it shows before it is pressed. Returns whether they are.
-    public func caretMoved(client cased: TextClient) -> Bool {
+    /// what the switch key will make of it shows before it is pressed. Returns the word's range in
+    /// the field when they are, for the list to be put under it: nothing is marked to place it by.
+    public func caretMoved(client cased: TextClient) -> NSRange? {
         let client = Self.uncased(cased)
         guard keys.isEmpty, conversion == nil, fixing == nil, client.marksAnywhere,
-              let (index, _) = touchedEntry(client) else { return false }
+              let (index, _) = touchedEntry(client) else { return nil }
         let entry = recent[index]
         let context = DecisionContext(previousLanguage: entry.previous, app: app, japanese: japaneseEnabled)
-        guard engine.decide(entry.keys, context: context).confidence < Self.fixHintConfidence else { return false }
+        guard engine.decide(entry.keys, context: context).confidence < Self.fixHintConfidence else { return nil }
         readings = readings(of: entry.keys, as: entry.language, decided: entry.decided) { keys, language in
             self.committedReading(keys, as: language)
         }
-        return readings != nil
+        guard readings != nil else { return nil }
+        return NSRange(location: entry.location, length: utf16(entry.text) - utf16(entry.boundary))
     }
 
     /// Below this the caret on a word lists its readings (`caretMoved`). On eval.tsv, 18 of the
