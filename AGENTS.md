@@ -180,7 +180,8 @@ tests use `FakeTextField`). It owns the preview and hysteresis, commits, Esc rea
   raw). It can't tell which tab has focus, so another tab's prompt passes keys in every app until
   it ends; ssh's far side isn't seen (the local tty is raw). The prompt can start mid-word, with
   focus unchanged: its first key commits what was being typed (`passingPassword`), else the
-  app's insert replaced the underlined word. The start and end are logged at info.
+  app's insert replaced the underlined word, and starts a new context; a switch tap does nothing
+  meanwhile. The start and end are logged at info.
 - Caps Lock doesn't change what a word reads as: `InputController` hands letters over in the case
   Shift alone gives (macOS types capitals with Caps Lock, Shift or not), `handle(_:client:capsLock:)`
   notes it per word (`capsWord`; a toggle inside a word commits what came before), and every client

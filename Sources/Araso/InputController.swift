@@ -157,9 +157,10 @@ final class InputController: IMKInputController {
                 MainActor.assumeIsolated {
                     // The prompt can start while a word is composing (another tab's sudo): it goes
                     // in first, as when pausing, or the app's own insert replaces it. The word
-                    // just committed can't be switched past the keys after it either.
+                    // just committed can't be switched past the keys after it either, and what
+                    // comes after the prompt starts a new context (the session doesn't see them).
                     let client = textClient(input)
-                    if !session.commandPressed(client: client, heldWordOnly: false) { session.commit(client: client) }
+                    if !session.commandPressed(client: client, heldWordOnly: false) { session.commitForNewContext(client: client) }
                     StripHUD.hide(force: true)
                 }
             }
@@ -265,6 +266,9 @@ final class InputController: IMKInputController {
               Date().timeIntervalSince(down.at) < 0.5 else { return }
         switchTapDown = nil
         guard !session.inVimNormalMode else { return } // vim's own keys
+        // While a terminal waits for a password, the keys pass as typed: a tap before the first of
+        // them would change the word, or the one just committed, in front of the prompt.
+        guard !PasswordPrompt.isWaiting() else { return }
         noteWordRect(client)
         let handled = session.handle(.cycle, client: textClient(client))
         syncStrip(client)
