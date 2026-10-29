@@ -1741,9 +1741,12 @@ public final class InputSession {
             let text = engine.render(keys, as: .mixed)
             return text == keys ? nil : text
         case .japanese:
-            // Only っ and letters (ss: っs) is no Japanese word, so it isn't a reading to hold on to.
+            // Only っ and letters (ss: っs) is no Japanese word, nor letters still waiting for their
+            // vowels (ths, shown as typed), so it isn't a reading to hold on to: Space converted ths
+            // to ＴＨＳ, and the next letter put it in without the space.
             guard japaneseEnabled else { return nil }
-            return RomajiComposer.compose(keys, partial: true).isOnlySokuon ? nil : japaneseReading(partial: true)
+            let kana = RomajiComposer.compose(keys, partial: true)
+            return kana.kanaCount == 0 || kana.isOnlySokuon ? nil : japaneseReading(partial: true)
         }
     }
 
