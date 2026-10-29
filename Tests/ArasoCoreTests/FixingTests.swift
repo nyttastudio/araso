@@ -534,4 +534,18 @@ import Testing
         #expect(field.text == line + "\nnext")
         #expect(field.cursor == (line as NSString).length)
     }
+
+    /// A line going on past what is read of it, with no line break: its end isn't known, so no fix
+    /// starts there (the caret couldn't go back to it); the word is switched where it is instead, as
+    /// the field's first word is.
+    @Test func noFixWhereTheLineEndIsntKnown() {
+        type("hello world ")
+        let rest = String(repeating: "x", count: 5000)
+        field.insertText(rest, replacing: nil)
+        caret(at: 8) // inside world
+        session.handle(.cycle, client: field)
+        #expect(session.fixing == nil)
+        #expect(field.marked.location == NSNotFound)
+        #expect(field.text == "hello \(korean("world")) \(rest)")
+    }
 }

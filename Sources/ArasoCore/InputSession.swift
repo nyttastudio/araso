@@ -1030,8 +1030,10 @@ public final class InputSession {
             following = later.location + utf16(later.text)
         }
         // The line's end: past the last of them and anything typed after it, up to a line break.
-        var end = max(at, wordEnd)
-        if let after = readTrailing(client, from: wordEnd) { end = max(end, wordEnd + utf16(after)) }
+        // Not where that end isn't known: the caret goes back there once the fix is in. The word is
+        // switched where it is instead (`switchInPlace`).
+        guard let after = readTrailing(client, from: wordEnd) else { return false }
+        let end = max(at, wordEnd + utf16(after))
         guard let original = client.text(in: NSRange(location: entry.location, length: end - entry.location)),
               let trailing = client.text(in: NSRange(location: wordEnd, length: end - wordEnd)) else { return false }
         var fixing = Fixing(start: entry.location, original: original, end: end, markOriginal: "", shown: "",
@@ -1101,7 +1103,7 @@ public final class InputSession {
     /// The text after the UTF-16 offset `location` up to the end of its line (a line break, or where
     /// the field stops giving text), read `trailingLookAhead` units at a time. Nil where nothing there
     /// can be read, or the line goes on past `trailingLimit`: its end isn't known, and a piece of it
-    /// mustn't be taken for it (the caret goes back to the line's end after a fix).
+    /// mustn't be taken for it (the caret goes back to the line's end after a fix, so none starts).
     private func readTrailing(_ client: TextClient, from location: Int) -> String? {
         var line = "", at = location
         while utf16(line) < Self.trailingLimit {
