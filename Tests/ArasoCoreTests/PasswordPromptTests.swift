@@ -27,8 +27,20 @@ import Testing
         #expect(!PasswordPrompt.isWaiting(devices: ["/dev/ttys-araso-missing", "/dev/null"]))
     }
 
-    @Test func devicesArePseudoTerminals() {
-        #expect(PasswordPrompt.terminalDevices().allSatisfy { $0.hasPrefix("/dev/ttys") })
+    /// Without devices given, the user's pseudo-terminals are read: a new one is among them, and
+    /// its prompt is seen. (Not the other way round: a real terminal may be asking meanwhile.)
+    @Test func defaultDevicesSeeANewPseudoTerminal() throws {
+        var master: Int32 = 0, slave: Int32 = 0
+        try #require(openpty(&master, &slave, nil, nil, nil) == 0)
+        defer { close(master); close(slave) }
+        let devices = PasswordPrompt.terminalDevices()
+        #expect(devices.contains(String(cString: ttyname(slave))))
+        #expect(devices.allSatisfy { $0.hasPrefix("/dev/ttys") })
+        var t = termios()
+        tcgetattr(slave, &t)
+        t.c_lflag &= ~tcflag_t(ECHO)
+        tcsetattr(slave, TCSANOW, &t)
+        #expect(PasswordPrompt.isWaiting())
     }
 }
 #endif
