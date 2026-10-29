@@ -375,6 +375,7 @@ public final class InputSession {
         policy = policies.policy(for: bundleIdentifier)
         previousLanguage = nil
         passedRun = nil
+        if fixing != nil { conversion = nil } // a fixed word's conversion goes with the fix
         fixing = nil
         recent.removeAll()
         paused = false
@@ -871,8 +872,15 @@ public final class InputSession {
 
     /// Commits candidate `index` of the open conversion (e.g. clicked in the candidate window).
     public func choose(_ index: Int, client: TextClient) {
-        guard let conversion, conversion.candidates.indices.contains(index) else { return }
-        self.conversion?.selected = index
+        guard var conversion, conversion.candidates.indices.contains(index) else { return }
+        conversion.selected = index
+        if var fixing {
+            // A word fixed in the line: picked there, the line around it kept.
+            guard markLanded(fixing, Self.uncased(client)) else { return confirmFixing(client: client) }
+            _ = pickInFix(conversion, &fixing, Self.uncased(client))
+            return
+        }
+        self.conversion = conversion
         commitCandidate(client: client)
     }
 
@@ -997,6 +1005,12 @@ public final class InputSession {
         /// A reading was chosen: with the switch key or a digit, or before the fix began on the word
         /// being typed.
         var chosen = false
+        /// The clause as kanji conversion shows it (Space on a whole word read as Japanese): the
+        /// clauses picked so far, then the session's `conversion`, which is for the rest of the reading.
+        /// Nil while the clause is its keys' reading.
+        var kanji: String?
+        /// The clauses of that conversion already picked with Return or a digit.
+        var picked = ""
     }
 
     /// Starts fixing an unchanged recent word touched by the caret, marking it in its next reading.
@@ -1202,9 +1216,15 @@ public final class InputSession {
             // The app didn't mark the line where it is: nothing of the fix is in the field, and writing
             // over the marked text would hit other text. Dropped; the key is handled as if it never began.
             self.fixing = nil
+            conversion = nil
             dropMisplacedMark(fixing, client)
             if key == .delete { return true } // Delete was to put the word back: it is as it was
             return handle(key, client: cased)
+        }
+        if conversion != nil { return handleConvertingFix(key, &fixing, client: client, cased: cased) }
+        if key == .printable(" "), fixing.language == .japanese, fixing.count == 1, fixing.cut == nil,
+           startConvertingFix(&fixing, client) {
+            return true
         }
         if key == .cycle || (key == .escape && policy.switchKeys.contains(.escape) && vimMode == nil) {
             let cycle = clauseCycle(fixing)
@@ -1299,6 +1319,101 @@ public final class InputSession {
         return true
     }
 
+    /// Space on a whole word fixed as Japanese: its reading converted to kanji as a word being typed
+    /// is, the candidates in the session's `conversion` and shown in the clause's place (`kanji`).
+    /// False, Space confirming the fix as before, where there is nothing to convert with.
+    private func startConvertingFix(_ fixing: inout Fixing, _ client: TextClient) -> Bool {
+        guard converter != nil, let piece = fixing.pieces.first else { return false }
+        let kana = committedReading(piece.keys, as: .japanese)
+        guard !kana.isEmpty else { return false }
+        var candidates = conversionCandidates(for: kana)
+        let listed = Set(candidates.map(\.text))
+        candidates += (converter?.moreCandidates(for: kana) ?? []).filter { !listed.contains($0.text) }
+        guard !candidates.isEmpty else { return false }
+        // The kana is on screen already: Space shows a conversion, as for a word being typed.
+        let selected = candidates.count > 1 && candidates[0].text == kana ? 1 : 0
+        conversion = Conversion(kana: kana, keys: piece.keys, candidates: candidates, selected: selected)
+        fixing.picked = ""
+        showConvertingFix(&fixing, client)
+        self.fixing = fixing
+        return true
+    }
+
+    /// The fix's marked text with the conversion in the clause, its clause being converted thick.
+    private func showConvertingFix(_ fixing: inout Fixing, _ client: TextClient) {
+        guard let conversion else { return }
+        fixing.kanji = fixing.picked + conversion.display
+        let (text, clause) = fixingText(&fixing)
+        fixing.shown = text
+        client.setMarkedText(text, selectedClause: clause, replacing: nil)
+        readings = nil // the candidate window is the list now
+    }
+
+    /// Keys while a fixed word is converted to kanji, as `handleConverting` takes them: Space and
+    /// ↑/↓ go through the candidates, ←/→ resize the clause, Return or a digit picks one (the rest
+    /// of the reading converted next, the fix confirmed after the last), Esc, Delete or the switch
+    /// key go back to the kana, still fixing; anything else confirms the fix as shown and is
+    /// handled again.
+    private func handleConvertingFix(_ key: Key, _ fixing: inout Fixing, client: TextClient, cased: TextClient) -> Bool {
+        guard var conversion else { return false }
+        switch key {
+        case .printable(" "), .down, .shiftSpace:
+            conversion.selected = (conversion.selected + 1) % conversion.candidates.count
+        case .up:
+            conversion.selected = (conversion.selected + conversion.candidates.count - 1) % conversion.candidates.count
+        case .left, .right, .shiftLeft, .shiftRight:
+            let shorter = key == .left || key == .shiftLeft
+            guard let resized = resizeFirstClause(conversion, by: shorter ? -1 : 1) else { return true }
+            conversion = resized
+        case .printable(let ch) where ch.isNumber:
+            let start = conversion.selected / Conversion.pageSize * Conversion.pageSize
+            guard let n = ch.wholeNumberValue, n >= 1, start + n - 1 < conversion.candidates.count else {
+                confirmFixing(client: client)
+                return handle(key, client: cased)
+            }
+            conversion.selected = start + n - 1
+            return pickInFix(conversion, &fixing, client)
+        case .enter:
+            return pickInFix(conversion, &fixing, client)
+        case .escape, .cycle, .delete:
+            self.conversion = nil
+            fixing.kanji = nil
+            fixing.picked = ""
+            showFixing(&fixing, client)
+            self.fixing = fixing
+            return true
+        default:
+            confirmFixing(client: client)
+            return handle(key, client: cased)
+        }
+        self.conversion = conversion
+        showConvertingFix(&fixing, client)
+        self.fixing = fixing
+        return true
+    }
+
+    /// The selected candidate picked: learned, and the rest of the reading converted next; after
+    /// the last clause the fix is confirmed, as Return confirms it with nothing converted.
+    private func pickInFix(_ conversion: Conversion, _ fixing: inout Fixing, _ client: TextClient) -> Bool {
+        let candidate = conversion.current
+        converter?.learn(candidate, for: conversion.kana)
+        fixing.picked += candidate.text
+        let rest = String(conversion.kana.dropFirst(candidate.kanaCount))
+        let candidates = rest.isEmpty ? [] : conversionCandidates(for: rest)
+        guard !candidates.isEmpty else {
+            self.conversion = nil
+            fixing.kanji = fixing.picked + rest
+            self.fixing = fixing
+            confirmFixing(client: client)
+            return true
+        }
+        self.conversion = Conversion(kana: rest, keys: Self.keys(conversion.keys, after: candidate.kanaCount),
+                                     candidates: candidates, selected: 0)
+        showConvertingFix(&fixing, client)
+        self.fixing = fixing
+        return true
+    }
+
     /// The readings the clause can take: its keys' own, or the ones every word in it has.
     private func clauseCycle(_ fixing: Fixing) -> [Language] {
         if let cut = fixing.cut {
@@ -1336,8 +1451,12 @@ public final class InputSession {
                 language = restLanguage
             } else if i < fixing.count {
                 language = fixing.language
-                text += committedReading(piece.keys, as: language)
+                text += (i == 0 ? fixing.kanji : nil) ?? committedReading(piece.keys, as: language)
                 clause.length = utf16(text) - clause.location
+                if i == 0, fixing.kanji != nil, let conversion {
+                    // The clause being converted is drawn thick, as in kanji conversion.
+                    clause = NSRange(location: clause.location + utf16(fixing.picked), length: utf16(conversion.current.text))
+                }
             } else {
                 language = piece.language
                 text += piece.text
@@ -1425,9 +1544,13 @@ public final class InputSession {
         guard var fixing else { return }
         self.fixing = nil
         let (text, _) = fixingText(&fixing)
+        // Kanji conversion goes in as shown, as on a focus change while converting.
+        let converting = conversion
+        conversion = nil
         guard let cased else { return }
         let client = Self.uncased(cased)
         guard markLanded(fixing, client) else { return dropMisplacedMark(fixing, client) }
+        if let converting { converter?.learn(converting.current, for: converting.kana) }
         client.insertText(text, replacing: nil)
         let delta = utf16(text) - utf16(fixing.markOriginal)
         caretToLineEnd(fixing, client, delta: delta)
@@ -1445,7 +1568,8 @@ public final class InputSession {
                 } else if i < fixing.count, piece.learns, language != piece.language {
                     record(piece.keys, as: language, engineChoice: piece.decided)
                 }
-                let word = i < fixing.count ? committedReading(piece.keys, as: language) : piece.text
+                let word = i < fixing.count ? (i == 0 ? fixing.kanji : nil) ?? committedReading(piece.keys, as: language)
+                                            : piece.text
                 let entry = Committed(keys: piece.keys, decided: piece.decided, committedAs: language, language: language,
                                       text: word + piece.boundary(in: language), boundary: piece.boundary,
                                       location: location, previous: nil, learns: piece.learns,
