@@ -187,8 +187,8 @@ X11·Wayland 여부, 앱 이름과 함께 [Issues](https://github.com/nyttastudi
 Seamtype(0.1.x)은 0.2.0에서 Legato로, 0.2.1에서 Araso로 이름이 바뀌었습니다. 이름이 바뀔 때마다 macOS에는 다른
 입력기로 보여서, Seamtype이나 Legato를 쓰고 있었다면 한 번만 아래를 해 주세요.
 
-1. 입력 메뉴나 설정 창 **정보**에서 업데이트하거나, 새 `Araso.pkg`를 받아 설치하세요. 설치 프로그램이
-   Seamtype·Legato를 지우고 Araso를 등록합니다. 설정, 앱별 규칙, 사전, 한자 학습은 Araso가 처음 실행될 때 그대로
+1. 새 `Araso.pkg`를 받아 설치하세요. Seamtype·Legato는 0.4.0 다음 버전부터 스스로 업데이트하지 못합니다.
+   설치 프로그램이 Seamtype·Legato를 지우고 Araso를 등록합니다. 설정, 앱별 규칙, 사전, 한자 학습은 Araso가 처음 실행될 때 그대로
    옮겨 옵니다.
 2. **시스템 설정 → 키보드 → 입력 소스 → 편집… → + → 한국어 → Araso**를 추가하세요(설치가 끝나면 키보드 설정이
    열립니다). macOS는 설치 프로그램이 새 입력기를 켜도록 두지 않아서 이 단계는 직접 해야 합니다. 목록에 Seamtype이나

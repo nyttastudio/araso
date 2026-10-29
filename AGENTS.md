@@ -320,8 +320,8 @@ runtime.
   `ARASO_PKG_SIGN="Developer ID Installer: Dongbin Lee (2UZ65T3U82)"` and
   `ARASO_NOTARY_PROFILE=seamtype` (this keychain's profile kept its old name), or the assets come
   out ad hoc and unsigned. Upload `Araso.pkg` (the website's download button) and `Araso.zip`
-  (`scripts/get.sh`) under those names for `releases/latest/download/`, plus the versioned copies,
-  and the same two as `Legato.*` and `Seamtype.*` (see Earlier names below).
+  (`scripts/get.sh`) under those names for `releases/latest/download/`, plus the versioned copies;
+  nothing under the earlier names (see Earlier names below).
   The Windows workflow (`windows.yml`) adds `Araso-Setup.exe` and `Araso-Setup-<version>.exe` to
   the same draft on the tag once the repository variable `ARASO_WINDOWS_RELEASE` is `true` (signed
   when `WINDOWS_SIGN_PFX` is set; see the workflow's header). Until then a Windows beta is its own
@@ -415,8 +415,9 @@ runtime.
   and stop their processes; `Registration` selects Araso when one of them was the input source in
   use; `Uninstaller` removes leftovers of any; `SupportDirectory` moves the newest of
   `Application Support/Legato` and `/Seamtype` to `Araso` on the first read, in the app only (not in
-  tests, the CLI or `--selftest`). Releases upload `Legato.pkg`/`.zip` and `Seamtype.pkg`/`.zip` too,
-  since those versions' update check and get.sh look for their own names: keep them while such copies
-  are around. Old `seamtype.*`/`legato.*` vim scripts find no app and do nothing.
+  tests, the CLI or `--selftest`). Releases stopped uploading `Legato.*` and `Seamtype.*` after 0.4.0,
+  so those versions' update check and get.sh, which look for their own names, find nothing newer:
+  their users install `Araso.pkg` by hand. Old `seamtype.*`/`legato.*` vim scripts find no app and do
+  nothing.
 - **Stale registrations:** extra copies of the app registered with LaunchServices (`build/`,
   the old `AutoIME.app`) can make macOS launch the wrong one. `build-app.sh` unregisters its copy.

@@ -206,8 +206,8 @@ installer, checks its signature and opens it, so you only enter your password.
 Seamtype (0.1.x) became Legato in 0.2.0 and Araso in 0.2.1. Each name is a different input method to
 macOS, so if you used Seamtype or Legato, once:
 
-1. Update from the input menu or the settings window's **About**, or download and open the new
-   `Araso.pkg`. The installer removes Seamtype and Legato and registers Araso. Settings, per-app rules, the
+1. Download and open the new `Araso.pkg`. Seamtype and Legato don't find updates after 0.4.0.
+   The installer removes Seamtype and Legato and registers Araso. Settings, per-app rules, the
    dictionary and kanji learning move over as they are the first time Araso runs.
 2. Add it in **System Settings → Keyboard → Input Sources → Edit… → + → Korean → Araso** (the
    installer opens Keyboard settings when it's done). macOS doesn't let an installer turn a new input

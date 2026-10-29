@@ -145,12 +145,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           version=${GITHUB_REF_NAME#v}
-          # Legato.* and Seamtype.*: the same files under the earlier names, which the update check
-          # and get.sh of Legato (0.2.0) and Seamtype (0.1.x) look for. Keep them while those are around.
           assets=(build/release/Araso.pkg build/release/Araso.zip
-                  build/release/Araso-$version.pkg build/release/Araso-$version.zip
-                  build/release/Legato.pkg build/release/Legato.zip
-                  build/release/Seamtype.pkg build/release/Seamtype.zip)
+                  build/release/Araso-$version.pkg build/release/Araso-$version.zip)
           # A run started again after the draft was made (an upload failed) replaces its assets.
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
             gh release upload "$GITHUB_REF_NAME" --clobber "${assets[@]}"
