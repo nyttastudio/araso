@@ -14,6 +14,9 @@ namespace {
 
 /// How far back the field is read: InputSession reads up to 256 UTF-16 units before the word.
 constexpr LONG kLookBehind = 256;
+/// How far ahead, at most, to the end of the line: a word fixed later sends the caret back there
+/// (InputSession's `trailingLimit`).
+constexpr LONG kLookAhead = 4096;
 
 UINT PendingMessage() {
     static UINT message = RegisterWindowMessageW(kPendingMessage);
@@ -596,6 +599,33 @@ Json TextService::Snapshot(TfEditCookie cookie, ITfContext *context, bool &maske
             out.set("unreadable", true);
         }
     }
+    // And the rest of the line after it, for a word fixed later in the line to come back to its end.
+    std::wstring after;
+    ITfRange *forward = nullptr;
+    if (static_cast<LONG>(text.size()) == want && SUCCEEDED(anchor->Clone(&forward)) && forward) {
+        ITfRangeACP *acp = nullptr;
+        LONG ahead = 0;
+        if (SUCCEEDED(forward->QueryInterface(IID_ITfRangeACP, reinterpret_cast<void **>(&acp)))) {
+            if (SUCCEEDED(acp->SetExtent(end, 0))) forward->ShiftEnd(cookie, kLookAhead, &ahead, nullptr);
+            acp->Release();
+        }
+        if (ahead > 0) {
+            std::vector<wchar_t> buffer(static_cast<size_t>(ahead) + 1);
+            ULONG got = 0;
+            // Only text that reads as long as its positions: an embedded object's place isn't known.
+            if (SUCCEEDED(forward->GetText(cookie, 0, buffer.data(), static_cast<ULONG>(ahead), &got)) &&
+                static_cast<LONG>(got) == ahead) {
+                after.assign(buffer.data(), got);
+                size_t line = after.find_first_of(L"\r\n");
+                if (line != std::wstring::npos) {
+                    after.resize(line);
+                } else if (!after.empty() && after.back() >= 0xD800 && after.back() <= 0xDBFF) {
+                    after.pop_back();
+                }
+            }
+        }
+        forward->Release();
+    }
     anchor->Release();
     // Text with embedded objects reads shorter than its positions: then the positions don't line up.
     if (static_cast<LONG>(text.size()) != want) out.set("unreadable", true);
@@ -611,6 +641,8 @@ Json TextService::Snapshot(TfEditCookie cookie, ITfContext *context, bool &maske
         caret.push(static_cast<int>(selStart + length));
         caret.push(0);
         out.set("selection", caret);
+    } else {
+        text += after;
     }
     out.set("text", Utf8(text));
     out.set("start", static_cast<int>(start));

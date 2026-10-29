@@ -15,6 +15,7 @@ public final class SnapshotClient: TextClient {
     private var selection: NSRange
     private let readable: Bool
     public let marksAnywhere: Bool
+    public let marksFromCaret: Bool
     public private(set) var ops: [EditOp] = []
 
     private static let none = NSRange(location: NSNotFound, length: 0)
@@ -30,6 +31,7 @@ public final class SnapshotClient: TextClient {
             selection = Self.none
             readable = false
             marksAnywhere = false
+            marksFromCaret = false
             return
         }
         units = Array(context.text.utf16)
@@ -42,6 +44,7 @@ public final class SnapshotClient: TextClient {
         }
         readable = !(context.unreadable ?? false)
         marksAnywhere = !(context.marksAtCaret ?? false)
+        marksFromCaret = context.marksFromCaret ?? false
     }
 
     /// No field at all (a commit after the app took the composition away): edits are recorded

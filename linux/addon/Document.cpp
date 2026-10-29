@@ -6,8 +6,10 @@ namespace araso {
 
 namespace {
 
-/// How much of the field before the composition goes to the session (TextContext's 256 units).
+/// How much of the field before the composition goes to the session (TextContext's 256 units),
+/// and at most how much after it, up to the end of its line (`readTrailing`'s limit).
 constexpr int kBefore = 256;
+constexpr int kAfter = 4096;
 
 bool IsLowSurrogate(char16_t unit) { return unit >= 0xDC00 && unit <= 0xDFFF; }
 
@@ -89,6 +91,10 @@ void Document::setSurrounding(bool known, const std::string &text, unsigned curs
     for (unsigned n = 0; n < cursor && at < field.size(); ++n) {
         at += (field[at] >= 0xD800 && field[at] <= 0xDBFF && at + 1 < field.size()) ? 2 : 1;
     }
+    // The field as it was before the last edits, reported after them (Wayland's text-input, an
+    // app's state sent before it made them): the edits stand, as made here.
+    if (before_ && field == sentBefore_ && static_cast<int>(at) == sentCaret_) return;
+    before_ = false;
     text_ = field.substr(0, at) + preedit_ + field.substr(at);
     caret_ = static_cast<int>(at);
 }
@@ -108,15 +114,24 @@ Json Document::context(bool masked) const {
         marked.push(static_cast<int>(preedit_.size()));
         context.set("marked", marked);
     }
-    context.set("text", Utf8(text_.substr(static_cast<size_t>(start), static_cast<size_t>(end - start))));
+    // And the rest of the line after it, for a word fixed later to come back to its end.
+    int last = end;
+    int limit = std::min(static_cast<int>(text_.size()), end + kAfter);
+    while (last < limit && text_[static_cast<size_t>(last)] != u'\n') ++last;
+    if (last < static_cast<int>(text_.size()) && last > end && IsLowSurrogate(text_[static_cast<size_t>(last)])) --last;
+    context.set("text", Utf8(text_.substr(static_cast<size_t>(start), static_cast<size_t>(last - start))));
     context.set("start", start);
     if (!known_) context.set("unreadable", true);
     if (masked) context.set("masked", true);
-    context.set("marksAtCaret", true); // the preedit is always at the caret
+    // The preedit is always at the caret, but the caret can be moved to a word by deleting and
+    // committing around it, as in a macOS text view.
+    context.set("marksFromCaret", true);
     return context;
 }
 
 std::vector<Document::Edit> Document::apply(const Json &ops) {
+    std::u16string before = field();
+    int beforeCaret = caret_;
     std::vector<Edit> edits;
     auto remove = [&](int offset, unsigned size) {
         if (size) edits.push_back({Edit::Kind::Delete, offset, size, {}});
@@ -180,7 +195,43 @@ std::vector<Document::Edit> Document::apply(const Json &ops) {
             clauseLength_ = std::clamp(clause[1].asInt(), 0, static_cast<int>(text.size()) - clauseStart_);
         }
     }
+    if (!known_) return edits;
+    edits = Coalesced(edits, before, beforeCaret, field(), caret_);
+    if (!edits.empty()) {
+        before_ = true;
+        sentBefore_ = before;
+        sentCaret_ = beforeCaret;
+    }
     return edits;
+}
+
+std::u16string Document::field() const {
+    return text_.substr(0, static_cast<size_t>(caret_)) + text_.substr(static_cast<size_t>(compositionEnd()));
+}
+
+std::vector<Document::Edit> Document::Coalesced(std::vector<Edit> edits, const std::u16string &before, int caret,
+                                                const std::u16string &after, int newCaret) {
+    // One deletion, then one commit, is what every app makes as sent: fcitx5 sends a key's
+    // deletions as they come but its commits together after them, and Wayland's text-input has
+    // one of each a frame. So several are made as one: the field's change, from where the two
+    // first differ up to the new caret, with what follows it the same before and after.
+    bool simple = edits.size() <= 1 ||
+                  (edits.size() == 2 && edits[0].kind == Edit::Kind::Delete && edits[1].kind == Edit::Kind::Commit);
+    if (simple) return edits;
+    int limit = std::min(caret, newCaret), prefix = 0;
+    while (prefix < limit && before[static_cast<size_t>(prefix)] == after[static_cast<size_t>(prefix)]) ++prefix;
+    if (prefix > 0 && IsLowSurrogate(before[static_cast<size_t>(prefix)])) --prefix;
+    std::u16string tail = after.substr(static_cast<size_t>(newCaret));
+    int end = static_cast<int>(before.size()) - static_cast<int>(tail.size());
+    if (end < caret || end < prefix || before.compare(static_cast<size_t>(end), std::u16string::npos, tail) != 0) {
+        return edits;  // not one change around the caret: as they came
+    }
+    std::vector<Edit> one;
+    unsigned size = Characters(before, prefix, caret) + Characters(before, caret, end);
+    if (size) one.push_back({Edit::Kind::Delete, -static_cast<int>(Characters(before, prefix, caret)), size, {}});
+    std::u16string put = after.substr(static_cast<size_t>(prefix), static_cast<size_t>(newCaret - prefix));
+    if (!put.empty()) one.push_back({Edit::Kind::Commit, 0, 0, Utf8(put)});
+    return one;
 }
 
 std::string Document::fieldText() const {

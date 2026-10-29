@@ -155,8 +155,12 @@ tests use `FakeTextField`). It owns the preview and hysteresis, commits, Esc rea
   with nothing marked only `firstRect` places it, whose origin comes at the line's top through IMK
   (TextEdit and Notes, against `attributes(forCharacterIndex:)` for the same marked text, 2026-10-29;
   the list covered the line), so `InputController.firstRect` moves it down by its height, for the
-  caret's place (`PauseHUD`) too. Not where a composition is only
-  at the caret (`TextClient.marksAnywhere`, `TextContext.marksAtCaret`: fcitx5, Windows floating).
+  caret's place (`PauseHUD`) too. fcitx5's preedit is always at the caret too, and deletions and
+  commits around it go where they say, so the addon sends `TextContext.marksFromCaret` and is fixed
+  as a macOS text view is; Windows' text service and the addon send the rest of the line after the
+  caret (up to 4096 units), for the caret anywhere in the word and back at the line's end (`FakeDocument`'s
+  `fcitx` and `sendsLine`, linux/tests). Not where a composition is only at the caret and can't be
+  moved there (`TextClient.marksAnywhere`, `TextContext.marksAtCaret`: Windows floating).
 - Return on an underlined word only confirms it (`returnConfirmsOnly`, on by default); off, the
   app gets the Return too, except after Japanese.
 - Vim reports its modes through `scripts/vim/araso.{lua,vim}` (`Araso --vim <mode> --app

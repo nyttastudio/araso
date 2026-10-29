@@ -85,6 +85,11 @@ expect "and right after the word" "dkssud "
 field; xdotool key Control_R; xdotool type --delay 80 "dkssud "; xdotool key Control_R; xdotool type --delay 80 "dkssud "
 expect "the right Ctrl tap pauses" "dkssud 안녕 "
 
+# A word earlier in the line: the caret moved into it, the switch key, → over the next word, Return.
+field; xdotool type --delay 80 "dkssud gktpdy dlTek "; xdotool key --delay 80 Left Left Left Left Left
+xdotool key Alt_R; sleep 0.3; xdotool key --delay 150 Right Return; xdotool type --delay 80 "hello "
+expect "a word earlier in the line, fixed with the next" "안녕 gktpdy dlTek hello "
+
 field; xdotool type --delay 80 "dkssud"; xdotool key Return; xdotool key Return
 expect "Return confirms, a second one goes to the app" "안녕
 "

@@ -27,7 +27,8 @@ new. This file maps each macOS piece to its Windows one and says where the two d
 - **The text field is snapshotted.** `InputSession` talks to a `TextClient` that it may ask for
   the selection, the marked range and text before the caret. The DLL sends those with each key
   (`TextContext`: the selection and composition as ACP offsets, and the text from 256 UTF-16 units
-  before them); `SnapshotClient` answers from it, applies each edit to its copy and records it with
+  before them to the end of the line after them, up to 4096 units, for a word fixed later in the
+  line and the caret's way back to the line's end); `SnapshotClient` answers from it, applies each edit to its copy and records it with
   the range it replaces; the DLL makes the recorded edits in its edit session, in order.
   `Tests/ArasoServiceTests` drive the runtime the same way (`FakeDocument`).
 - **What only the host can start** (a click in the strip or the card, a vim mode change that

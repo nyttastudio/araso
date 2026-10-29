@@ -366,10 +366,10 @@ line, the next puts the fix back); Esc (where it isn't a switch key) and Delete
 put everything back. A whole word fixed
 is learned as a correction right after the commit is; a cut word isn't. When an arrow key leaves the
 caret on a word Araso wasn't sure of, its readings show in the strip under it first. Words before a
-Return can't be fixed, nor words changed by hand since. On Linux (fcitx5), and on Windows in apps
-where Araso keeps the word itself, an underline can only be at the caret, so this isn't there; on
-Windows the text after the caret can't be read, so the caret has to be right after the word (and
-stays there rather than going back to the end of the line).
+Return can't be fixed, nor words changed by hand since. It works the same on Windows and on Linux
+(fcitx5), except in Windows apps where Araso keeps the word itself (the ones that show it
+underlined in a small window at the caret, as Windows 10's Notepad does): there an underline can
+only be at the caret, so this isn't there.
 
 A word corrected once leans that way from then on: a close call (`so`/`내`) turns, a clear one
 doesn't, so a stray switch doesn't do much. It is forgotten after 30 days unless corrected or typed
