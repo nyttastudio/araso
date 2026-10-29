@@ -16,6 +16,9 @@ final class InputController: IMKInputController {
     /// Which switch key (right ⌥ or right ⇧, in `AppPolicy.switchKeys`) went down and when,
     /// while no other key has been pressed with it: a tap switches the word's language.
     private var switchTapDown: (key: UInt16, at: Date)?
+    /// A terminal was waiting for a password at the last key (`PasswordPrompt`): its keys went to
+    /// the app as typed, and what was being typed went in before the first of them.
+    private var passingPassword = false
     /// The underlined word's place on screen, as last asked while it was still underlined: where
     /// a learned word's mark goes once the word went in (apps place the caret unreliably then;
     /// TextEdit answered with the same column two lines up).
@@ -146,6 +149,10 @@ final class InputController: IMKInputController {
             log.debug("handle masked passed app=\(input.bundleIdentifier() ?? "?", privacy: .public)")
             return false
         }
+        if MainActor.assumeIsolated({ passwordPrompt(input) }) {
+            log.debug("handle password prompt passed app=\(input.bundleIdentifier() ?? "?", privacy: .public)")
+            return false
+        }
         return MainActor.assumeIsolated {
             if case .shortcut(let shortcut) = Runtime.shared.settings.pauseKey,
                shortcut.matches(keyCode: event.keyCode, modifiers: KeyModifiers(event.modifierFlags)) {
@@ -179,6 +186,30 @@ final class InputController: IMKInputController {
             log.debug("handle \(String(describing: key).prefix(while: { $0 != "(" }), privacy: .public) handled=\(handled) app=\(self.session.app ?? "?", privacy: .public)")
             return handled
         }
+    }
+
+    /// A terminal is waiting for a password (`PasswordPrompt`): its keys go to the app as typed,
+    /// and a switch tap does nothing. Asked by a key, or a switch tap, before it is handled.
+    @MainActor private func passwordPrompt(_ input: IMKTextInput) -> Bool {
+        guard PasswordPrompt.isWaiting() else {
+            if passingPassword {
+                passingPassword = false
+                log.info("password prompt ended app=\(input.bundleIdentifier() ?? "?", privacy: .public)")
+            }
+            return false
+        }
+        if !passingPassword {
+            passingPassword = true
+            log.info("password prompt: keys pass as typed app=\(input.bundleIdentifier() ?? "?", privacy: .public)")
+            // The prompt can start while a word is composing (another tab's sudo): it goes in
+            // first, as when pausing, or the app's own insert replaces it. The word just committed
+            // can't be switched past the keys after it either, and what comes after the prompt
+            // starts a new context (the session doesn't see them).
+            let client = textClient(input)
+            if !session.commandPressed(client: client, heldWordOnly: false) { session.commitForNewContext(client: client) }
+            StripHUD.hide(force: true)
+        }
+        return true
     }
 
     /// A masked password field has the focus (`MaskedField`). The system is asked only while
@@ -241,6 +272,10 @@ final class InputController: IMKInputController {
               Date().timeIntervalSince(down.at) < 0.5 else { return }
         switchTapDown = nil
         guard !session.inVimNormalMode else { return } // vim's own keys
+        // While a terminal waits for a password, the keys pass as typed: a tap before the first of
+        // them would change the word, or the one just committed, in front of the prompt. It starts
+        // the prompt as a key does: the word goes in, the strip goes away.
+        guard !passwordPrompt(client) else { return }
         noteWordRect(client)
         let handled = session.handle(.cycle, client: textClient(client))
         syncStrip(client)
