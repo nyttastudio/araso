@@ -15,6 +15,8 @@ import Testing
             return [.init(text: "いい天気ですね", kanaCount: 8), .init(text: kana, kanaCount: 8)]
         case "へんかん":
             return [.init(text: "変換", kanaCount: 4), .init(text: "返還", kanaCount: 4), .init(text: "編纂", kanaCount: 4)]
+        case "まで": // the engine puts the reading first
+            return [.init(text: kana, kanaCount: 2), .init(text: "迄", kanaCount: 2)]
         case "しょう": // the engine puts the reading first
             return [.init(text: kana, kanaCount: 3), .init(text: "翔", kanaCount: 3), .init(text: "小", kanaCount: 3)]
         case "３がつ":

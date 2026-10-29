@@ -129,7 +129,9 @@ tests use `FakeTextField`). It owns the preview and hysteresis, commits, Esc rea
   again (`Fixing.marked` words; the rest of the line, `trailing`, isn't touched), read the next way;
   the switch key cycles the clause, ←/→ resize it as in kanji conversion (the next words past a
   word's end, a cut inside one leaving the rest read on its own), Return on a cut settles the front,
-  Esc and Delete revert, a mark the app didn't put there drops the fix untouched (`markLanded`), and
+  Esc and Delete revert, Space on a whole word read as Japanese converts it to kanji (`startConvertingFix`:
+  the session's `conversion`, whose keys `handleFixing` takes while it is set, shown in the clause's place,
+  `Fixing.kanji`; Return or a digit on the last clause confirms the fix), a mark the app didn't put there drops the fix untouched (`markLanded`), and
   anything else confirms with one insert over the marked text, then the rest of the line over itself
   so the caret ends where it was typing (`caretToLineEnd`; ⌘Z takes two). macOS text views mark and
   insert at the caret whatever range is named (the settings window's typing pane and Notes: real
