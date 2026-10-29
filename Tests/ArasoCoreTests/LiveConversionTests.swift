@@ -57,6 +57,16 @@ import Testing
         #expect(field.text.hasSuffix("hi "))
     }
 
+    /// Letters with no kana yet (ths: three waiting for vowels) were Japanese on screen, though
+    /// they show as typed, and Space converted them; the word goes in as the engine reads it.
+    @Test func spaceDoesntConvertLettersWithNoKana() {
+        type("the ths")
+        type(" ")
+        #expect(session.conversion == nil)
+        type("wkfgo ")
+        #expect(field.text == "the 손 잘해 ")
+    }
+
     @Test func spaceShowsTheNextCandidate() {
         type("kyouhaiitenkidesune")
         let live = field.text
