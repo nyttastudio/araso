@@ -14,10 +14,14 @@ public final class SnapshotClient: TextClient {
     private var marked: NSRange
     private var selection: NSRange
     private let readable: Bool
+    public let marksAnywhere: Bool
     public private(set) var ops: [EditOp] = []
 
     private static let none = NSRange(location: NSNotFound, length: 0)
 
+    /// Copies the field snapshot, honoring its readability and caret-only composition flags.
+    /// A nil context, a selection without exactly two elements, or a negative location creates a
+    /// detached client; a negative selection length is treated as zero.
     public init(_ context: TextContext?) {
         guard let context, context.selection.count == 2, context.selection[0] >= 0 else {
             units = []
@@ -25,6 +29,7 @@ public final class SnapshotClient: TextClient {
             marked = Self.none
             selection = Self.none
             readable = false
+            marksAnywhere = false
             return
         }
         units = Array(context.text.utf16)
@@ -36,6 +41,7 @@ public final class SnapshotClient: TextClient {
             marked = Self.none
         }
         readable = !(context.unreadable ?? false)
+        marksAnywhere = !(context.marksAtCaret ?? false)
     }
 
     /// No field at all (a commit after the app took the composition away): edits are recorded

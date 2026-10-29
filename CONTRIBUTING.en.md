@@ -68,6 +68,9 @@ Tests aren't enough: a split once looked right in the CLI and never reached real
 ```sh
 scripts/install.sh                           # release build, self-test, install into ~/Library/Input Methods
 /usr/bin/log show --last 10m --predicate 'subsystem == "com.nyttastudio.inputmethod.Araso"' --info --debug
+                                             # (debug lines are kept only after, once: sudo /usr/bin/log config --mode "level:debug,persist:debug"
+                                             #  --subsystem com.nyttastudio.inputmethod.Araso; without it, while reproducing:
+                                             #  /usr/bin/log stream --predicate 'subsystem == "com.nyttastudio.inputmethod.Araso"' --level debug)
 ```
 
 - A change reaches real typing only after `scripts/install.sh`. A copy started with `open` or from
@@ -120,7 +123,9 @@ Put the numbers from before and after (accuracy, wrong splits) in the PR descrip
   on main rather than merging main in.
 - On your first PR, CI runs once the maintainer approves it.
 - CI (`test`) has to pass to merge. If you touched `InputSession` or `ArasoService`, check the
-  Windows and Linux CI too.
+  Windows and Linux CI too. CI that the changed files can't affect doesn't run: a docs-only change
+  skips all three, and one in `windows/` runs only the Windows CI, plus the Linux CI for
+  `windows/common/`, which Linux builds too (a skipped `test` counts as passing).
 - AI tools are fine. Have them read [AGENTS.md](AGENTS.md) (Claude Code reads it through
   CLAUDE.md). In the PR, write what you ran and checked yourself.
 

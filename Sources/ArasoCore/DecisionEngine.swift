@@ -62,12 +62,17 @@ public struct DecisionContext: Sendable {
     public var nudge: Language?
     /// The app typed into, for the user's dictionary entries limited to apps.
     public var app: String?
+    /// Japanese is a reading here, if the engine has its model: false in an app that turns it off
+    /// (`AppPolicy.japanese`), where the words are decided as with Japanese off everywhere.
+    public var japanese: Bool
 
-    public init(previousLanguage: Language? = nil, partial: Bool = false, nudge: Language? = nil, app: String? = nil) {
+    public init(previousLanguage: Language? = nil, partial: Bool = false, nudge: Language? = nil, app: String? = nil,
+                japanese: Bool = true) {
         self.previousLanguage = previousLanguage
         self.partial = partial
         self.nudge = nudge
         self.app = app
+        self.japanese = japanese
     }
 }
 
@@ -161,6 +166,13 @@ public final class HeuristicEngine: DecisionEngine, @unchecked Sendable {
     /// as much as the previous word's pull, so a close call turns and a clear one doesn't.
     public var correctionBias = 0.8
 
+    /// What counts as a Japanese phrase for `switchBiasFactor`, the counterpart of a known English
+    /// or Korean word: keys the English list doesn't know that read as clean kana, this many or
+    /// more, at this kana score per key or better (いぬまにせんたく after English). Shorter clean
+    /// kana (tai, shi, karan) are names and abbreviations more often than Japanese typed after
+    /// English. Tuned on the held-out phrases: at -3.5 an English word starts turning into kana.
+    public var japanesePhrase = (kana: 4, score: -3.0)
+
     public let segmenter: JapaneseSegmenter?
 
     public init(english: EnglishModel = .shared, korean: KoreanModel = KoreanModel(),
@@ -182,10 +194,15 @@ public final class HeuristicEngine: DecisionEngine, @unchecked Sendable {
         if DubeolsikLayout.hasEnglishOnlyCapital(keys) {
             return Decision(language: .english, confidence: 0.99, output: keys, explanation: "uppercase outside QWERTOP")
         }
+        let japanese = context.japanese ? self.japanese : nil
+        let segmenter = context.japanese ? self.segmenter : nil
 
         var e = english.averageLogProbability(keys.filter(\.isLetter))
         // Also while typing: the preview must show what Space/Return will commit.
-        let known = english.isKnownWord(keys)
+        // A capital on a Korean shift key after the first letter (wOrk is 쟤가, dOrk 얘가) is nobody's
+        // way of typing work: no dictionary floor, and a Korean word the keys spell gets its own. A
+        // leading capital (Eh) or a lingering one on another key (THe) is still the word.
+        let known = english.isKnownWord(keys) && !keys.dropFirst().contains { $0.isUppercase && DubeolsikLayout.isKoreanShiftKey($0) }
         if known {
             // Short dictionary words collide with real Korean (go=해, so=내, do=애),
             // so they get a weaker boost and leave room for context to decide.
@@ -233,7 +250,17 @@ public final class HeuristicEngine: DecisionEngine, @unchecked Sendable {
         if let japaneseScore { scores.append((.japanese, japaneseScore + japaneseOffset)) }
         if let previous = context.previousLanguage?.sentenceLanguage, let i = scores.firstIndex(where: { $0.0 == previous }) {
             var bias = previous == .japanese ? japaneseContextBias : contextBias
-            let knownIn: [Language: Bool] = [.english: known, .korean: knownKorean, .japanese: false]
+            // A rare English word (ths, dork, aha: SCOWL above `extraLevel`) doesn't hold the pull
+            // against a Korean word on the same keys (손, 애가, 몸).
+            let knownEnglish = known && (!knownKorean || (english.level(keys) ?? 0) <= EnglishModel.extraLevel)
+            // Judged on the finished reading while typing too: the preview must show what Space commits,
+            // a kana score without the end of the phrase runs higher (ふっりれき passed as one), and a
+            // last n is pending while typing, so the partial reading of すみません isn't clean.
+            let finished = context.partial && j != nil ? japanese?.score(keys: keys, partial: false) : j
+            let knownJapanese = !known && (finished.map {
+                $0.composition.isClean && $0.composition.kanaCount >= japanesePhrase.kana && $0.averageLogProbability >= japanesePhrase.score
+            } ?? false)
+            let knownIn: [Language: Bool] = [.english: knownEnglish, .korean: knownKorean, .japanese: knownJapanese]
             if knownIn[previous] == false, knownIn.contains(where: { $0.key != previous && $0.value }) {
                 bias *= switchBiasFactor
             }

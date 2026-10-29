@@ -18,6 +18,8 @@ public struct SettingsModel: Codable, Equatable, Sendable {
         public var switchKeys: [SwitchKey]
         public var holdSpace: Bool
         public var fullWidth: Bool
+        /// Japanese in this app whatever the Languages setting says; nil (left out) follows it.
+        public var japanese: Bool?
 
         init(_ policy: AppPolicy) {
             enabled = policy.enabled
@@ -25,11 +27,12 @@ public struct SettingsModel: Codable, Equatable, Sendable {
             switchKeys = SwitchKey.allCases.filter(policy.switchKeys.contains)
             holdSpace = policy.holdSpace
             fullWidth = policy.fullWidth
+            japanese = policy.japanese
         }
 
         var policy: AppPolicy {
             AppPolicy(enabled: enabled, conversionThreshold: conversionThreshold, switchKeys: Set(switchKeys),
-                      holdSpace: holdSpace, fullWidth: fullWidth)
+                      holdSpace: holdSpace, fullWidth: fullWidth, japanese: japanese)
         }
     }
 

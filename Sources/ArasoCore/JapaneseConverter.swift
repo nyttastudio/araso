@@ -126,3 +126,21 @@ public final class AzooKeyConverter: JapaneseConverter {
         converter.sendToDicdataStore(.closeKeyboard)
     }
 }
+
+/// Converters a kanji reset threw away. A session made before the reset still holds its old one,
+/// and saving that when it is replaced would write back the learning the reset deleted.
+public final class DiscardedConverters {
+    private struct Ref { weak var converter: (any JapaneseConverter)? }
+    private var refs: [Ref] = []
+
+    public init() {}
+
+    public func insert(_ converter: (any JapaneseConverter)?) {
+        refs.removeAll { $0.converter == nil }
+        if let converter { refs.append(Ref(converter: converter)) }
+    }
+
+    public func contains(_ converter: any JapaneseConverter) -> Bool {
+        refs.contains { $0.converter === converter }
+    }
+}

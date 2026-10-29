@@ -8,13 +8,39 @@
 # On a v<version> tag the tarballs go into the draft release that release.yml makes, as
 # Araso-linux-<arch>.tar.gz and Araso-linux-<arch>-<version>.tar.gz (the update check asks for the
 # first), once the repository variable ARASO_LINUX_RELEASE is "true".
+# Pull requests and branch pushes run only when something the Linux build reads changed (path
+# filters don't apply to tags or workflow_dispatch); of windows/ only common/, which the addon builds.
 name: Linux
 
 on:
   push:
     branches: [main, 'aimdevlee/linux-*']
     tags: ['v*']
+    paths:
+      - '**'
+      - '!LICENSE'
+      - '!docs/**'
+      - '!tools/**'
+      - '!Sources/Araso/**'
+      - '!scripts/**'
+      - '!.github/**'
+      - '!windows/**'
+      - 'windows/common/**'
+      - '.github/workflows/linux.yml'
+      - '!**/*.md'
   pull_request:
+    paths:
+      - '**'
+      - '!LICENSE'
+      - '!docs/**'
+      - '!tools/**'
+      - '!Sources/Araso/**'
+      - '!scripts/**'
+      - '!.github/**'
+      - '!windows/**'
+      - 'windows/common/**'
+      - '.github/workflows/linux.yml'
+      - '!**/*.md'
   workflow_dispatch:
 
 permissions:

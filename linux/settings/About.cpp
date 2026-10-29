@@ -71,7 +71,9 @@ void CheckForUpdates() {
     FetchRelease(g.window, [](const std::string &body) {
         g.busy = false;
         Json answer = Released(body);
-        if (!answer["release"].isObject()) {
+        if (answer["upToDate"].asBool()) {
+            g.updateStatus = T("Araso is up to date");
+        } else if (!answer["release"].isObject()) {
             g.updateStatus = T("Couldn't reach GitHub. Try again later.");
         } else if (answer["release"]["newer"].asBool()) {
             g.updateStatus = T("Araso %@ is available", {answer["release"]["version"].asString()});
@@ -157,7 +159,7 @@ int CheckUpdateQuietly() {
     int status = 1;
     FetchRelease(qApp, [&status](const std::string &body) {
         Json answer = Released(body);
-        status = answer["release"].isObject() ? 0 : 1;
+        status = answer["upToDate"].asBool() || answer["release"].isObject() ? 0 : 1;
         TellInputMethod();
         qApp->quit();
     });

@@ -12,6 +12,8 @@ final class FakeDocument {
     var composition: NSRange?
     var cursor = 0
     var readable = true
+    /// The composition can only be at the caret (fcitx5's preedit).
+    var marksAtCaret = false
     /// The clause the last mark drew as the one being converted.
     var clause: [Int]?
 
@@ -23,6 +25,7 @@ final class FakeDocument {
         var context = TextContext(selection: [cursor, 0], marked: composition.map { [$0.location, $0.length] },
                                   text: ns.substring(with: NSRange(location: start, length: end - start)), start: start)
         if !readable { context.unreadable = true }
+        if marksAtCaret { context.marksAtCaret = true }
         return context
     }
 
@@ -85,6 +88,7 @@ enum Keys {
     static let shiftEscape = WindowsKey(vk: KeyMapper.vkEscape, scan: 0x01, shift: true)
     static let back = WindowsKey(vk: KeyMapper.vkBack, scan: 0x0E)
     static let enter = WindowsKey(vk: KeyMapper.vkReturn, scan: 0x1C)
+    static let left = WindowsKey(vk: KeyMapper.vkLeft, scan: 0x4B, extended: true)
     static let space = key(" ")
 }
 
@@ -195,6 +199,37 @@ final class Harness {
         // The readings it went through, listed under the word.
         #expect(h.ui?.readings?.tags.contains("KO") == true)
         #expect(h.ui?.readings?.texts.contains("ㅗ디ㅣㅐ") == true)
+    }
+
+    /// A word earlier in the line, the caret moved onto it: the switch key composes it again where
+    /// it is, read the next way, and Enter puts it in. The text service sends nothing after the
+    /// caret, so the caret stays after the word.
+    @Test func switchKeyFixesAWordEarlierInTheLine() throws {
+        let h = try Harness()
+        h.type("hello world ")
+        h.document.cursor = 5 // right after hello: what is after the caret isn't sent
+        #expect(h.tap(Keys.rightAlt, Keys.rightAltUp))
+        #expect(h.document.text == "ㅗ디ㅣㅐ world ")
+        #expect(h.document.composition == NSRange(location: 0, length: 4))
+        #expect(h.ui?.readings?.texts.contains("ㅗ디ㅣㅐ") == true)
+        // The text service asks first whether a key is kept: while fixing, ← and Return are.
+        #expect(h.send(ServiceRequest(op: .test, client: h.client, key: Keys.left)).reply.handled)
+        #expect(h.send(ServiceRequest(op: .test, client: h.client, key: Keys.enter)).reply.handled)
+        #expect(h.document.composition == NSRange(location: 0, length: 4)) // the test changed nothing
+        h.press(Keys.enter)
+        #expect(h.document.text == "ㅗ디ㅣㅐ world ")
+        #expect(h.document.composition == nil)
+    }
+
+    /// Where the composition is always at the caret (fcitx5), a word earlier in the line stays.
+    @Test func noFixingWhereTheCompositionIsAtTheCaret() throws {
+        let h = try Harness()
+        h.document.marksAtCaret = true
+        h.type("hello world ")
+        h.document.cursor = 2
+        _ = h.tap(Keys.rightAlt, Keys.rightAltUp)
+        #expect(h.document.text == "hello world ")
+        #expect(h.document.composition == nil)
     }
 
     @Test func aCorrectionMadeTwiceIsMarkedAndListedInTheMenu() throws {
@@ -314,6 +349,19 @@ final class Harness {
         h.press(Keys.leftCtrl)
         #expect(h.document.composition == nil)
         #expect(h.document.text == "안녕 ")
+    }
+
+    /// Ctrl+V reaches the text service as a key, and `.other` puts the word in before the app gets it,
+    /// so a word without a boundary keeps composing on Ctrl: a Ctrl let go on its own, or the
+    /// virtual left Ctrl that AltGr sends with a symbol, doesn't split the word.
+    @Test func ctrlGoingDownLeavesAWordWithoutABoundaryComposing() throws {
+        let h = try Harness()
+        h.type("dkss")
+        h.press(Keys.leftCtrl)
+        #expect(h.document.composition != nil)
+        h.type("ud")
+        #expect(h.document.text == "안녕")
+        #expect(h.document.composition != nil)
     }
 
     @Test func shortcutsGoToTheAppUnlessAWordIsInProgress() throws {
@@ -452,6 +500,46 @@ final class Harness {
         #expect(menu.contains { $0.title.contains("일시정지") })
     }
 
+    /// The app's own Japanese switch: off here with Japanese on in the settings, and back to
+    /// following them on a second select.
+    @Test func menuTurnsJapaneseOffInTheApp() throws {
+        let h = try Harness(settings: #"{ "japanese": true }"#)
+        var select = ServiceRequest(op: .menuSelect, client: h.client)
+        select.item = "app.japanese"
+        _ = h.send(select)
+        #expect(AppPolicies.load().overrides["notepad.exe"]?.japanese == false)
+        let menu = h.send(ServiceRequest(op: .menu, client: h.client)).reply.menu ?? []
+        #expect(menu.first { $0.id == "app.japanese" }?.checked == false)
+        h.type("kyouha ")
+        #expect(!h.document.text.contains("き"), "\(h.document.text)")
+        _ = h.send(select)
+        #expect(AppPolicies.load().overrides["notepad.exe"]?.japanese == nil)
+    }
+
+    /// With Japanese off in the settings and on in one app, the dictionary editor offers the
+    /// Japanese reading (for every app, and for that app, not for another one).
+    @Test func readingsOfferJapaneseWhereAnAppHasIt() throws {
+        let h = try Harness(settings: #"{ "japanese": false }"#, apps: #"{ "line.exe": { "japanese": true } }"#)
+        var request = ServiceRequest(op: .readings)
+        request.keys = "sushi"
+        #expect(h.runtime.handle(request).choices?.contains { $0.language == "japanese" } == true)
+        request.app = "line.exe"
+        #expect(h.runtime.handle(request).choices?.contains { $0.language == "japanese" } == true)
+        request.app = "code.exe"
+        #expect(h.runtime.handle(request).choices?.contains { $0.language == "japanese" } == false)
+    }
+
+    /// The dictionary editor's preview decides as a session in the app would.
+    @Test func decideFollowsTheAppsJapanese() throws {
+        let h = try Harness(settings: #"{ "japanese": true }"#, apps: #"{ "code.exe": { "japanese": false } }"#)
+        var request = ServiceRequest(op: .decide)
+        request.keys = "konnichiha"
+        #expect(h.runtime.handle(request).decision?.language == "japanese")
+        request.app = "code.exe"
+        let decision = try #require(h.runtime.handle(request).decision)
+        #expect(["english", "korean"].contains(decision.language))
+    }
+
     @Test func readingsForTheDictionaryEditor() throws {
         let h = try Harness()
         var request = ServiceRequest(op: .readings)
@@ -571,6 +659,32 @@ final class Harness {
         """#
         #expect(h.runtime.handle(release).release?.installer == "https://example.com/linux.tar.gz")
         #expect(h.runtime.model().update?.version == "9.0.0")
+    }
+
+    @Test func aReleaseWithoutThisPlatformsFileIsUpToDate() throws {
+        let h = try Harness(platform: "linux", asset: "Araso-linux-x86_64.tar.gz")
+        var release = ServiceRequest(op: .release)
+        release.body = #"""
+        { "tag_name": "v9.0.0", "html_url": "https://example.com/r", "body": "",
+          "assets": [ { "name": "Araso.pkg", "browser_download_url": "https://example.com/Araso.pkg" } ] }
+        """#
+        let answer = h.runtime.handle(release)
+        #expect(answer.upToDate == true)
+        #expect(answer.release == nil && answer.error == nil)
+        #expect(h.runtime.model().update == nil)
+        // The answer is kept, so the daily check finds nothing newer either.
+        #expect(UpdateStore.read()?.body == release.body)
+        // No answer from GitHub, not a release, or this platform's file unreadable is still a
+        // failed check.
+        let unreadable = #"""
+        { "tag_name": "v9.0.0", "assets": [ { "name": "Araso-linux-x86_64.tar.gz", "browser_download_url": null } ] }
+        """#
+        let broken = #"{ "tag_name": "v9.0.0", "assets": [ { "name": "Araso.pkg" } ] }"#
+        for body in [nil, "", #"{"message": "API rate limit exceeded"}"#, unreadable, broken] {
+            release.body = body
+            let failed = h.runtime.handle(release)
+            #expect(failed.upToDate == nil && failed.error == "no release")
+        }
     }
 
     @Test func tryTypingTraceOnlyInTheHostsOwnField() throws {

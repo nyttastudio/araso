@@ -54,7 +54,7 @@ Hello, worldhasaishonopuroguramudesu␣.           →  Hello, worldは最初の
 - **Kanji conversion**: clause by clause, with live conversion, through the engine of macOS's own Japanese input, its candidates on Araso's card, nine to a page.
 - **Per app**: Strict in a terminal, off in a game. It follows vim's modes, and a pause key passes keys straight through.
 - **On this Mac only**: keystrokes never leave the input method. A keystroke's preview takes at most ~3 ms.
-- **99.5% accurate**: on about 6,000 held-out words and phrases (Japanese on, [held-out results](#held-out-results)).
+- **99.6% accurate**: on about 6,000 held-out words and phrases (Japanese on, [held-out results](#held-out-results)).
 
 ## Contents
 
@@ -80,7 +80,8 @@ inspired me to build one input method for all three.
    open it and follow the steps. It installs into `/Library/Input Methods` and registers the input source.
 2. Pick **Araso** in the input menu in the menu bar.
 3. To mix in Japanese as in the examples above, turn on **Japanese Input** in the input menu.
-   **Japanese is off by default.**
+   **Japanese is off by default.** In an app you don't type Japanese in (an editor, a terminal), turn
+   off **Japanese Input in This App** in the app's part of the menu: words there are Korean or English only.
 
 It runs on macOS 13 or later, on Apple silicon and Intel, and is notarized by Apple. It takes ~50 MB of
 memory (plus the ~35 MB Japanese dictionary when Japanese is on) and ~47 MB on disk, with nothing
@@ -120,7 +121,8 @@ the same code as on macOS; kanji conversion is AzooKey's.
 Where it differs from macOS:
 
 - Ctrl plays ⌘'s part: right Ctrl (the 한자 key) tapped alone pauses, and right Alt (the 한/영
-  key) tapped alone switches readings.
+  key) tapped alone switches readings. Ctrl going down puts in only a held word; a word being
+  typed keeps composing (a key such as Ctrl+V does reach Araso, and the word goes in then).
 - Apps are named by program (`notepad.exe`), and the settings files are in `%APPDATA%\Araso`.
 - Text replacements come from `replacements.json` in that folder (`{"addr": ["123 Main St"]}`),
   and Araso replaces them itself.
@@ -144,9 +146,12 @@ and distributions like it (glibc 2.35 or later).
 
 1. Install fcitx5 and make it the input method framework (Ubuntu: `sudo apt install fcitx5 fcitx5-frontend-gtk3 fcitx5-frontend-gtk4 fcitx5-frontend-qt5`,
    plus `fcitx5-frontend-qt6` from 24.04 on; then `im-config -n fcitx5` and log out; 22.04 has no `fcitx5-frontend-qt6`, so Qt 6 apps don't type through it there).
-2. If the release has `Araso-linux-<arch>.tar.gz`, download it, unpack it and run its `./install.sh`.
-   Until then, install from source (Swift 6.2, CMake, fcitx5's development files and Qt 6; the list
-   is in [docs/linux-port.md](docs/linux-port.md)):
+   The settings window runs on Qt 5, which the package doesn't carry: on Arch install `qt5-base`, on
+   Fedora `qt5-qtbase-gui`. When it's missing, `install.sh` says which command installs it.
+2. Download `Araso-linux-<arch>.tar.gz` for your architecture (`uname -m`) from the
+   [Linux beta](https://github.com/nyttastudio/araso/releases/tag/linux-beta-2), unpack it and run
+   its `./install.sh`; it asks for your password. To install from source instead (Swift 6.2, CMake,
+   fcitx5's development files and Qt 6; the list is in [docs/linux-port.md](docs/linux-port.md)):
 
    ```sh
    git clone https://github.com/nyttastudio/araso && araso/linux/scripts/install.sh
@@ -158,7 +163,9 @@ and distributions like it (glibc 2.35 or later).
 Where it differs from macOS:
 
 - Ctrl plays ⌘'s part: right Ctrl (the 한자 key) tapped alone pauses, and right Alt (the 한/영
-  key) tapped alone switches readings. fcitx5 turns input methods on and off with 한/영, but in a
+  key) tapped alone switches readings. Ctrl going down puts in only a held word; a word being
+  typed keeps composing (a key such as Ctrl+V does reach Araso, and the word goes in then).
+  fcitx5 turns input methods on and off with 한/영, but in a
   field Araso types in, Araso takes it first as its switch key.
 - Araso starts on in every text field: the first time it starts, it turns on fcitx5's Active By
   Default. Off (**On in every text field** under Languages in the settings window), a field starts
@@ -250,7 +257,7 @@ While a word is being typed it is underlined and shows the language Araso expect
 | `-` | commit, then `-` | ー |
 | Return | commit only (press again for a newline or to send; a setting) | commit as shown, kana or live-converted kanji (no newline) |
 | ⌃K / F7, ⌃J / F6 | (the app's shortcut) | katakana / hiragana (Space flips, Return commits) |
-| Tab, arrows, ⌘/⌃/⌥ | commit, the app gets the key | same |
+| Tab, arrows, ⌘/⌃/⌥ | commit, the app gets the key (⌘ commits the moment it goes down, so ⌘V pastes after the word and a delete on ⌘⌫ doesn't skip it) | same |
 | **Right ⌘** (tapped on its own; a setting) | [pause](#pause) / resume Araso in this text field | same |
 
 <details>
@@ -334,7 +341,35 @@ phrase live conversion leaves as kana (`たけ`), a switch key switches at once.
 Right after a word is committed with Space or punctuation, a language switch key switches it to its
 next reading, and pressing it again keeps cycling. Deleting the space or punctuation first keeps
 that chance; any other key ends it. This needs the caret still right after the word, and an app that
-lets Araso read the text there.
+lets Araso read the text there. Right after such a switch the strip is numbered, and a digit picks that
+reading (a digit typed without a switch goes in as usual).
+
+A word earlier in the line can be fixed too. Put the caret anywhere in it (click, ⌥←, ⌥→) and tap
+right ⌥ (or ⇧Esc, or ⌥Space if chosen): that word alone is underlined again, read the next way,
+the caret at its end; the words after it stay as they are. The field's first word is underlined only
+with the caret before it, and switched in place, without an underline, from anywhere else in it
+(macOS text views put marked text at the caret, and moving the caret there needs a character before
+the word). Tapping again keeps cycling, and as in
+Japanese conversion the thick underline is the part being fixed: → makes it a key longer, taking in
+the next word past the end of one (`dkssud gktpdy` → `안녕 하세요`, the underline growing with it); ← makes it shorter, and a cut
+inside a word leaves the rest of its keys to be read on their own (`hellofmf` → `hello` + `를`). A word ← gives
+back reads as it was but keeps a thin underline.
+The strip under it follows, listing the readings of the part being fixed, numbered: a digit
+switches to that reading, as in the candidate window. Return on such a front
+part settles it and goes on with the rest. ⇧←/⇧→ do the same. The word being
+typed can be cut the same way: after a switch key changed its reading ←/→ do it, before that ⇧←
+(`helloab`, ⇧←⇧← → `hello` | `ab`; ← before a switch puts the word in and moves the caret, as
+before). A word just committed with Space is fixed from its start, after ⌥← (macOS text views put
+marked text only at the caret). Return or any other key puts the
+fix in and takes the caret back to the end of the line (⌘Z takes two: one selects the rest of the
+line, the next puts the fix back); Esc (where it isn't a switch key) and Delete
+put everything back. A whole word fixed
+is learned as a correction right after the commit is; a cut word isn't. When an arrow key leaves the
+caret on a word Araso wasn't sure of, its readings show in the strip under it first. Words before a
+Return can't be fixed, nor words changed by hand since. On Linux (fcitx5), and on Windows in apps
+where Araso keeps the word itself, an underline can only be at the caret, so this isn't there; on
+Windows the text after the caret can't be read, so the caret has to be right after the word (and
+stays there rather than going back to the end of the line).
 
 A word corrected once leans that way from then on: a close call (`so`/`내`) turns, a clear one
 doesn't, so a stray switch doesn't do much. It is forgotten after 30 days unless corrected or typed
@@ -365,9 +400,10 @@ end the word but goes inside the underline too.
 
 - While underlined it is the word being typed: a language switch key changes it (`dkssud.` →
   `안녕.`, the mark stays as typed), and Delete deletes (the space or mark first).
-- Starting the next word puts it in with that character. So does pressing ⌘, so a ⌘V pastes after
-  the word (a terminal pastes on ⌘V itself, without showing Araso the key); after that a switch key
-  can't change the word any more.
+- Starting the next word puts it in with that character. So does pressing ⌘ (as it does for any
+  underlined word in any app), so a ⌘V pastes after the word and a ⌘⌫ doesn't skip it to delete the text
+  before (a terminal acts on ⌘V and ⌘⌫ itself, without showing Araso the key); after that a switch
+  key can't change the word any more.
 - Only one character is held: after `안녕.` a Space or a second mark ends the word and is handled as
   with holding off (to the app, usually; after a word that went in as Japanese, by the rules for
   symbols after Japanese text).
@@ -441,9 +477,10 @@ From the input menu (the menu bar, while Araso is selected) you can:
 
 - pause Araso in this text field (like the pause key)
 - turn word conversion on or off for the app in front, set its conversion threshold
-  (Normal/Strict), whether Esc switches languages and whether the word is held after Space or
-  punctuation, or drop its settings. Those are greyed while conversion is off
-- turn Japanese Input and Live Conversion on or off
+  (Normal/Strict), whether Esc switches languages, whether the word is held after Space or
+  punctuation and whether Japanese is on in it, or drop its settings. Those are greyed while
+  conversion is off
+- turn Japanese Input (the default, for every app without its own) and Live Conversion on or off
 - undo the last learned word, see and forget the words the dictionary changed lately, and open Try
   Typing, the dictionary or the settings window
 
@@ -453,7 +490,7 @@ The settings window has these panes, and changes apply at once.
 | --- | --- |
 | Languages | converting words on or off, Japanese on or off, the Layouts card (Hangul: 2-set, 3-set final, 3-set 390; English and romaji: QWERTY, Colemak, Colemak-DH), Japanese input and its options, resetting the kanji candidate order |
 | Keys | the language switch keys, Return, the pause key |
-| Apps | how sure a word must be to convert (Normal, Strict) and per-app behavior (`apps.json`) |
+| Apps | how sure a word must be to convert (Normal, Strict) and per-app behavior: Japanese, switch keys, after Space / punctuation (`apps.json`) |
 | Dictionary | words you added and words learned, in one list (`dictionary.json`): **+** to type keys and pick their reading (English, Korean, Japanese) and app; from a row's ⋯, keep a learned word for good or remove it. A word corrected once shows how long until it's forgotten |
 | Try Typing | how each word was decided, with scores, and adding its keys to the dictionary |
 | About | version, what changed, updates, uninstall |
@@ -521,6 +558,7 @@ unless you list it.
 | `switchKeys` | `["rightOption", "shiftEscape"]` | The keys that switch readings ([language switch keys](#language-switch-keys)): `"rightOption"` (right ⌥ tapped alone), `"optionSpace"` (⌥Space), `"rightShift"` (right ⇧ tapped alone), `"escape"` (Esc), `"shiftEscape"` (⇧Esc). A key not chosen goes to the app. `escapeToApp`, from 0.1.8 and earlier, is read and carried over. |
 | `holdSpace` | `false` | Space or a punctuation mark (not a digit) goes inside the underline instead of ending the word. Like a word being typed, a switch key changes it and Delete deletes; the next word puts it in with that character. For terminals, which can't change a committed word, so set per app only (not in `"*"`); Return only confirms it, and text replacements don't fire. |
 | `fullWidth` | `true` | `false` keeps numbers and spaces half-width in this app whatever the full-width settings say (terminals, code editors). |
+| `japanese` | none | Japanese in this app. Left out, it follows `japanese` in `settings.json`; `false` decides words here between Korean and English only (no conversion, no live conversion) even with Japanese on, and `true` types Japanese here even with it off. Per app only. |
 
 </details>
 
@@ -558,6 +596,8 @@ replacement, still apply there (`so` remembered as `내` gives `내1`).
   reading the whole token as Hangul or as English. The more common the English word (or an acronym
   or name typed in capitals) and the less the whole reads as a Korean word, the likelier the split.
   - `githubdp` → `github에`, `UIrkxdmsrjs` → `UI같은건`, `formdptj` → `form에서` (래그 is no word).
+    A name the list doesn't know splits before a core particle when it starts with a capital:
+    `Arasork` → `Araso가`, `Escfmf` → `Esc를`.
     `gosemfdmf` stays `핸들을`.
   - Of 은/는, 을/를 and 이/가, the form that fits the end of the word before counts as likelier. An
     acronym ends as its last letter is said (`TMdms` → `TM은`, 티엠), and whole Hangul with the wrong
@@ -601,11 +641,17 @@ replacement, still apply there (`so` remembered as `내` gives `내1`).
 
 **4. Heuristic**
 
-- English: character trigrams, and a floor for words in the SCOWL list, by how common they are
-- Korean: 2-set syllable frequencies, and a floor for words seen in Korean text
+- English: character trigrams, and a floor for words in the SCOWL list, by how common they are. A
+  word with a capital after its first letter (`wOrk`) isn't how anyone types English, so it gets no
+  floor and competes with `쟤가` on scores.
+- Korean: 2-set syllable frequencies, and a floor for words seen in Korean text. Developer and
+  product words the subtitle corpus (2018) lacks (깃허브, 리액트, 노션, 도커: about 220) come from a
+  list in the app and get the same floor.
 - Japanese: romaji → kana trigrams, with English words inside the phrase split out
-- The nudge is weaker when the keys are a word of another language and not of the previous one,
-  which is someone switching language.
+- The nudge is weaker when the keys are a word of another language and not of the previous one
+  (`내가` after English, or clean kana of four or more: `inumanisentaku`), which is someone switching
+  language. A rare English word (`ths`, `dork`) doesn't hold it against a Korean word on the same
+  keys (`손`, `애가`).
 - A known English word needs a clear Japanese win before it turns into kana.
 
 </details>
@@ -621,11 +667,16 @@ private to macOS, so where it can't be loaded the app's own
 ### Held-out results
 
 2,011 English words, 1,987 Korean words and 2,000 Japanese phrases from held-out sentences,
-never used to build the models (`tools/prepare.sh`):
+never used to build the models (`tools/prepare.sh`). Held out from the models (letter statistics,
+word lists), not from the decision rules, whose thresholds were set looking at these numbers. For
+text the rules were not set on, the prose evaluation on this repository's Korean documents
+(`tools/eval_text.py`, about 6,600 tokens) gives 99.44% (English + particle 96.35%):
 
 | | Japanese off (en/ko) | Japanese on (en/ko/ja) |
 | --- | --- | --- |
-| Accuracy | 99.82% | 99.50% |
+| Accuracy | 99.80% | 99.62% |
+
+With Japanese on, an app that turns it off in its own settings is decided as in the left column (en/ko).
 
 Kanji conversion, top candidate exactly matching the original text (held-out Tatoeba):
 
@@ -646,11 +697,11 @@ most frequent English and Korean words are also scored after each kind of word
 
 | | after nothing | after the same language | after the other | after Japanese |
 | --- | --- | --- | --- | --- |
-| Korean words | 9 / 33 | 2 / 15 | 14 / 63 | 9 / 34 |
-| English words | 2 / 47 | 0 / 21 | 8 / 71 | 2 / 86 |
+| Korean words | 9 / 31 | 2 / 13 | 10 / 55 | 9 / 32 |
+| English words | 2 / 48 | 0 / 24 | 8 / 71 | 2 / 86 |
 
 Before the SCOWL and Korean word lists and the switch-aware nudge, that was 94 / 785 in all; now
-it is 46 / 370. These lists were used while tuning those rules, so they're a guide, not a
+it is 42 / 360. These lists were used while tuning those rules, so they're a guide, not a
 held-out score. Many remaining misses are genuinely ambiguous keys: `so`/내, `go`/해, `did`/양.
 
 </details>

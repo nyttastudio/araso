@@ -54,7 +54,7 @@ import Testing
     }
 
     /// Typing through a session, digits and symbols arriving as the app's printable keys; ⎋ in
-    /// `text` is a switch key.
+    /// `text` is a switch key, ⌫ Delete.
     static func type(_ text: String, on layout: KoreanLayout = .sebeolsikFinal) -> String {
         KoreanLayout.$override.withValue(layout) {
             let field = FakeTextField()
@@ -62,8 +62,14 @@ import Testing
             let engine = DictionaryEngine(base: SplittingEngine(base: sharedEngine, english: sharedEngine.english), storeURL: store)
             let session = InputSession(engine: engine, policies: AppPolicies(overrides: [:]))
             for ch in text {
-                let key: InputSession.Key = ch == "⎋" ? .cycle : ch.isLetter ? .letter(ch) : .printable(ch)
-                if !session.handle(key, client: field), key != .cycle { field.insertText(String(ch), replacing: nil) }
+                let key: InputSession.Key = ch == "⎋" ? .cycle : ch == "⌫" ? .delete : ch.isLetter ? .letter(ch) : .printable(ch)
+                guard !session.handle(key, client: field), key != .cycle else { continue }
+                // A key the session passes on is the app's: Delete takes the character before the caret.
+                if key == .delete {
+                    if field.cursor > 0 { field.insertText("", replacing: NSRange(location: field.cursor - 1, length: 1)) }
+                } else {
+                    field.insertText(String(ch), replacing: nil)
+                }
             }
             return field.text
         }
@@ -150,9 +156,21 @@ import Testing
             _ = session.handle(.delete, client: field)
             #expect(field.text == "갔ㄷ")
             _ = session.handle(.delete, client: field)
+            #expect(field.text == "갔")
+            // 갔 was committed once ㄷ began the next syllable: it goes whole, as on 2-set.
             _ = session.handle(.delete, client: field)
-            #expect(field.text == "가")
+            #expect(field.text == "")
         }
+    }
+
+    /// A jamo deleted from a word's first syllable and typed again joins it (#38): 안 → 아 → 안,
+    /// not 아ㄴ; 하 → ㅎ → 하, not ㅎㅏ.
+    @Test func retypingInTheFirstSyllableJoinsIt() {
+        #expect(Self.type("jfs⌫shea") == "안녕")
+        #expect(Self.type("mf⌫f") == "하")
+        #expect(Self.type("jfshea⌫a") == "안녕")
+        // Nothing being typed: the app deletes, here the space after 안.
+        #expect(Self.type("jfs ⌫") == "안")
     }
 
     @Test func symbolsThatDontFitEndTheWord() {

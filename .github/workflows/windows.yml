@@ -9,13 +9,39 @@
 # Signing, when these are set (unsigned otherwise: the updater then opens the release page):
 #   secrets WINDOWS_SIGN_PFX (base64 of a .pfx), WINDOWS_SIGN_PASSWORD
 #   variable ARASO_WINDOWS_PUBLISHER: the certificate's subject name, which the updater requires
+# Pull requests and branch pushes run only when something the Windows build reads changed
+# (path filters don't apply to tags or workflow_dispatch). linux/ uses windows/common, not the reverse.
 name: Windows
 
 on:
   push:
     branches: [main, 'aimdevlee/windows-*']
     tags: ['v*']
+    paths:
+      - '**'
+      - '!LICENSE'
+      - '!docs/**'
+      - '!tools/**'
+      - '!Sources/Araso/**'
+      - '!scripts/**'
+      - '!.github/**'
+      - '!linux/**'
+      - 'scripts/vim/**'
+      - '.github/workflows/windows.yml'
+      - '!**/*.md'
   pull_request:
+    paths:
+      - '**'
+      - '!LICENSE'
+      - '!docs/**'
+      - '!tools/**'
+      - '!Sources/Araso/**'
+      - '!scripts/**'
+      - '!.github/**'
+      - '!linux/**'
+      - 'scripts/vim/**'
+      - '.github/workflows/windows.yml'
+      - '!**/*.md'
   workflow_dispatch:
 
 permissions:

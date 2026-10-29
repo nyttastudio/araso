@@ -125,6 +125,9 @@ public struct TextContext: Codable, Equatable, Sendable {
     public var unreadable: Bool?
     /// The field is a password or private field (`IS_PASSWORD`): keys go to the app as typed.
     public var masked: Bool?
+    /// A composition can only be at the caret (fcitx5's preedit, a word Windows keeps for a
+    /// classic app): `TextClient.marksAnywhere` is false.
+    public var marksAtCaret: Bool?
 
     public init(selection: [Int], marked: [Int]? = nil, text: String = "", start: Int = 0) {
         self.selection = selection
@@ -293,6 +296,8 @@ public struct ServiceResponse: Codable, Equatable, Sendable {
     public var shortcutName: String?
     public var problem: String?
     public var error: String?
+    /// For `release`: GitHub answered, and its latest release has no file this platform installs.
+    public var upToDate: Bool?
     /// Clients with edits waiting (`pending`): the host tells their text services to ask.
     public var notify: [Int]?
 

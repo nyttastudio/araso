@@ -67,8 +67,34 @@ public struct KoreanModel: Sendable {
     /// A word in the wider vocabulary (loanwords like 월드, 서버; 혜택), for English + Korean splits
     /// and the heuristic's Korean word floor.
     public func isVocabularyWord(_ hangul: String) -> Bool {
-        words.contains(hangul) || Self.vocabulary.contains(hangul)
+        words.contains(hangul) || Self.vocabulary.contains(hangul) || Self.loanwords.contains(hangul)
     }
+
+    /// Developer and product words the subtitles (2018) have fewer than `commonCount` times or not at
+    /// all: 깃허브, 리액트, 노션, 도커. The counterpart of `EnglishModel.commonWords`, for the word
+    /// floor and the splits only (not `knowsSyllable`, which `EU정책` and `RJ이` rely on). A word
+    /// goes in only when its keys spell no English word (`aor` 맥, `shtus` 노션; `ahr` 목 is left out
+    /// as an everyday word in its own right), checked by running en_50k.txt and eval.tsv through
+    /// `araso-cli --decide` before and after (AGENTS.md, wrong-split checks).
+    static let loanwords: Set<String> = Set("""
+    깃허브 깃랩 깃 커밋 리베이스 리포 레포 이슈 린트 포맷 빌드 릴리스 롤백 핫픽스
+    리액트 넥스트 뷰 스벨트 앵귤러 노드 타입스크립트 자바스크립트 파이썬 자바 스위프트 코틀린 러스트 고랭 닷넷 플러터 레일스 장고
+    도커 쿠버네티스 람다 테라폼 앤서블 깃헙액션 파이프라인 로깅 크론
+    노션 슬랙 피그마 지라 컨플루언스 줌 디스코드 트렐로 아사나 리니어 옵시디언 에버노트 드롭박스 구글독스 캘린더 지메일
+    챗지피티 클로드 제미나이 코파일럿 엘엘엠 프롬프트 토큰 임베딩 파인튜닝 추론 데이터셋
+    맥북 맥 아이맥 아이폰 에어팟 애플워치 삼성 윈도우 리눅스 우분투 안드로이드 크롬 사파리 파이어폭스 브라우저
+    인스타 스레드 넷플릭스 스포티파이 카톡 카카오톡 텔레그램 왓츠앱 페북 링크드인
+    리팩터링 리팩토링 디버깅 디버그 컴파일 컴파일러 프레임워크 라이브러리 모듈 함수 변수 객체 배열 문자열 인터페이스 제네릭 클로저 콜백 비동기 스레드 큐 스택 힙 해시 쿼리 인덱스
+    트랜잭션 스키마 마이그레이션
+    엔드포인트 라우터 미들웨어 핸들러 컨트롤러 리포지토리 엔티티 디비 데이터베이스 포스트그레스 마이에스큐엘 레디스 몽고 엘라스틱
+    프론트 프론트엔드 백엔드 풀스택 데브옵스 인프라 클라이언트 웹 앱 도메인 호스팅 배포판 런타임 콘솔 셸 쉘 스크립트 환경변수 설정값
+    회원가입 토글 모달 팝업 드롭다운 탭 사이드바 네비게이션 툴바 아이콘 폰트 다크모드 반응형 레이아웃 컴포넌트 프롭스 훅 렌더링
+    유닛테스트 통합테스트 스텁 커버리지 린터 포매터 프리티어 이에스린트 타입체크 씨아이 씨디 워크플로 러너
+    버그 익셉션 크래시 타임아웃 레이턴시 스루풋 누수 최적화 프로파일링 벤치마크
+    마크다운 리드미 위키 문서화 스니펫 템플릿 보일러플레이트 스캐폴딩 제너레이터
+    메신저 알림 푸시알림 위젯 숏컷 단축키 클립보드 스크린샷
+    블루투스 유에스비 충전기 디스플레이 트랙패드 웹캠 이어폰
+    """.split(whereSeparator: \.isWhitespace).map(String.init))
 
     /// A word the subtitles have fewer than `commonCount` times (촉매, twice): for the heuristic's
     /// Korean word floor only. The tail holds dialect and typos too (어뗘, 쓔벌, 꺼이), so it

@@ -104,6 +104,10 @@ its protocol and much of its shape.
 - The settings window builds on Qt 6 or Qt 5 (`ARASO_QT=5|6`; empty: Qt 6 when there is one).
   Releases use Qt 5: Ubuntu 22.04's Qt 6 has no input method plugins at all, so a Qt 6 window
   can't be typed into there, while fcitx5's Qt 5 module is on every distribution.
+  The package doesn't carry Qt: `install.sh` looks for the Qt libraries `araso-settings` can't
+  find (`ldd`) and prints the command that installs them for the distribution in `/etc/os-release`
+  (Debian/Ubuntu `libqt5widgets5 libqt5network5`, Fedora `qt5-qtbase-gui`, Arch `qt5-base`, openSUSE).
+  Typing doesn't need it; the settings window and the update check (`araso-settings --check-update`) do.
 - `linux/scripts/build.sh [--test] [--tar]`: the bridge (`swift build -c release --product
   ArasoBridge`, RUNPATH `$ORIGIN`), the Swift runtime it needs (`ldd`), the addon and the settings
   window (`cmake -S linux`), then `build/linux/package/Araso-linux-<arch>/` (`install.sh`,

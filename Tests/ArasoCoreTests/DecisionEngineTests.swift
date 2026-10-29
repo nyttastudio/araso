@@ -96,6 +96,24 @@ let sharedEngine = HeuristicEngine()
         #expect(d.confidence >= AppPolicy.strictThreshold, "\(keys) \(d.explanation)")
     }
 
+    /// Developer and product words the subtitles lack (`KoreanModel.loanwords`) get the word floor
+    /// too: after English, and sure enough for a Strict app.
+    @Test(arguments: [("rltgjqm", "깃허브"), ("fldorxm", "리액트"), ("ehzj", "도커"), ("tmffor", "슬랙"), ("cotwlvlxl", "챗지피티")])
+    func loanwordsAfterEnglish(keys: String, expected: String) {
+        #expect(sharedEngine.korean.isVocabularyWord(expected))
+        let d = sharedEngine.decide(keys, context: DecisionContext(previousLanguage: .english))
+        #expect(d.language == .korean && d.output == expected, "\(keys) → \(d.output) \(d.explanation)")
+        #expect(d.confidence >= AppPolicy.strictThreshold, "\(keys) \(d.explanation)")
+    }
+
+    /// Short ones whose keys read as English letters too (shtus, aor) are Korean after English
+    /// by the floor, if not as surely.
+    @Test(arguments: [("shtus", "노션"), ("aor", "맥"), ("shem", "노드")])
+    func shortLoanwordsAfterEnglish(keys: String, expected: String) {
+        let d = sharedEngine.decide(keys, context: DecisionContext(previousLanguage: .english))
+        #expect(d.language == .korean && d.output == expected, "\(keys) → \(d.output) \(d.explanation)")
+    }
+
     /// A noun too rare for the syllable counts (촉 is seen twice) is Korean once the subtitles
     /// list it, even with no previous word to lean on.
     @Test func rareNounFromTheFullList() {
@@ -109,6 +127,34 @@ let sharedEngine = HeuristicEngine()
             let d = sharedEngine.decide(word, context: DecisionContext(previousLanguage: previous))
             #expect(d.language == .english, "\(word) after \(String(describing: previous)) → \(d.output) \(d.explanation)")
         }
+    }
+
+    /// A capital after the first letter that the capital rule let through is a Korean shift key
+    /// (⇧O is ㅒ) or a Shift lingering from one: work typed as wOrk is nobody's English, so the
+    /// keys get no dictionary floor and 쟤가 gets its word floor, whatever came before.
+    @Test(arguments: [("wOrk", "쟤가"), ("dOrk", "얘가")])
+    func capitalOnAKoreanShiftKeyInsideAnEnglishWordIsKorean(keys: String, expected: String) {
+        for previous in [nil, Language.korean, .english] {
+            let d = sharedEngine.decide(keys, context: DecisionContext(previousLanguage: previous))
+            #expect(d.language == .korean && d.output == expected,
+                    "\(keys) after \(String(describing: previous)) → \(d.output) \(d.explanation)")
+        }
+    }
+
+    /// After English, a rare English word (SCOWL above `extraLevel`: ths, sns, dork, aha) doesn't
+    /// hold the previous word's pull against a Korean word on the same keys; an everyday one
+    /// (work 재가, go 해, did 양) still does.
+    @Test(arguments: [("ths", "손"), ("sns", "눈"), ("dork", "애가"), ("aha", "몸")])
+    func rareEnglishWordYieldsToKoreanWordAfterEnglish(keys: String, expected: String) {
+        #expect((sharedEngine.english.level(keys) ?? 0) > EnglishModel.extraLevel)
+        let d = sharedEngine.decide(keys, context: DecisionContext(previousLanguage: .english))
+        #expect(d.language == .korean && d.output == expected, "\(keys) → \(d.output) \(d.explanation)")
+    }
+
+    @Test(arguments: ["work", "go", "did", "so"])
+    func everydayEnglishWordHoldsAfterEnglish(word: String) {
+        let d = sharedEngine.decide(word, context: DecisionContext(previousLanguage: .english))
+        #expect(d.language == .english, "\(word) → \(d.output) \(d.explanation)")
     }
 
     /// SCOWL lists its words' inflections, so a guessed one counts only for a stem the list

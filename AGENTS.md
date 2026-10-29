@@ -15,7 +15,10 @@ issue the maintainer labeled `accepted`; `.github/workflows/issue-first.yml` com
 doesn't link such an issue (`.github/scripts/issue-first.sh`, `DRY_RUN=1` to try it). Labels are listed in
 `.github/labels.yml` (kind, status, `area: …`); `.github/workflows/labels.yml` syncs them, labels an issue
 from its form's area dropdown and a PR from its linked issue and changed files (`.github/scripts/labels.sh`,
-`.github/labeler.yml`); add a label to labels.yml, never only on GitHub. Building needs Swift 6.2 (Xcode 26),
+`.github/labeler.yml`); add a label to labels.yml, never only on GitHub. CI runs only what a change can
+affect: `windows.yml` and `linux.yml` have path filters (keep them in step when a build starts reading
+another folder; linux/ builds `windows/common`), and `ci.yml`'s `test`, a required check, is skipped by its
+`changes` job rather than filtered out, since a required check that never starts blocks the merge. Building needs Swift 6.2 (Xcode 26),
 which `swift-tools-version` in Package.swift says.
 
 ## Commands
@@ -32,11 +35,16 @@ scripts/release.sh                           # universal build → build/release
 swift run araso-cli -v "dkssud hello"     # English/Korean decision with scores
 printf 'keys\tprevious\n' | swift run araso-cli --decide --japanese   # previous: english|korean|japanese|empty
 printf 'きょうは\n' | swift run araso-cli --convert                    # AzooKey candidates (ARASO_ENGINE=apple: macOS's)
+printf 'Arasork\n' | swift run araso-cli --split --japanese          # the particle splitter's readings and lead
+python3 tools/eval_text.py .build/release/araso-cli --japanese --list README.md   # accuracy on this repo's Korean prose
 tools/prepare.sh [--models]                  # held-out accuracy (downloads into tools/data, gitignored)
 scripts/typing-test/run.sh                   # real key events into the settings window's typing pane through the installed app
 scripts/record-demo/record.sh                # the README demo's footage: real typing into Safari through the installed app
 scripts/record-demo/render.sh                # → docs/media/demo.gif and build/demo/web/demo.mp4 + poster (the website's araso/)
 /usr/bin/log show --last 10m --predicate 'subsystem == "com.nyttastudio.inputmethod.Araso"' --info --debug
+                                             # (debug lines are kept only after, once: sudo /usr/bin/log config --mode "level:debug,persist:debug"
+                                             #  --subsystem com.nyttastudio.inputmethod.Araso; without it, while reproducing:
+                                             #  /usr/bin/log stream --predicate 'subsystem == "com.nyttastudio.inputmethod.Araso"' --level debug)
 windows/scripts/check-cross.sh [x86_64|x86|aarch64]   # Windows C++ (text service + host) built with zig, here
 linux/scripts/build.sh [--test] [--tar]       # on Linux: bridge + fcitx5 addon + araso-settings → build/linux/package
 linux/scripts/typing-test/run.sh              # with Docker (a Mac too): that, then real typing on a clean Ubuntu (Xvfb)
@@ -64,7 +72,8 @@ guards; an entry limited to apps applies to the keys as a whole, by `DecisionCon
 (`MixedWord.swift`) → `HeuristicEngine`. Plan for the rest of the dictionary: `docs/user-dictionary.md`.
 - `SplittingEngine` handles English + Korean particle (`github에`), a single letter + particle
   (`xdp` → `x에`, not 도/나 after a lowercase letter), English + whole Korean word (`hello월드`,
-  using `Data/korean_vocabulary.txt`, which `HeuristicEngine` also uses for its Korean word floor;
+  using `Data/korean_vocabulary.txt` plus `KoreanModel.loanwords` (developer and product words the
+  2018 subtitles lack: 깃허브, 노션), which `HeuristicEngine` also uses for its Korean word floor;
   its words seen under 10 times, `isRareVocabularyWord`, count for that floor only) and English + Japanese particle
   (`githubで`). Its decisions have confidence 0.98 (`SplittingEngine.confidence`), above Strict
   (0.97), so they split in a strict app too.
@@ -73,13 +82,21 @@ guards; an entry limited to apps applies to the keys as a whole, by `DecisionCon
   as Korean (a vocabulary word, or one with a particle, gets a floor), as unknown English and as
   kana, from word and particle log-probabilities (`Weights`). An acronym or name and a Korean word
   (`PC카톡`) switch language at `switchCost`; an ordinary word and a Korean word (`hello월드`) pay
-  `wordSwitchCost`, tuned so no word of `en_50k.txt` splits. What's left as shape checks there:
+  `wordSwitchCost`, tuned so no word of `en_50k.txt` splits; that cut is also the bar a particle split
+  has to clear, at the same cost (Lega + 새를 must not bar Legato + 를). An unknown word written as a
+  name (a capital, then lowercase: Araso, Esc) pays no `unknownFront` before a core particle
+  (`afterNameParticles`: not 도/나/이 or an ending, whose keys end names: Neleh, Kursk, Jordi, Thiago).
+  What's left as shape checks there:
   clean romaji and Korean throughout stay whole, and an acronym a lingering Shift could explain
   (`TM`, `EU`) needs an unseen syllable (`뗘`) and a known word after it. Fix a wrong split there,
   by the scores or the word lists, not with a rule for the case; the weights were tuned with
   `tools/eval_particles.py` and the wrong-split checks below.
 - `HeuristicEngine` scores the keys per keystroke as English, Korean and Japanese, then nudges
-  toward the previous word's language.
+  toward the previous word's language, less (`switchBiasFactor`) when the keys are a word of
+  another language: a known English word (not a rare one, SCOWL above `extraLevel`, against a
+  Korean word on the same keys: `ths` 손), a known Korean word, or clean kana of 4+ at
+  `japanesePhrase`'s score (`inumanisentaku` after English). A dictionary word with a capital on
+  a Korean shift key inside (`wOrk`, 쟤가) gets no English floor.
 - `render(_:as: .mixed)` uses the engine's split when the engine makes one, else the plain
   particle split (what an Esc-forced mixed reading shows).
 
@@ -115,6 +132,41 @@ tests use `FakeTextField`). It owns the preview and hysteresis, commits, Esc rea
   candidate window and with live conversion. `AppPolicies.migrateSwitchKey` moves the
   `switchKey` of builds between 0.1.8 and 0.1.9 (settings.json, never released) into `"*"`; an
   entry's `escapeToApp` (0.1.8 and earlier) still applies until the entry names its own `switchKeys`.
+- Words of the line can be fixed later (`Fixing`, `FixingTests`): `finalize` keeps each word that
+  went in with a boundary in `recent` (20, cleared by Return and `activate`, kept across clicks and
+  arrows, each checked against the field when used; text deleted or typed over drops the words from
+  there, `forgetRecent`). A `.cycle` (not Esc, often the app's) with the caret on one marks that word
+  again (`Fixing.marked` words; the rest of the line, `trailing`, isn't touched), read the next way;
+  the switch key cycles the clause, ←/→ resize it as in kanji conversion (the next words past a
+  word's end, a cut inside one leaving the rest read on its own), Return on a cut settles the front,
+  Esc and Delete revert, a mark the app didn't put there drops the fix untouched (`markLanded`), and
+  anything else confirms with one insert over the marked text, then the rest of the line over itself
+  so the caret ends where it was typing (`caretToLineEnd`; ⌘Z takes two). macOS text views mark and
+  insert at the caret whatever range is named (the settings window's typing pane and Notes: real
+  keys, 2026-10-28; marking with the caret elsewhere lost text in both), except an insert whose range
+  starts or ends at the caret, and marked text with a range, which goes at the caret with that much
+  replaced from there. So where `TextClient.marksFromCaret` (macOS), a caret elsewhere in the word is
+  moved first: the rest of the word over itself, then the word replaced by the character before it,
+  and the word marked at its start (Notes, real keys, 2026-10-29). → past the marked words
+  (`growMark`) takes the marked text away (the caret at its start) and marks it again over the next
+  word; inserts there right after the marked text went in landed at the caret instead (Notes, real
+  keys, 2026-10-29). Only forward: the caret can't be put before text that stays after it, so a word
+  ← gives back stays marked. The field's first word has no such character: from
+  inside it, `switchInPlace` switches it as the word just committed is (no mark; `Committed.inLine`
+  updates its `recent` entry when the window closes). ⇧← on the word being typed,
+  or ←/→ right after a switch key changed it, makes it a fix (`startFixingTyped`; `Key.shiftLeft`/
+  `.shiftRight`, elsewhere ←/→). Not the word just committed: marking it needs the caret moved
+  back first, and an insert to do that right after the switch key's went in at the caret (Notes and
+  the typing pane, tried both ways); making that switch a fix broke the learned capsule, Caps Lock
+  and 3-set boundaries. Only through the field itself
+  (`uncased`: Caps Lock's client would change the rest of the line). The strip lists the clause's readings
+  (`clauseReadings`), numbered (`Readings.numbered`): a digit picks one. `caretMoved` lists an unsure
+  word's readings (`fixHintConfidence`) after an arrow the app took, under the word's range it returns:
+  with nothing marked only `firstRect` places it, whose origin comes at the line's top through IMK
+  (TextEdit and Notes, against `attributes(forCharacterIndex:)` for the same marked text, 2026-10-29;
+  the list covered the line), so `InputController.firstRect` moves it down by its height, for the
+  caret's place (`PauseHUD`) too. Not where a composition is only
+  at the caret (`TextClient.marksAnywhere`, `TextContext.marksAtCaret`: fcitx5, Windows floating).
 - Return on an underlined word only confirms it (`returnConfirmsOnly`, on by default); off, the
   app gets the Return too, except after Japanese.
 - Vim reports its modes through `scripts/vim/araso.{lua,vim}` (`Araso --vim <mode> --app
@@ -161,11 +213,19 @@ tests use `FakeTextField`). It owns the preview and hysteresis, commits, Esc rea
   its boundary in one `insertText`. Ghostty sends text committed on a letter key as text and
   encodes nothing for a key the IME consumed while composing, which is what makes this work there;
   it reports its mouse selection as the caret, so the post-commit flip window can't.
-- ⌘ going down (`commandPressed`, from flagsChanged) commits a held word too, and resets the run
-  as a shortcut does: Ghostty acts on ⌘V itself without showing the input method the key, and
-  pasted over the marked text. A word without a boundary isn't committed by ⌘ (the next letters
-  would start a new word). A Hyper key (⌃⌥⇧⌘ at once), which the switch and pause taps ignore,
-  counts as ⌘ here.
+- ⌘ going down (`commandPressed`, from flagsChanged) commits the word being typed, in every app,
+  with or without a boundary (a held word goes in with its boundary), and resets the run as a
+  shortcut does: Ghostty acts on ⌘V and ⌘⌫ itself without showing the input method the key, so the
+  paste replaced the underlined word and its ⌘⌫ (a line delete there) skipped that word for the text
+  before it (the underlined word wasn't text to it yet). With nothing being typed a ⌘ changes
+  nothing. The cost is that a ⌘ let go mid-word starts a new word with the next letters
+  (`CommandWhileComposingTests`). The strip is synced after it only when a word went in (it returns
+  whether one did), since a conversion's candidates go in with the word; a ⌘ that changed nothing
+  would start the learned capsule over. On Windows and Linux `ServiceRuntime` passes `heldWordOnly:
+  true`: Ctrl+V does reach the text service (or the fcitx5 addon) as a key (`.other` commits first),
+  so only a held word goes in, and a Ctrl let go on its own or AltGr's virtual left Ctrl doesn't
+  split the word. A Hyper key (⌃⌥⇧⌘ at once), which the switch and pause taps ignore, counts as ⌘
+  here.
 
 **Windows** (docs/windows-port.md): `ArasoService` (Swift, portable, tested on macOS too) is
 what InputMethodKit and `Runtime` are here: a session per text service over a snapshot of the field
@@ -208,6 +268,13 @@ run `scripts/install.sh` again afterwards.
 **Per-app policy** (`AppPolicy.swift`): in `apps.json`, `"*"` is the user's default and an app
 entry names only the keys that differ; a key ending in `.` matches as a prefix. There is no
 built-in app list, so add an entry only when the user asks for one.
+- `japanese` (an app's entry only; nil follows `Settings.japanese`) turns Japanese on or off in one
+  app. The engine is shared, so it has the Japanese model whenever Japanese is on in the settings or
+  some app turns it on (`AppPolicies.turnsJapaneseOn`, `Runtime`/`ServiceRuntime.japaneseLoaded`);
+  where it is off, `InputSession.japaneseEnabled` (picked again on `activate`) asks it with
+  `DecisionContext.japanese` false, which `HeuristicEngine`, `SplittingEngine` and
+  `DictionaryEngine.withParticle` read as no Japanese model, and hands out no converter.
+  `AppJapaneseTests`.
 
 **Resources.** Data files are found by `Resources.swift`: `Contents/Resources` in the app, the
 source tree in development. SPM resource bundles are avoided on purpose, because they'd sit outside
@@ -244,6 +311,11 @@ runtime.
     fills the dictionary with every eval.tsv word, and with en_50k's top 20k as English, and
     requires no eval.tsv row to split (skipped without tools/data; `ARASO_TOOLS_DATA=<main
     checkout>/tools/data` from a worktree).
+  - For a split or a bias on real prose, `tools/eval_text.py` runs this repository's Korean documents
+    (README.md, CONTRIBUTING.md, docs/url-run.md, docs/user-dictionary.md, .github/release-notes.md)
+    with the previous word's language from the text; `--list` prints the misses. For a front that is a
+    name, also run `tools/data/en_50k.txt` with the first letter capitalized, after nothing, Korean and
+    English, and diff the decisions. `araso-cli --split` prints `ParticleSplitter.scored`'s detail.
   - For English + particle, `tools/eval_particles.py` types word × particle through a session
     (`araso-cli --type`) and reports accuracy per kind, plus words that must stay English.
   - The CLI only shows the engine's decision, so also test through a session: an earlier split

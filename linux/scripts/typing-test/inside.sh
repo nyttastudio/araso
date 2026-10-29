@@ -94,8 +94,13 @@ expect "the 한/영 key switches the word" "dkssud "
 field; xdotool key Hangul_Hanja; xdotool type --delay 80 "dkssud "; xdotool key Hangul_Hanja; xdotool type --delay 80 "dkssud "
 expect "the 한자 key pauses" "dkssud 안녕 "
 
-# vim's mode (scripts/vim sends it): in normal mode every key goes straight to the app.
+# vim's mode (scripts/vim sends it): in normal mode every key goes straight to the app. The mode
+# goes to the addon's socket directly, so the keys typed before it must have reached the field
+# first (they come through X and the app): without waiting, insert overtook the last ones (dks녕).
 field; araso-settings --vim normal; sleep 0.3; xdotool type --delay 80 "dkssud "
+arrived=0
+for _ in $(seq 25); do [ "$(cat /tmp/out.txt 2>/dev/null)" = "dkssud " ] && { arrived=1; break; }; sleep 0.2; done
+[ $arrived = 1 ] || { echo "FAIL vim's normal mode: the keys didn't reach the field in 5 s"; failures=$((failures + 1)); }
 araso-settings --vim insert; sleep 0.3; xdotool type --delay 80 "dkssud "; araso-settings --vim off
 expect "vim's normal mode passes keys, insert mode decides" "dkssud 안녕 "
 

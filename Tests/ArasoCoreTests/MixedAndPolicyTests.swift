@@ -20,6 +20,16 @@ let splitting = SplittingEngine(base: sharedEngine, english: sharedEngine.englis
         #expect(d.output == expected)
     }
 
+    /// A name the word list doesn't know, written with its capital (Araso, Legato, Esc), splits
+    /// before a core particle (no `unknownFront` there), and the English + Korean word cut it has to
+    /// clear is scored at the cost it would pay standing: Lega + 새를 doesn't bar Legato + 를.
+    @Test(arguments: [("Arasork", "Araso가"), ("Arasodp", "Araso에"), ("Legatofmf", "Legato를"), ("Legatodptj", "Legato에서"),
+                      ("Escrk", "Esc가"), ("Escfmf", "Esc를"), ("Raycastdptj", "Raycast에서")])
+    func splitsNamePlusCoreParticle(keys: String, expected: String) {
+        let d = splitting.decide(keys, context: DecisionContext())
+        #expect(d.language == .mixed && d.output == expected, "\(keys) → \(d.output) \(d.explanation)")
+    }
+
     // An acronym that a lingering Shift could also read as Korean (TM as 쓰, TL as 씨) splits when the
     // particle is the form its last letter's name takes (티엠은, 이엘이), or when the Korean reading
     // puts the wrong form after its word (씨을, 꺼을: no word + particle floor).
@@ -109,7 +119,10 @@ let splitting = SplittingEngine(base: sharedEngine, english: sharedEngine.englis
     // names that spell like English (cartman ≠ car스무) and clean romaji (はさんそを) stay whole.
     @Test(arguments: ["work", "park", "hello", "thanks", "dkssudgktpdy", "akadp", "ruxdp", "wkfrk",
                       "TkdRjvnfdms", "dlTdj", "Rmxdptj", "ThkTdjdy", "RoRmtgkgfusk",
-                      "cartman", "Cartman", "stuntman", "comstock", "wolfsbane", "hasansowo", "nonakawo"])
+                      "cartman", "Cartman", "stuntman", "comstock", "wolfsbane", "hasansowo", "nonakawo",
+                      // Names ending in the keys of 도, 나, 이, 해 (eh, sk, di, go) stay whole: the name
+                      // allowance covers core particles only.
+                      "Neleh", "Kursk", "Jordi", "Thiago", "Hidalgo", "Rinaldi"])
     func leavesWholeWordsAlone(keys: String) {
         #expect(splitting.decide(keys, context: DecisionContext()).language != .mixed)
     }

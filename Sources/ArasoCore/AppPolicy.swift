@@ -40,18 +40,26 @@ public struct AppPolicy: Codable, Equatable, Sendable {
     /// Full-width digits and spaces after Japanese (when turned on in the settings) apply here;
     /// false keeps them half-width in this app (a terminal, a code editor).
     public var fullWidth: Bool
+    /// Japanese in this app, on or off whatever the Languages tab says; nil follows it
+    /// (`Settings.japanese`). Off, words are decided between Korean and English only, as with
+    /// Japanese off everywhere. Only an app's entry sets it: the Languages tab is the default.
+    public var japanese: Bool?
 
     public static let standardSwitchKeys: Set<SwitchKey> = [.rightOption, .shiftEscape]
 
     public init(enabled: Bool = true, conversionThreshold: Double = 0.5,
                 switchKeys: Set<SwitchKey> = AppPolicy.standardSwitchKeys, holdSpace: Bool = false,
-                fullWidth: Bool = true) {
+                fullWidth: Bool = true, japanese: Bool? = nil) {
         self.enabled = enabled
         self.conversionThreshold = conversionThreshold
         self.switchKeys = switchKeys
         self.holdSpace = holdSpace
         self.fullWidth = fullWidth
+        self.japanese = japanese
     }
+
+    /// Whether Japanese is on here, given the Languages tab's setting.
+    public func japanese(default japaneseOn: Bool) -> Bool { japanese ?? japaneseOn }
 
     public static let standard = AppPolicy()
     /// The "strict" choice: convert only when quite sure (short shell commands and identifiers
@@ -66,17 +74,19 @@ public struct AppPolicy: Codable, Equatable, Sendable {
         public var switchKeys: Set<SwitchKey>?
         public var holdSpace: Bool?
         public var fullWidth: Bool?
+        public var japanese: Bool?
         /// 0.1.8 and earlier: true sent Esc to the app, false made it switch. Read for an entry
         /// that doesn't name `switchKeys`, as a change to the default's Esc, and kept until it does.
         var escapeToApp: Bool?
 
         public init(enabled: Bool? = nil, conversionThreshold: Double? = nil, switchKeys: Set<SwitchKey>? = nil,
-                    holdSpace: Bool? = nil, fullWidth: Bool? = nil) {
+                    holdSpace: Bool? = nil, fullWidth: Bool? = nil, japanese: Bool? = nil) {
             self.enabled = enabled
             self.conversionThreshold = conversionThreshold
             self.switchKeys = switchKeys
             self.holdSpace = holdSpace
             self.fullWidth = fullWidth
+            self.japanese = japanese
         }
 
         /// The keys of `policy` that differ from `base`.
@@ -85,7 +95,8 @@ public struct AppPolicy: Codable, Equatable, Sendable {
                       conversionThreshold: policy.conversionThreshold == base.conversionThreshold ? nil : policy.conversionThreshold,
                       switchKeys: policy.switchKeys == base.switchKeys ? nil : policy.switchKeys,
                       holdSpace: policy.holdSpace == base.holdSpace ? nil : policy.holdSpace,
-                      fullWidth: policy.fullWidth == base.fullWidth ? nil : policy.fullWidth)
+                      fullWidth: policy.fullWidth == base.fullWidth ? nil : policy.fullWidth,
+                      japanese: policy.japanese == base.japanese ? nil : policy.japanese)
         }
 
         public func applied(to base: AppPolicy) -> AppPolicy {
@@ -97,11 +108,12 @@ public struct AppPolicy: Codable, Equatable, Sendable {
                              conversionThreshold: conversionThreshold ?? base.conversionThreshold,
                              switchKeys: keys,
                              holdSpace: holdSpace ?? base.holdSpace,
-                             fullWidth: fullWidth ?? base.fullWidth)
+                             fullWidth: fullWidth ?? base.fullWidth,
+                             japanese: japanese ?? base.japanese)
         }
 
         private enum CodingKeys: String, CodingKey {
-            case enabled, conversionThreshold, switchKeys, holdSpace, fullWidth, escapeToApp
+            case enabled, conversionThreshold, switchKeys, holdSpace, fullWidth, japanese, escapeToApp
         }
 
         public init(from decoder: Decoder) throws {
@@ -115,6 +127,7 @@ public struct AppPolicy: Codable, Equatable, Sendable {
             switchKeys = (value(.switchKeys) as [String]?).map { Set($0.compactMap(SwitchKey.init(rawValue:))) }
             holdSpace = value(.holdSpace)
             fullWidth = value(.fullWidth)
+            japanese = value(.japanese)
             escapeToApp = value(.escapeToApp)
         }
 
@@ -125,6 +138,7 @@ public struct AppPolicy: Codable, Equatable, Sendable {
             try c.encodeIfPresent(switchKeys.map(SwitchKey.list), forKey: .switchKeys)
             try c.encodeIfPresent(holdSpace, forKey: .holdSpace)
             try c.encodeIfPresent(fullWidth, forKey: .fullWidth)
+            try c.encodeIfPresent(japanese, forKey: .japanese)
             // The 0.1.8 key stays until the entry names its own switch keys.
             if switchKeys == nil { try c.encodeIfPresent(escapeToApp, forKey: .escapeToApp) }
         }
@@ -169,13 +183,27 @@ public struct AppPolicies: Sendable {
 
     /// What every app uses unless its own entry says otherwise.
     public var defaultPolicy: AppPolicy {
-        overrides[Self.defaultKey]?.applied(to: .standard) ?? .standard
+        // The default's Japanese is the Languages tab's: a "*" entry naming it is left out.
+        var policy = overrides[Self.defaultKey]?.applied(to: .standard) ?? .standard
+        policy.japanese = nil
+        return policy
     }
 
     /// The apps the user listed (the default entry excluded).
     public var apps: [String] {
         overrides.keys.filter { $0 != Self.defaultKey }.sorted()
     }
+
+    /// Whether some app turns Japanese on itself: the Japanese model and converter are needed even
+    /// with it off in the Languages tab.
+    public var turnsJapaneseOn: Bool {
+        overrides.contains { $0.key != Self.defaultKey && $0.value.japanese == true }
+    }
+
+    /// Whether Japanese is on somewhere, given the Languages tab's setting: there, or in an app of
+    /// its own. What its options (live conversion, romaji layout, full width) and a dictionary entry
+    /// for every app go by.
+    public func japaneseUsed(default japaneseOn: Bool) -> Bool { japaneseOn || turnsJapaneseOn }
 
     public func policy(for bundleIdentifier: String?) -> AppPolicy {
         let base = defaultPolicy
@@ -185,6 +213,8 @@ public struct AppPolicies: Sendable {
 
     /// Sets the default, naming only what differs from Araso's own.
     public mutating func setDefault(_ policy: AppPolicy) {
+        var policy = policy
+        policy.japanese = nil // the Languages tab's
         let entry = AppPolicy.Override(difference: policy, from: .standard)
         overrides[Self.defaultKey] = entry == AppPolicy.Override() ? nil : entry
     }
