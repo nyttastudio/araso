@@ -1098,18 +1098,29 @@ public final class InputSession {
         return true
     }
 
-    /// The readable text after the UTF-16 offset `location`, up to 64 UTF-16 units or the first
-    /// LF, CR, or line separator (U+2028). Nil if no range there can be read.
+    /// The text after the UTF-16 offset `location` up to the end of its line (a line break, or where
+    /// the field stops giving text), read `trailingLookAhead` units at a time. Nil where nothing there
+    /// can be read, or the line goes on past `trailingLimit`: its end isn't known, and a piece of it
+    /// mustn't be taken for it (the caret goes back to the line's end after a fix).
     private func readTrailing(_ client: TextClient, from location: Int) -> String? {
-        for length in stride(from: Self.trailingLookAhead, through: 0, by: -1) {
-            guard let text = client.text(in: NSRange(location: location, length: length)) else { continue }
-            return String(text.prefix { $0 != "\n" && $0 != "\r" && $0 != "\u{2028}" })
+        var line = "", at = location
+        while utf16(line) < Self.trailingLimit {
+            var piece: String?
+            for length in stride(from: Self.trailingLookAhead, through: 0, by: -1) {
+                if let text = client.text(in: NSRange(location: at, length: length)) { piece = text; break }
+            }
+            guard let piece else { return at == location ? nil : line }
+            let upToBreak = String(piece.prefix { !$0.isNewline })
+            line += upToBreak
+            if upToBreak.count < piece.count || utf16(piece) < Self.trailingLookAhead { return line }
+            at += utf16(piece)
         }
         return nil
     }
 
-    /// How far after the last word the line is read for its end (UTF-16 units).
+    /// How much of the line after the last word is read at a time, and in all (UTF-16 units).
     private static let trailingLookAhead = 64
+    private static let trailingLimit = 4096
 
     /// The word being typed, for ⇧← or an arrow after a switch: it becomes the fix, marked as
     /// it is, and stops being typed (Return or a key puts it in, as a fix). Not a held word, Japanese

@@ -520,4 +520,18 @@ import Testing
         #expect(session.fixing == nil)
         #expect(field.text == "\(fixed) world 　")
     }
+
+    /// A line longer than one read of it: the caret still goes back to its end, not to where the
+    /// first read stopped; past a line break it stays on its own line.
+    @Test func theCaretGoesBackToTheEndOfALongLine() {
+        type("hello world ")
+        let rest = String(repeating: "x", count: 150)
+        field.insertText(rest + "\nnext", replacing: nil)
+        caret(at: 1)
+        session.handle(.cycle, client: field)
+        session.handle(.enter, client: field)
+        let line = "\(korean("hello")) world \(rest)"
+        #expect(field.text == line + "\nnext")
+        #expect(field.cursor == (line as NSString).length)
+    }
 }
