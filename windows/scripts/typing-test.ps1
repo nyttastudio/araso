@@ -280,6 +280,14 @@ $results = @(
     (Case "dkssud hello " "안녕 hello " $null "wpf"),
     # Right Alt tapped alone switches the word just committed (0x38 extended: right Alt).
     (Case "hello " "ㅗ디ㅣㅐ " { Tap 0x38 } "wpf"),
+    # A word earlier in the line: ← five times into 하세요, right Alt, → over 감사, Return, then the
+    # caret is back at the line's end (← 0x4B, → 0x4D extended; Return 0x1C).
+    (Case "dkssud gktpdy rkatk " "안녕 gktpdy rkatk hello " {
+        1..5 | ForEach-Object { Tap 0x4B }
+        Tap 0x38; Tap 0x4D
+        [Keys]::Key(0x1C, $false, $false); Start-Sleep -Milliseconds 60; [Keys]::Key(0x1C, $true, $false); Start-Sleep -Milliseconds 200
+        Send-Keys "hello "
+    } "wpf"),
     # Try Typing in the settings window: an x64 app, also on ARM64 Windows.
     (Case "dkssud hello " "안녕 hello " $null "host"),
     # A classic app's Edit control, where the word is drawn at the caret and goes in whole.

@@ -22,6 +22,7 @@
 
 #include <dlfcn.h>
 
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
@@ -76,6 +77,12 @@ public:
 
     void type(const std::string &keys);
 
+    /// The caret put at `at` (UTF-16), as a click or Ctrl+← leaves it.
+    void moveCaret(size_t at) {
+        caret = std::min(at, text.size());
+        sync();
+    }
+
 protected:
     void commitStringImpl(const std::string &string) override {
         std::u16string inserted = araso::Utf16(string);
@@ -115,6 +122,10 @@ private:
             if (caret > 0) { text.erase(caret - 1, 1); --caret; }
         } else if (sym == FcitxKey_Return) {
             text.insert(caret++, 1, u'\n');
+        } else if (sym == FcitxKey_Left) {
+            if (caret > 0) --caret;
+        } else if (sym == FcitxKey_Right) {
+            if (caret < text.size()) ++caret;
         } else if (sym >= 0x20 && sym < 0x7F) {
             text.insert(caret++, 1, static_cast<char16_t>(sym));
         } else {
@@ -251,6 +262,33 @@ int main(int argc, char **argv) {
              Check(field, "dkssud Space ⌥", "dkssud ");
              field->type("hello ");
              Check(field, "then hello", "dkssud hello ");
+             delete field;
+         }},
+        {"a word earlier in the line, fixed where it is", [](Instance &instance) {
+             auto *field = Open(instance, "gedit");
+             field->type("hello world again ");
+             field->moveCaret(8); // wo|rld
+             field->type("⌥");
+             // Underlined again where it was, read the next way, the rest of the line as it was.
+             Expect(!field->preedit.empty() && field->preedit != "world", "world underlined, read the next way", field->preedit);
+             Check(field, "⌥ in world", "hello " + field->preedit + " again ");
+             field->type("→");
+             Expect(field->preedit.find(' ') != std::string::npos, "→ takes in again", field->preedit);
+             std::string clause = field->preedit;
+             field->type("⏎");
+             Check(field, "→ ⏎", "hello " + clause + " ");
+             Expect(field->preedit.empty() && field->caret == field->text.size(), "the caret at the line's end",
+                    std::to_string(field->caret));
+             delete field;
+         }},
+        {"the field's first word, switched in place", [](Instance &instance) {
+             auto *field = Open(instance, "gedit");
+             field->type("hello world ");
+             field->moveCaret(2); // he|llo
+             field->type("⌥");
+             Check(field, "⌥ in hello", "ㅗ디ㅣㅐ world ");
+             field->type("⌥");
+             Check(field, "and ⌥ again", "hello world ");
              delete field;
          }},
         {"Backspace while composing", [](Instance &instance) {

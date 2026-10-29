@@ -65,8 +65,18 @@ private:
     int caret_ = 0;
     std::u16string preedit_;
     int clauseStart_ = 0, clauseLength_ = 0;
+    /// The field and caret before the last edits made in the app, until it reports anything else.
+    bool before_ = false;
+    std::u16string sentBefore_;
+    int sentCaret_ = 0;
 
     int compositionEnd() const { return caret_ + static_cast<int>(preedit_.size()); }
+    /// The app's field: `text_` without the composition, the caret at `caret_`.
+    std::u16string field() const;
+    /// `edits` as one deletion around the caret and one commit, where they make one such change of
+    /// `before` (caret at `caret`) into `after` (caret at `newCaret`); else as they are.
+    static std::vector<Edit> Coalesced(std::vector<Edit> edits, const std::u16string &before, int caret,
+                                       const std::u16string &after, int newCaret);
     static unsigned Characters(const std::u16string &text, int from, int to);
 };
 
