@@ -447,7 +447,9 @@ public final class ServiceRuntime {
         case .escape where session.policy.switchKeys.contains(.escape):
             return true // it may switch the word just committed
         default:
-            if !session.keys.isEmpty || session.conversion != nil { return true }
+            // A word being typed, converted or fixed (an earlier one, marked again) takes its keys:
+            // ←/→, digits, Delete and Return mean something there.
+            if !session.keys.isEmpty || session.conversion != nil || session.fixing != nil { return true }
             _ = session.handle(sessionKey, client: SnapshotClient.detached())
             return false
         }

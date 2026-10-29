@@ -122,6 +122,41 @@ tests use `FakeTextField`). It owns the preview and hysteresis, commits, Esc rea
   candidate window and with live conversion. `AppPolicies.migrateSwitchKey` moves the
   `switchKey` of builds between 0.1.8 and 0.1.9 (settings.json, never released) into `"*"`; an
   entry's `escapeToApp` (0.1.8 and earlier) still applies until the entry names its own `switchKeys`.
+- Words of the line can be fixed later (`Fixing`, `FixingTests`): `finalize` keeps each word that
+  went in with a boundary in `recent` (20, cleared by Return and `activate`, kept across clicks and
+  arrows, each checked against the field when used; text deleted or typed over drops the words from
+  there, `forgetRecent`). A `.cycle` (not Esc, often the app's) with the caret on one marks that word
+  again (`Fixing.marked` words; the rest of the line, `trailing`, isn't touched), read the next way;
+  the switch key cycles the clause, ←/→ resize it as in kanji conversion (the next words past a
+  word's end, a cut inside one leaving the rest read on its own), Return on a cut settles the front,
+  Esc and Delete revert, a mark the app didn't put there drops the fix untouched (`markLanded`), and
+  anything else confirms with one insert over the marked text, then the rest of the line over itself
+  so the caret ends where it was typing (`caretToLineEnd`; ⌘Z takes two). macOS text views mark and
+  insert at the caret whatever range is named (the settings window's typing pane and Notes: real
+  keys, 2026-10-28; marking with the caret elsewhere lost text in both), except an insert whose range
+  starts or ends at the caret, and marked text with a range, which goes at the caret with that much
+  replaced from there. So where `TextClient.marksFromCaret` (macOS), a caret elsewhere in the word is
+  moved first: the rest of the word over itself, then the word replaced by the character before it,
+  and the word marked at its start (Notes, real keys, 2026-10-29). → past the marked words
+  (`growMark`) takes the marked text away (the caret at its start) and marks it again over the next
+  word; inserts there right after the marked text went in landed at the caret instead (Notes, real
+  keys, 2026-10-29). Only forward: the caret can't be put before text that stays after it, so a word
+  ← gives back stays marked. The field's first word has no such character: from
+  inside it, `switchInPlace` switches it as the word just committed is (no mark; `Committed.inLine`
+  updates its `recent` entry when the window closes). ⇧← on the word being typed,
+  or ←/→ right after a switch key changed it, makes it a fix (`startFixingTyped`; `Key.shiftLeft`/
+  `.shiftRight`, elsewhere ←/→). Not the word just committed: marking it needs the caret moved
+  back first, and an insert to do that right after the switch key's went in at the caret (Notes and
+  the typing pane, tried both ways); making that switch a fix broke the learned capsule, Caps Lock
+  and 3-set boundaries. Only through the field itself
+  (`uncased`: Caps Lock's client would change the rest of the line). The strip lists the clause's readings
+  (`clauseReadings`), numbered (`Readings.numbered`): a digit picks one. `caretMoved` lists an unsure
+  word's readings (`fixHintConfidence`) after an arrow the app took, under the word's range it returns:
+  with nothing marked only `firstRect` places it, whose origin comes at the line's top through IMK
+  (TextEdit and Notes, against `attributes(forCharacterIndex:)` for the same marked text, 2026-10-29;
+  the list covered the line), so `InputController.firstRect` moves it down by its height, for the
+  caret's place (`PauseHUD`) too. Not where a composition is only
+  at the caret (`TextClient.marksAnywhere`, `TextContext.marksAtCaret`: fcitx5, Windows floating).
 - Return on an underlined word only confirms it (`returnConfirmsOnly`, on by default); off, the
   app gets the Return too, except after Japanese.
 - Vim reports its modes through `scripts/vim/araso.{lua,vim}` (`Araso --vim <mode> --app

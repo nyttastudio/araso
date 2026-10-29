@@ -112,6 +112,7 @@ Json Document::context(bool masked) const {
     context.set("start", start);
     if (!known_) context.set("unreadable", true);
     if (masked) context.set("masked", true);
+    context.set("marksAtCaret", true); // the preedit is always at the caret
     return context;
 }
 

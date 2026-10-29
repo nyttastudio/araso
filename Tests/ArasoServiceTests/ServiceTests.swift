@@ -12,6 +12,8 @@ final class FakeDocument {
     var composition: NSRange?
     var cursor = 0
     var readable = true
+    /// The composition can only be at the caret (fcitx5's preedit).
+    var marksAtCaret = false
     /// The clause the last mark drew as the one being converted.
     var clause: [Int]?
 
@@ -23,6 +25,7 @@ final class FakeDocument {
         var context = TextContext(selection: [cursor, 0], marked: composition.map { [$0.location, $0.length] },
                                   text: ns.substring(with: NSRange(location: start, length: end - start)), start: start)
         if !readable { context.unreadable = true }
+        if marksAtCaret { context.marksAtCaret = true }
         return context
     }
 
@@ -85,6 +88,7 @@ enum Keys {
     static let shiftEscape = WindowsKey(vk: KeyMapper.vkEscape, scan: 0x01, shift: true)
     static let back = WindowsKey(vk: KeyMapper.vkBack, scan: 0x0E)
     static let enter = WindowsKey(vk: KeyMapper.vkReturn, scan: 0x1C)
+    static let left = WindowsKey(vk: KeyMapper.vkLeft, scan: 0x4B, extended: true)
     static let space = key(" ")
 }
 
@@ -195,6 +199,37 @@ final class Harness {
         // The readings it went through, listed under the word.
         #expect(h.ui?.readings?.tags.contains("KO") == true)
         #expect(h.ui?.readings?.texts.contains("ㅗ디ㅣㅐ") == true)
+    }
+
+    /// A word earlier in the line, the caret moved onto it: the switch key composes it again where
+    /// it is, read the next way, and Enter puts it in. The text service sends nothing after the
+    /// caret, so the caret stays after the word.
+    @Test func switchKeyFixesAWordEarlierInTheLine() throws {
+        let h = try Harness()
+        h.type("hello world ")
+        h.document.cursor = 5 // right after hello: what is after the caret isn't sent
+        #expect(h.tap(Keys.rightAlt, Keys.rightAltUp))
+        #expect(h.document.text == "ㅗ디ㅣㅐ world ")
+        #expect(h.document.composition == NSRange(location: 0, length: 4))
+        #expect(h.ui?.readings?.texts.contains("ㅗ디ㅣㅐ") == true)
+        // The text service asks first whether a key is kept: while fixing, ← and Return are.
+        #expect(h.send(ServiceRequest(op: .test, client: h.client, key: Keys.left)).reply.handled)
+        #expect(h.send(ServiceRequest(op: .test, client: h.client, key: Keys.enter)).reply.handled)
+        #expect(h.document.composition == NSRange(location: 0, length: 4)) // the test changed nothing
+        h.press(Keys.enter)
+        #expect(h.document.text == "ㅗ디ㅣㅐ world ")
+        #expect(h.document.composition == nil)
+    }
+
+    /// Where the composition is always at the caret (fcitx5), a word earlier in the line stays.
+    @Test func noFixingWhereTheCompositionIsAtTheCaret() throws {
+        let h = try Harness()
+        h.document.marksAtCaret = true
+        h.type("hello world ")
+        h.document.cursor = 2
+        _ = h.tap(Keys.rightAlt, Keys.rightAltUp)
+        #expect(h.document.text == "hello world ")
+        #expect(h.document.composition == nil)
     }
 
     @Test func aCorrectionMadeTwiceIsMarkedAndListedInTheMenu() throws {

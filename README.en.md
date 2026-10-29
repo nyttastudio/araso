@@ -341,7 +341,35 @@ phrase live conversion leaves as kana (`たけ`), a switch key switches at once.
 Right after a word is committed with Space or punctuation, a language switch key switches it to its
 next reading, and pressing it again keeps cycling. Deleting the space or punctuation first keeps
 that chance; any other key ends it. This needs the caret still right after the word, and an app that
-lets Araso read the text there.
+lets Araso read the text there. Right after such a switch the strip is numbered, and a digit picks that
+reading (a digit typed without a switch goes in as usual).
+
+A word earlier in the line can be fixed too. Put the caret anywhere in it (click, ⌥←, ⌥→) and tap
+right ⌥ (or ⇧Esc, or ⌥Space if chosen): that word alone is underlined again, read the next way,
+the caret at its end; the words after it stay as they are. The field's first word is underlined only
+with the caret before it, and switched in place, without an underline, from anywhere else in it
+(macOS text views put marked text at the caret, and moving the caret there needs a character before
+the word). Tapping again keeps cycling, and as in
+Japanese conversion the thick underline is the part being fixed: → makes it a key longer, taking in
+the next word past the end of one (`dkssud gktpdy` → `안녕 하세요`, the underline growing with it); ← makes it shorter, and a cut
+inside a word leaves the rest of its keys to be read on their own (`hellofmf` → `hello` + `를`). A word ← gives
+back reads as it was but keeps a thin underline.
+The strip under it follows, listing the readings of the part being fixed, numbered: a digit
+switches to that reading, as in the candidate window. Return on such a front
+part settles it and goes on with the rest. ⇧←/⇧→ do the same. The word being
+typed can be cut the same way: after a switch key changed its reading ←/→ do it, before that ⇧←
+(`helloab`, ⇧←⇧← → `hello` | `ab`; ← before a switch puts the word in and moves the caret, as
+before). A word just committed with Space is fixed from its start, after ⌥← (macOS text views put
+marked text only at the caret). Return or any other key puts the
+fix in and takes the caret back to the end of the line (⌘Z takes two: one selects the rest of the
+line, the next puts the fix back); Esc (where it isn't a switch key) and Delete
+put everything back. A whole word fixed
+is learned as a correction right after the commit is; a cut word isn't. When an arrow key leaves the
+caret on a word Araso wasn't sure of, its readings show in the strip under it first. Words before a
+Return can't be fixed, nor words changed by hand since. On Linux (fcitx5), and on Windows in apps
+where Araso keeps the word itself, an underline can only be at the caret, so this isn't there; on
+Windows the text after the caret can't be read, so the caret has to be right after the word (and
+stays there rather than going back to the end of the line).
 
 A word corrected once leans that way from then on: a close call (`so`/`내`) turns, a clear one
 doesn't, so a stray switch doesn't do much. It is forgotten after 30 days unless corrected or typed

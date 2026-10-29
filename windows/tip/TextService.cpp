@@ -531,6 +531,7 @@ Json TextService::Snapshot(TfEditCookie cookie, ITfContext *context, bool &maske
         scopes->Release();
     }
     out.set("masked", masked);
+    if (Floats(context)) out.set("marksAtCaret", true);
 
     ITfRangeACP *selectedACP = nullptr;
     LONG selStart = 0, selLength = 0;

@@ -285,6 +285,8 @@ private final class StripCell: NSView {
     private let mark: Mark?
     private var markView: MarkView?
     private var outcome: NSTextField?
+    /// How far the text and the mark move left when the number goes (`dropNumber`).
+    private var numberRoom: CGFloat = 0
 
     override var isFlipped: Bool { true }
 
@@ -332,9 +334,11 @@ private final class StripCell: NSView {
     }
 
     /// Makes room after the text for what a correction did (the mark's place, then `word`) and
-    /// returns the width it now takes.
+    /// returns the width it now takes, without the number: the reading is chosen, and its text is
+    /// to land on the word's first letter, as an unnumbered cell's does.
     func makeRoom(for word: String) -> CGFloat {
         let height = CaretPanel.indicatorHeight
+        numberRoom = number == nil ? 0 : text.frame.minX - Self.pad
         let view = markView ?? {
             let view = MarkView()
             view.setFrameOrigin(Self.markOrigin(after: text.frame.maxX))
@@ -344,12 +348,23 @@ private final class StripCell: NSView {
         }()
         let label = Paper.label(word, size: 12, weight: .semibold)
         label.textColor = .white
-        Self.place(label, x: view.frame.maxX + 6)
+        Self.place(label, x: view.frame.maxX - numberRoom + 6)
         label.alphaValue = 0
         addSubview(label)
         outcome = label
         setFrameSize(NSSize(width: label.frame.maxX + Self.pad, height: height))
         return frame.width
+    }
+
+    /// The number goes and the text and the mark move into the room `makeRoom` left them; called
+    /// inside an animation, they move with the capsule.
+    func dropNumber() {
+        guard let number, numberRoom > 0 else { return }
+        number.animator().alphaValue = 0
+        for view in [text, markView].compactMap({ $0 }) {
+            view.animator().setFrameOrigin(NSPoint(x: view.frame.minX - numberRoom, y: view.frame.minY))
+        }
+        numberRoom = 0
     }
 
     /// What a correction did: a pencil that writes once, the check drawing itself when learned
@@ -383,7 +398,7 @@ private final class StripCell: NSView {
 /// views move, never the window, so what moves stays in step and keeps its shadow.
 @MainActor enum StripHUD {
     private enum Shown: Equatable {
-        case readings([String], [Mark?])
+        case readings([String], [Mark?], numbered: Bool)
         case candidates([String], page: Int)
     }
 
@@ -432,13 +447,15 @@ private final class StripCell: NSView {
         choose = nil
         generation += 1
         let marks = readings.texts.indices.map { readings.mark($0) }
-        let next = Shown.readings(readings.texts, marks)
+        let next = Shown.readings(readings.texts, marks, numbered: readings.numbered)
         if isUp, !settling, shown == next {
             select(readings.selected)
         } else {
             settling = false
             pageStart = 0
-            build(readings.texts.indices.map { StripCell(readings.texts[$0], mark: marks[$0]) }, layout: .row,
+            build(readings.texts.indices.map {
+                StripCell(readings.texts[$0], number: readings.numbered && $0 < 9 ? $0 + 1 : nil, mark: marks[$0])
+            }, layout: .row,
                   selected: readings.selected, word: word)
         }
         shown = next
@@ -565,6 +582,7 @@ private final class StripCell: NSView {
             animate(0.22, ease, {
                 strip.animator().setFrameOrigin(NSPoint(x: strip.frame.minX + to - from, y: margin))
                 thumb.animator().frame = NSRect(x: start.minX, y: 0, width: width, height: height)
+                cell.dropNumber()
                 if learned.learning == .forgot {
                     var gray = Paper.reset.cgColor
                     thumb.effectiveAppearance.performAsCurrentDrawingAppearance { gray = Paper.reset.cgColor }
