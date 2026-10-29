@@ -113,7 +113,7 @@ pkg, not both.
 The same input method on Windows 10 (1809) or later. Deciding words, the dictionary and learning are
 the same code as on macOS; kanji conversion is AzooKey's.
 
-1. Download `Araso-Setup.exe` from the [Windows beta](https://github.com/nyttastudio/araso/releases/tag/windows-beta-1)
+1. Download `Araso-Setup.exe` from the [Windows beta](https://github.com/nyttastudio/araso/releases/tag/windows-beta-2)
    and install it. It registers Araso and adds it to Korean's input methods, on x64 and ARM64 PCs
    alike. It isn't code-signed yet: when "Windows protected your PC" shows, choose **More info → Run anyway**.
 2. Pick **Araso** in the taskbar's input indicator. Its menu is the macOS input menu.
@@ -149,7 +149,7 @@ and distributions like it (glibc 2.35 or later).
    The settings window runs on Qt 5, which the package doesn't carry: on Arch install `qt5-base`, on
    Fedora `qt5-qtbase-gui`. When it's missing, `install.sh` says which command installs it.
 2. Download `Araso-linux-<arch>.tar.gz` for your architecture (`uname -m`) from the
-   [Linux beta](https://github.com/nyttastudio/araso/releases/tag/linux-beta-2), unpack it and run
+   [Linux beta](https://github.com/nyttastudio/araso/releases/tag/linux-beta-3), unpack it and run
    its `./install.sh`; it asks for your password. To install from source instead (Swift 6.2, CMake,
    fcitx5's development files and Qt 6; the list is in [docs/linux-port.md](docs/linux-port.md)):
 
