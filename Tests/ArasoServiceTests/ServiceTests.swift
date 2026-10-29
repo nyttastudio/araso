@@ -344,11 +344,14 @@ final class Harness {
     @Test func noFixingWhereTheCompositionIsAtTheCaret() throws {
         let h = try Harness()
         h.document.marksAtCaret = true
+        h.document.sendsLine = true // the words are known: only marksAtCaret keeps them as they are
         h.type("hello world ")
-        h.document.cursor = 2
-        _ = h.tap(Keys.rightAlt, Keys.rightAltUp)
-        #expect(h.document.text == "hello world ")
-        #expect(h.document.composition == nil)
+        for cursor in [8, 2] { // wo|rld, and he|llo, the field's first word
+            h.document.cursor = cursor
+            _ = h.tap(Keys.rightAlt, Keys.rightAltUp)
+            #expect(h.document.text == "hello world ")
+            #expect(h.document.composition == nil)
+        }
     }
 
     @Test func aCorrectionMadeTwiceIsMarkedAndListedInTheMenu() throws {
