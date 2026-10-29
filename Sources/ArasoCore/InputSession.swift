@@ -2188,11 +2188,12 @@ public final class InputSession {
         // A segment of an identifier (en_s2c, src_dir) goes in as typed too, unless it spells a
         // Korean word of two syllables or more: file names join Korean with underscores (보고서_최종).
         // So does a word ended by a digit (cmd0), unless it is Korean written before a number (제1장).
+        // Next to a number, inside an identifier too, Korean is also a syllable written there (보고서_제1장).
         // Not a word the user taught (corrected twice or added): the dictionary decides it (so1 is 내1).
-        if inIdentifier || beforeNumber, engine.rememberedLanguage(keys, app: app) == nil {
-            if inIdentifierRun, !spellsKoreanWord(keys) { return typedAsIs(.run, "inside an identifier", partial: partial) }
-            if ending == "_", !spellsKoreanWord(keys) { return typedAsIs(.ending, "before an underscore", partial: partial) }
-            if beforeNumber, !spellsKoreanWordBeforeNumber(keys) { return typedAsIs(.ending, "before a number", partial: partial) }
+        if inIdentifier || beforeNumber, engine.rememberedLanguage(keys, app: app) == nil,
+           !(beforeNumber || afterNumber ? spellsKoreanWordBeforeNumber(keys) : spellsKoreanWord(keys)) {
+            return inIdentifierRun ? typedAsIs(.run, "inside an identifier", partial: partial)
+                 : typedAsIs(.ending, ending == "_" ? "before an underscore" : "before a number", partial: partial)
         }
         // A word typed straight after a number in Japanese text is a counter when it is romaji
         // (3ji, 5fun, 3hon); a unit like km or pm has letters that aren't (5km stays English).

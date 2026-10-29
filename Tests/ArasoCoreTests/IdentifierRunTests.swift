@@ -48,7 +48,8 @@ import Testing
     }
 
     @Test(arguments: [("qhrhtj_chlwhd ", "보고서_최종 "), ("ghldmlfhr_1023 ", "회의록_1023 "),
-                      ("vkdlf_rjatk ", "파일_검사 "), ("user_db_dkssud ", "user_db_안녕 ")])
+                      ("vkdlf_rjatk ", "파일_검사 "), ("user_db_dkssud ", "user_db_안녕 "),
+                      ("qhrhtj_wp1wkd ", "보고서_제1장 ")])
     func koreanWordsAroundAnUnderscore(_ keys: String, _ text: String) {
         type(keys)
         #expect(field.text == text)
