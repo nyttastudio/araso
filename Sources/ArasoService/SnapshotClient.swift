@@ -19,6 +19,9 @@ public final class SnapshotClient: TextClient {
 
     private static let none = NSRange(location: NSNotFound, length: 0)
 
+    /// Copies the field snapshot, honoring its readability and caret-only composition flags.
+    /// A nil context, a selection without exactly two elements, or a negative location creates a
+    /// detached client; a negative selection length is treated as zero.
     public init(_ context: TextContext?) {
         guard let context, context.selection.count == 2, context.selection[0] >= 0 else {
             units = []

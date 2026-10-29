@@ -111,6 +111,8 @@ final class InputController: IMKInputController {
         Int(NSEvent.EventTypeMask.keyDown.rawValue | NSEvent.EventTypeMask.flagsChanged.rawValue)
     }
 
+    /// Routes key and modifier events to the session and updates the reading strip. Returns true
+    /// for a consumed key; modifier events and keys in masked fields remain available to the app.
     override func handle(_ event: NSEvent!, client sender: Any!) -> Bool {
         if let event, event.type == .flagsChanged {
             // Which modifier key and which modifiers are down: no typed text.
@@ -355,6 +357,8 @@ final class InputController: IMKInputController {
         return rect
     }
 
+    /// Maps a key-down event to a session key, preserving shifted arrows and configured switch
+    /// keys. Letters use the chosen layout and Shift alone; other shortcuts become `.other`.
     @MainActor private func key(for event: NSEvent) -> InputSession.Key {
         let modifiers = event.modifierFlags.intersection([.command, .control, .option])
         if modifiers == .option, !event.modifierFlags.contains(.shift), event.keyCode == KeyCode.space,
