@@ -345,14 +345,15 @@ lets Araso read the text there. Right after such a switch the strip is numbered,
 reading (a digit typed without a switch goes in as usual).
 
 A word earlier in the line can be fixed too. Put the caret anywhere in it (click, ⌥←, ⌥→) and tap
-right ⌥ (or ⇧Esc, or ⌥Space if chosen): the line from that word to its end is underlined again, the
-word read the next way, the caret at the end of the line. The field's first word is underlined only
+right ⌥ (or ⇧Esc, or ⌥Space if chosen): that word alone is underlined again, read the next way,
+the caret at its end; the words after it stay as they are. The field's first word is underlined only
 with the caret before it, and switched in place, without an underline, from anywhere else in it
 (macOS text views put marked text at the caret, and moving the caret there needs a character before
 the word). Tapping again keeps cycling, and as in
 Japanese conversion the thick underline is the part being fixed: → makes it a key longer, taking in
-the next word past the end of one (`dkssud gktpdy` → `안녕 하세요`); ← makes it shorter, and a cut
-inside a word leaves the rest of its keys to be read on their own (`hellofmf` → `hello` + `를`).
+the next word past the end of one (`dkssud gktpdy` → `안녕 하세요`, the underline growing with it); ← makes it shorter, and a cut
+inside a word leaves the rest of its keys to be read on their own (`hellofmf` → `hello` + `를`). A word ← gives
+back reads as it was but keeps a thin underline.
 The strip under it follows, listing the readings of the part being fixed, numbered: a digit
 switches to that reading, as in the candidate window. Return on such a front
 part settles it and goes on with the rest. ⇧←/⇧→ do the same. The word being
@@ -360,7 +361,8 @@ typed can be cut the same way: after a switch key changed its reading ←/→ do
 (`helloab`, ⇧←⇧← → `hello` | `ab`; ← before a switch puts the word in and moves the caret, as
 before). A word just committed with Space is fixed from its start, after ⌥← (macOS text views put
 marked text only at the caret). Return or any other key puts the
-fix in and takes the caret back to the end of the line; Esc (where it isn't a switch key) and Delete
+fix in and takes the caret back to the end of the line (⌘Z takes two: one selects the rest of the
+line, the next puts the fix back); Esc (where it isn't a switch key) and Delete
 put everything back. A whole word fixed
 is learned as a correction right after the commit is; a cut word isn't. When an arrow key leaves the
 caret on a word Araso wasn't sure of, its readings show in the strip under it first. Words before a

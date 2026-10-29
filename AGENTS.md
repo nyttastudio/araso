@@ -125,18 +125,23 @@ tests use `FakeTextField`). It owns the preview and hysteresis, commits, Esc rea
 - Words of the line can be fixed later (`Fixing`, `FixingTests`): `finalize` keeps each word that
   went in with a boundary in `recent` (20, cleared by Return and `activate`, kept across clicks and
   arrows, each checked against the field when used; text deleted or typed over drops the words from
-  there, `forgetRecent`). A `.cycle` (not Esc, often the app's) with the caret on one marks the line
-  from it to its end (`trailing`) again, the word read the next way; the switch key cycles the
-  clause, ←/→ resize it as in kanji conversion (the next words past a word's end, a cut inside one
-  leaving the rest read on its own), Return on a cut settles the front, Esc and Delete revert, a
-  mark the app didn't put there drops the fix untouched (`markLanded`), and anything else confirms
-  with one insert over the marked text, so the caret ends where it was typing. One mark and one
-  insert because macOS text views mark and insert at the caret whatever range is named (the
-  settings window's typing pane and Notes: real keys, 2026-10-28; marking with the caret elsewhere
-  lost text in both). So where `TextClient.marksFromCaret` (macOS), a caret elsewhere in the word is
-  moved first by inserts that start or end at the caret, which go where they say: the rest of the line
-  over itself, then the line from the word replaced by the character before it, and the line marked at
-  the word's start (Notes, real keys, 2026-10-29). The field's first word has no such character: from
+  there, `forgetRecent`). A `.cycle` (not Esc, often the app's) with the caret on one marks that word
+  again (`Fixing.marked` words; the rest of the line, `trailing`, isn't touched), read the next way;
+  the switch key cycles the clause, ←/→ resize it as in kanji conversion (the next words past a
+  word's end, a cut inside one leaving the rest read on its own), Return on a cut settles the front,
+  Esc and Delete revert, a mark the app didn't put there drops the fix untouched (`markLanded`), and
+  anything else confirms with one insert over the marked text, then the rest of the line over itself
+  so the caret ends where it was typing (`caretToLineEnd`; ⌘Z takes two). macOS text views mark and
+  insert at the caret whatever range is named (the settings window's typing pane and Notes: real
+  keys, 2026-10-28; marking with the caret elsewhere lost text in both), except an insert whose range
+  starts or ends at the caret, and marked text with a range, which goes at the caret with that much
+  replaced from there. So where `TextClient.marksFromCaret` (macOS), a caret elsewhere in the word is
+  moved first: the rest of the word over itself, then the word replaced by the character before it,
+  and the word marked at its start (Notes, real keys, 2026-10-29). → past the marked words
+  (`growMark`) takes the marked text away (the caret at its start) and marks it again over the next
+  word; inserts there right after the marked text went in landed at the caret instead (Notes, real
+  keys, 2026-10-29). Only forward: the caret can't be put before text that stays after it, so a word
+  ← gives back stays marked. The field's first word has no such character: from
   inside it, `switchInPlace` switches it as the word just committed is (no mark; `Committed.inLine`
   updates its `recent` entry when the window closes). ⇧← on the word being typed,
   or ←/→ right after a switch key changed it, makes it a fix (`startFixingTyped`; `Key.shiftLeft`/

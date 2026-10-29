@@ -3,8 +3,8 @@ import Testing
 @testable import ArasoCore
 
 /// Fixing a word typed earlier in the line: a switch key with the caret on it brings it back as
-/// marked text, read the next way; ←/→ change how much is fixed; Return or any other key confirms
-/// and the caret goes back to the end of the text.
+/// marked text, read the next way, the words after it as they are; ←/→ change how much is fixed;
+/// Return or any other key confirms and the caret goes back to the end of the text.
 @MainActor @Suite struct FixingTests {
     let field = FakeTextField()
     let session: InputSession
@@ -35,9 +35,10 @@ import Testing
         #expect(session.handle(.cycle, client: field))
         let fixed = korean("hello")
         #expect(field.text == "\(fixed) world ")
-        // The line from the word on is marked; the word is the thick clause.
-        #expect(field.marked == NSRange(location: 0, length: (field.text as NSString).length))
+        // Only the word is marked, the thick clause; the caret is at its end.
+        #expect(field.marked == NSRange(location: 0, length: (fixed as NSString).length))
         #expect(field.selectedClause == NSRange(location: 0, length: (fixed as NSString).length))
+        #expect(field.cursor == (fixed as NSString).length)
         #expect(session.handle(.enter, client: field))
         #expect(field.text == "\(fixed) world ")
         #expect(field.marked.location == NSNotFound)
@@ -242,26 +243,74 @@ import Testing
         type("hello world again ")
         caret(at: 0)
         session.handle(.cycle, client: field)
-        #expect(field.marked == NSRange(location: 0, length: (field.text as NSString).length))
+        #expect(field.marked == NSRange(location: 0, length: (korean("hello") as NSString).length))
         #expect(session.fixing?.pieces.count == 3)
     }
 
-    /// A text view that marks at the caret whatever range is named (macOS's): with the caret anywhere
-    /// in a word, the line from it is marked at the word's start and the caret is at the end again.
+    /// A text view that marks at the caret whatever range is named, and inserts there unless the range
+    /// starts or ends at the caret (macOS's): with the caret anywhere in a word, the word alone is
+    /// marked at its start, the text after it untouched; confirmed, the caret is at the end again.
     @Test func whereMarkedTextGoesAtTheCaret() {
         field.marksFromCaret = true
+        field.insertsFromCaret = true
         type("hello world again ")
         caret(at: 8) // inside world
         session.handle(.cycle, client: field)
-        #expect(field.text == "hello \(korean("world")) again ")
-        #expect(field.marked == NSRange(location: 6, length: (field.text as NSString).length - 6))
-        #expect(field.cursor == (field.text as NSString).length)
-        session.handle(.right, client: field) // and the range can change
-        #expect(field.text == "hello \(korean("world")) \(korean("again")) ")
+        let world = korean("world")
+        #expect(field.text == "hello \(world) again ")
+        #expect(field.marked == NSRange(location: 6, length: (world as NSString).length))
+        #expect(field.cursor == 6 + (world as NSString).length)
+        session.handle(.right, client: field) // and the range can change: again comes in
+        let clause = "\(world) \(korean("again"))"
+        #expect(field.text == "hello \(clause) ")
+        #expect(field.marked == NSRange(location: 6, length: (clause as NSString).length))
         session.handle(.enter, client: field)
+        #expect(field.text == "hello \(clause) ")
         #expect(field.marked.location == NSNotFound)
+        #expect(field.cursor == (field.text as NSString).length)
         caret(at: 0)
         #expect(!session.caretMoved(client: field)) // hello is sure: no list
+    }
+
+    /// The words after the fixed one are never written while it is fixed, only once it goes in, over
+    /// themselves, to bring the caret back; a word ← gives back stays marked as it was.
+    @Test func theTextAfterTheWordStaysAsItIs() {
+        field.marksFromCaret = true
+        field.insertsFromCaret = true
+        type("hello world again ")
+        caret(at: 7) // inside world
+        session.handle(.cycle, client: field)
+        let world = korean("world")
+        let after = NSRange(location: 6 + (world as NSString).length, length: 7)
+        #expect(field.text(in: after) == " again ")
+        session.handle(.cycle, client: field) // back to English, and Korean again
+        session.handle(.cycle, client: field)
+        #expect(field.text(in: after) == " again ")
+        session.handle(.right, client: field)
+        session.handle(.left, client: field) // again given back: as it was, still marked
+        #expect(field.text == "hello \(world) again ")
+        #expect(field.marked == NSRange(location: 6, length: ("\(world) again" as NSString).length))
+        session.handle(.escape, client: field)
+        #expect(field.text == "hello world again ")
+        #expect(field.cursor == (field.text as NSString).length)
+    }
+
+    /// The marked text takes in the next word from the field's start too: taken away and marked again
+    /// at the caret, no character before it needed.
+    @Test func longerClauseFromTheFieldsStart() {
+        field.marksFromCaret = true
+        field.insertsFromCaret = true
+        type("hello world ")
+        caret(at: 0)
+        session.handle(.cycle, client: field)
+        #expect(session.handle(.right, client: field))
+        #expect(session.fixing?.count == 2)
+        let clause = "\(korean("hello")) \(korean("world"))"
+        #expect(field.text == "\(clause) ")
+        #expect(field.marked == NSRange(location: 0, length: (clause as NSString).length))
+        session.handle(.enter, client: field)
+        #expect(field.text == "\(clause) ")
+        #expect(field.cursor == (field.text as NSString).length)
     }
 
     /// ⇧← on the word being typed cuts it, as on a word fixed later; ← alone still puts it in.

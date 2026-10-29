@@ -26,6 +26,9 @@ final class FakeTextField: TextClient {
     /// Marked text with a range goes at the caret, that many characters replaced from there, as in
     /// the settings window's text view.
     var marksFromCaret = false
+    /// An insert with a range that neither starts nor ends at the caret goes at the caret, as in
+    /// macOS text views (Notes, 2026-10-29).
+    var insertsFromCaret = false
 
     func setMarkedText(_ s: String, selectedClause: NSRange, replacing range: NSRange?) {
         if let range { setMarkedText(s, replacing: range) } else { setMarkedText(s) }
@@ -58,8 +61,11 @@ final class FakeTextField: TextClient {
     func insertText(_ s: String, replacing range: NSRange?) {
         insertions.append(s)
         selectedClause = nil
-        let target = insertsOverMarked && marked.location != NSNotFound ? marked
+        var target = insertsOverMarked && marked.location != NSNotFound ? marked
             : range ?? (marked.location != NSNotFound ? marked : NSRange(location: cursor, length: 0))
+        if insertsFromCaret, marked.location == NSNotFound, target.location != cursor, NSMaxRange(target) != cursor {
+            target = NSRange(location: cursor, length: 0)
+        }
         text = (text as NSString).replacingCharacters(in: target, with: s)
         marked = NSRange(location: NSNotFound, length: 0)
         cursor = target.location + (s as NSString).length
