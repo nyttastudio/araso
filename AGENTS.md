@@ -173,6 +173,14 @@ tests use `FakeTextField`). It owns the preview and hysteresis, commits, Esc rea
   ⇧ was already down) and drops whatever the input method inserts; deciding each key there lost
   letters (`PASSWORD` came out `pASSwrD`). A terminal with Secure Keyboard Entry reports its
   caret, so it isn't affected.
+- A terminal waiting for a password (sudo, ssh) gets the keys passed straight too, though nothing
+  tells the input method so where the terminal doesn't turn Secure Event Input on (Orca, Claude's):
+  `PasswordPrompt.isWaiting` (asked by `InputController` after `MaskedField`, every key, 1–2 ms)
+  sees one of the user's `/dev/ttys*` reading a line with echo off (ICANON on, ECHO off; vim is
+  raw). It can't tell which tab has focus, so another tab's prompt passes keys in every app until
+  it ends; ssh's far side isn't seen (the local tty is raw). The prompt can start mid-word, with
+  focus unchanged: its first key commits what was being typed (`passingPassword`), else the
+  app's insert replaced the underlined word. The start and end are logged at info.
 - Caps Lock doesn't change what a word reads as: `InputController` hands letters over in the case
   Shift alone gives (macOS types capitals with Caps Lock, Shift or not), `handle(_:client:capsLock:)`
   notes it per word (`capsWord`; a toggle inside a word commits what came before), and every client
