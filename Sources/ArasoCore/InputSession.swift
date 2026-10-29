@@ -461,6 +461,7 @@ public final class InputSession {
             resetRun()
             return false
         }
+        if fixing != nil { return handleFixing(key, client: client) } // ⇧Space confirms it first, as any key
         if key == .shiftSpace {
             // With nothing being typed, the other width: full-width unless Space already types that.
             guard keys.isEmpty, conversion == nil, japaneseEnabled, policy.fullWidth else {
@@ -472,7 +473,6 @@ public final class InputSession {
             noteRun("　")
             return true
         }
-        if fixing != nil { return handleFixing(key, client: client) }
         if key == .shiftLeft || (switched && arrow), startFixingTyped(client) { return handleFixing(key, client: client) }
         if conversion != nil { return handleConverting(key, client: client) }
         if case .printable(let ch) = key, printableContinuesWord(ch, client) {

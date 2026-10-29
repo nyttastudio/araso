@@ -502,4 +502,22 @@ import Testing
         type("the 2")
         #expect(field.text.hasSuffix(" 2")) // no switch before it: the digit goes in
     }
+
+    /// ⇧Space while fixing, where it types a full-width space (Japanese on): the fix goes in first, and
+    /// the space at the end of the line, not over the marked word.
+    @Test func shiftSpaceConfirmsTheFixFirst() {
+        let session = InputSession(engine: self.session.engine, japaneseEnabled: true)
+        func type(_ s: String) {
+            for ch in s where !(ch.isLetter ? session.handle(.letter(ch), client: field) : session.handle(.printable(ch), client: field)) {
+                field.insertText(String(ch), replacing: nil)
+            }
+        }
+        type("hello world ")
+        caret(at: 0)
+        #expect(session.handle(.cycle, client: field))
+        let fixed = field.text(in: field.marked)!
+        #expect(session.handle(.shiftSpace, client: field))
+        #expect(session.fixing == nil)
+        #expect(field.text == "\(fixed) world 　")
+    }
 }
