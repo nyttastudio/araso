@@ -24,7 +24,7 @@ cp Resources/Info.plist "$app/Contents/Info.plist"
 # The input source's name in System Settings comes from these, not Info.plist.
 cp -R Resources/*.lproj "$app/Contents/Resources/"
 data=Sources/ArasoCore/Data
-cp $data/kana_trigrams.txt $data/text_trigrams.txt $data/korean_syllables.txt $data/korean_words.txt $data/korean_vocabulary.txt $data/english_words.txt "$app/Contents/Resources/"
+cp $data/kana_trigrams.txt $data/text_trigrams.txt $data/korean_syllables.txt $data/korean_words.txt $data/korean_vocabulary.txt $data/english_words.txt $data/english_acronyms.txt "$app/Contents/Resources/"
 dictionary=.build/checkouts/AzooKeyKanaKanjiConverter/Sources/KanaKanjiConverterModuleWithDefaultDictionary/azooKey_dictionary_storage/Dictionary
 [[ -d "$dictionary" ]] || { echo "missing $dictionary (swift package resolve)"; exit 1; }
 cp -R "$dictionary" "$app/Contents/Resources/Dictionary"
@@ -45,7 +45,7 @@ done
 section "llama.cpp (linked through AzooKeyKanaKanjiConverter)" scripts/third-party/llama.cpp-LICENSE
 section "azooKey dictionary (Contents/Resources/Dictionary)" "${dictionary:h}/LICENSE"
 section "Tatoeba (kana, written-Japanese, Korean syllable and word models)" scripts/third-party/tatoeba.txt
-section "SCOWL (english_words.txt)" scripts/third-party/scowl-Copyright
+section "SCOWL (english_words.txt, english_acronyms.txt)" scripts/third-party/scowl-Copyright
 section "FrequencyWords (korean_vocabulary.txt)" scripts/third-party/frequencywords.txt
 # Signed with an identity when there is one: ARASO_APP_SIGN, else this keychain's Apple
 # Development identity (a free Apple ID in Xcode gives one), else its Developer ID Application.

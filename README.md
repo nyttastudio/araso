@@ -562,9 +562,10 @@ URL·경로 안에서는 이 판단을 하지 않습니다. 띄어 쓰지 않은
 - 쌍자음이 없는 글자에 Shift를 누르면(`Hello`, `API`) 영어입니다.
 - 쌍자음이나 ㅒ·ㅖ를 치고 Shift를 늦게 떼서 바로 다음 한 글자가 대문자로 들어간 것(`djEJs` → `어떤`,
   `dlTDj` → `있어`, `dPFmf` → `예를`)은 예외로, 점수로 판단합니다.
-- 쌍자음에서 Shift를 누른 채 바뀌지 않는 글자까지 치고 단어가 끝나기 전에 뗀 것(`RKFRMAgkek` → `깔끔하다`,
-  `QKFfl` → `빨리`)도 키가 온전한 한글이 되면 점수로 판단합니다. 조사나 어미 앞에서는 누른 부분이 두 글자 이상의
-  쓰는 한글이어야 하고, 한 글자면 약어로 봅니다(`RNAfmf` → `RNA를`).
+- 쌍자음이나 ㅒ·ㅖ에서 Shift를 누른 채 바뀌지 않는 글자까지 치고 단어가 끝나기 전에 뗀 것(`RKFRMAgkek` →
+  `깔끔하다`, `QKFfl` → `빨리`)도 키가 온전한 한글이 되면 점수로 판단합니다. 다만 조사 앞의 누른 부분까지가 실제로
+  쓰는 영어 약어면 약어로 봅니다(`RNARkwl` → `RNA까지`, `RNAfmf` → `RNA를`). 약어 뒤에 오지 않는 꼴의 조사는
+  한국어로 읽습니다(`RNAdmf` → `꿈을`).
 - 대문자로만 친 약어(`TM`, `RN`)와 O·P 키로 시작하는 단어(`PDFvkdlf` → `PDF파일`, `OAuth`)는 그대로 영어입니다.
 - 대문자가 들어간 단어는 일본어로 읽지 않습니다. macOS 일본어 입력기처럼 ⇧를 누른 글자는 알파벳 그대로입니다
   (`O`는 `お`가 아니라 `O`, `Kyouha`는 그대로).
@@ -679,7 +680,7 @@ Araso는 MIT 라이선스입니다([LICENSE](LICENSE)). 앱에 컴파일되거�
 - 한자 변환: macOS에 들어 있는 일본어 변환 엔진을 실행할 때 불러 씁니다(앱에 포함하지 않음).
 - AzooKey Kana-Kanji Converter(대신 쓰는 변환기): MIT, 사전: Apache-2.0.
 - Tatoeba 문장(가나·일본어 문어 모델, 한국어 음절·단어 빈도, 평가): CC-BY 2.0 FR, https://tatoeba.org.
-- 영어 단어와 빈도: [SCOWL](http://wordlist.aspell.net) (자유 라이선스, 고지는 앱에 포함).
+- 영어 단어와 빈도, 약어: [SCOWL](http://wordlist.aspell.net) (자유 라이선스, 고지는 앱에 포함).
   macOS의 `/usr/share/dict/words`로 실행할 때 글자 3-그램을 학습합니다.
 - 영어·한국어 빈도 목록: [hermitdave/FrequencyWords](https://github.com/hermitdave/FrequencyWords), CC-BY-SA 4.0.
   평가에 쓰고, 한국어 전체 목록(두 번 이상 나온 단어)은 `korean_vocabulary.txt`로도 같은 라이선스로 앱에

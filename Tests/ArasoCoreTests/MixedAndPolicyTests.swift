@@ -94,6 +94,36 @@ let splitting = SplittingEngine(base: sharedEngine, english: sharedEngine.englis
         #expect(d.output == expected)
     }
 
+    // An acronym people write (RNA, WYSIWYG) before a particle, in keys Shift held on would also
+    // make Korean (꿈까지), stays an acronym when the particle is the form it takes (RNA를, not
+    // RNA을: that is 꿈을). Keys spelling no acronym (EKF, RMX) are still held Shift (딸한테).
+    @Test(arguments: [("RNARkwl", "RNA까지"), ("RNAaks", "RNA만"), ("RNAsms", "RNA는"), ("RNAfmf", "RNA를"),
+                      ("WYSIWYGfmf", "WYSIWYG를")])
+    func acronymBeforeParticleOverHeldShift(keys: String, expected: String) {
+        let d = splitting.decide(keys, context: DecisionContext())
+        #expect(d.language == .mixed, "\(keys) → \(d.output) \(d.explanation)")
+        #expect(d.output == expected)
+    }
+
+    @Test(arguments: [("RNAdmf", "꿈을"), ("RNAdms", "꿈은"), ("EKFgksxp", "딸한테"), ("RMXdldi", "끝이야"),
+                      ("QNSdldi", "뿐이야"), ("EKDdmf", "땅을"), ("EHSms", "또는"), ("TMdl", "쓰이")])
+    func heldShiftWithoutAnAcronymStaysKorean(keys: String, expected: String) {
+        let d = splitting.decide(keys, context: DecisionContext())
+        #expect(d.language == .korean, "\(keys) → \(d.output) \(d.explanation)")
+        #expect(d.output == expected)
+    }
+
+    // On Colemak other acronyms sit on the Korean shift keys' seats (G on T's: ㅆ): GMT까지, GED는,
+    // but GED + 은 (쌓은) is the form GED doesn't take.
+    @Test(arguments: [("GMTPewi", "GMT까지", Language.mixed), ("GEDrmr", "GED는", .mixed), ("GEDsmr", "쌓은", .korean)])
+    func acronymBeforeParticleOverHeldShiftOnColemak(keys: String, expected: String, language: Language) {
+        LatinLayout.$override.withValue(.colemak) {
+            let d = splitting.decide(keys, context: DecisionContext())
+            #expect(d.language == language, "\(keys) → \(d.output) \(d.explanation)")
+            #expect(d.output == expected)
+        }
+    }
+
     // Fast-typed Korean whose first two keys spell an acronym stays Korean: it reads as Korean
     // throughout (따라서 as EKfktj); its first syllable is rare but has been seen (삐졌어 as QLwuTdj,
     // 쭈그리고 as WNrmflrh, from the word lists); or no known Korean word follows (뾰족한 as QYwhrgks).

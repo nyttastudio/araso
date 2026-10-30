@@ -72,8 +72,8 @@ import Testing
     /// Shift held on from ㄲ through 깔끔, and from ㅃ through 빨, in a terminal: Korean.
     @Test func heldShiftTypesKorean() {
         session.activate(app: "test.terminal")
-        type("ok RKFRMAgkek QKFfl RNAfmf ")
-        #expect(field.text == "ok 깔끔하다 빨리 RNA를 ")
+        type("ok RKFRMAgkek QKFfl RNAfmf RNARkwl EKFgksxp ")
+        #expect(field.text == "ok 깔끔하다 빨리 RNA를 RNA까지 딸한테 ")
     }
 
     /// An acronym typed straight into a Korean word splits, and the same shape typed as fast Korean doesn't.

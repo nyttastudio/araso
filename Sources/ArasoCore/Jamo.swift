@@ -79,27 +79,63 @@ public enum DubeolsikLayout {
     /// with no consonant before it (PDF, OAuth).
     public static func hasEnglishOnlyCapital(_ keys: String) -> Bool {
         if KoreanLayout.current.isSebeolsik { return Sebeolsik.hasEnglishOnlyCapital(keys) }
-        let chars = keys.map(seat)
+        return unshiftedCapitals(keys).contains(.english)
+    }
+
+    /// Capitals that only Shift held on over them explains (`heldOver`; the A of RNARkwl, 꿈까지),
+    /// none that are English for sure. Such keys may as well be an acronym typed before a particle
+    /// (RNA까지), which is for the particle splitter to judge. Never in 3-set, which holds no Shift.
+    public static func hasHeldOverCapital(_ keys: String) -> Bool {
+        if KoreanLayout.current.isSebeolsik { return false }
+        let kinds = unshiftedCapitals(keys)
+        return kinds.contains(.held) && !kinds.contains(.english)
+    }
+
+    /// Why a capital with no shifted jamo is there: Shift lingering for the one key after a Korean
+    /// shift key, Shift held on over it (`heldOver`), or neither, English.
+    private enum UnshiftedCapital { case lingering, held, english }
+
+    private static func unshiftedCapitals(_ keys: String) -> [UnshiftedCapital] {
+        let raw = Array(keys)
+        let chars = raw.map(seat)
         let hasLowercase = chars.contains(where: \.isLowercase)
-        for (i, key) in chars.enumerated() where key.isUppercase && shifted[key] == nil {
-            if hasLowercase, i >= 1, lingers(after: chars[i - 1], twoBack: i >= 2 ? chars[i - 2] : nil, on: key) { continue }
-            if heldOver(i, in: chars, keys: keys) { continue }
-            return true
+        return chars.indices.filter { chars[$0].isUppercase && shifted[chars[$0]] == nil }.map { i in
+            if hasLowercase, i >= 1, lingers(after: chars[i - 1], twoBack: i >= 2 ? chars[i - 2] : nil, on: chars[i]) {
+                return .lingering
+            }
+            return heldOver(i, in: raw, keys: keys) ? .held : .english
         }
-        return false
     }
 
     /// Shift held down from a Korean shift key over the keys after it, since Shift doesn't change
     /// them: 깔끔하다 as RKFRMAgkek (held from ㄲ to ㄲ and on through 끔), 빨리 as QKFfl. The run of
     /// capitals has to start on a Korean shift key, end before the word does (a word in capitals
     /// throughout is an acronym: RKFRMA, QUICK), and the keys have to spell whole Hangul, so
-    /// TFxla, PCqkd and OAuth stay English. Takes seats.
+    /// TFxla, PCqkd and OAuth stay English.
     private static func heldOver(_ i: Int, in chars: [Character], keys: String) -> Bool {
-        var start = i, end = i
-        while start > 0, chars[start - 1].isUppercase { start -= 1 }
-        while end < chars.count, chars[end].isUppercase { end += 1 }
-        guard shifted[chars[start]] != nil, end < chars.count, chars[end].isLowercase else { return false }
+        guard let run = capitalRuns(chars).first(where: { $0.contains(i) }), isKoreanShiftKey(chars[run.lowerBound]),
+              run.upperBound < chars.count, chars[run.upperBound].isLowercase else { return false }
         return HangulComposer.compose(keys: keys).map { !$0.isBroken } == true
+    }
+
+    /// Every run of capitals begins on a Korean shift key (RKFRMA, rjtQNS), as when Shift is held
+    /// on from a double consonant; not Hello, OpenAI or TypeScript.
+    public static func capitalRunsStartOnShiftKeys(_ keys: String) -> Bool {
+        let chars = Array(keys)
+        return capitalRuns(chars).allSatisfy { isKoreanShiftKey(chars[$0.lowerBound]) }
+    }
+
+    /// The runs of consecutive capitals, as ranges of positions.
+    private static func capitalRuns(_ chars: [Character]) -> [Range<Int>] {
+        var runs: [Range<Int>] = []
+        var i = 0
+        while i < chars.count {
+            guard chars[i].isUppercase else { i += 1; continue }
+            let start = i
+            while i < chars.count, chars[i].isUppercase { i += 1 }
+            runs.append(start..<i)
+        }
+        return runs
     }
 
     /// Shift still down for `key`, right after `shiftKey`, a Korean shift key that needed it. After

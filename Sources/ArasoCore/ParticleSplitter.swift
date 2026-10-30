@@ -95,6 +95,9 @@ public struct ParticleSplitter: Sendable {
         let n = chars.count
         guard n >= 3, !english.isKnownWord(keys) else { return nil }
         var best: (split: Split, score: Double)?
+        // An acronym before the particle, in capitals Shift held on would explain too (RNA까지 as
+        // RNARkwl, 꿈까지): the keys aren't read as Korean throughout.
+        var acronymFront = false
         func offer(_ split: Split, front: String, particle: Double, korean: String? = nil) {
             guard let w = frontScore(front, asName: korean.map(Self.afterNameParticles.contains) ?? false) else { return }
             var particle = particle
@@ -111,6 +114,7 @@ public struct ParticleSplitter: Sendable {
                   let composed = HangulComposer.compose(keys: tail), composed.strayJamo.isEmpty,
                   MixedWord.suffixes.contains(composed.text) else { continue }
             let front = String(chars[..<start])
+            if isHeldShiftAcronym(front, tail: tail, particle: composed.text, keys: keys) { acronymFront = true }
             offer(.korean(MixedWord(english: front, koreanKeys: tail, korean: composed.text)), front: front,
                   particle: Self.coreKorean.contains(composed.text) ? weights.coreParticle : weights.otherParticle,
                   korean: composed.text)
@@ -125,7 +129,7 @@ public struct ParticleSplitter: Sendable {
         }
         let (w, word) = englishThenKoreanWord(chars)
         guard best != nil || word != nil else { return nil }
-        let k = koreanScore(keys)
+        let k = acronymFront ? -.infinity : koreanScore(keys)
         let e = english.averageLogProbability(keys) - weights.unknownWord / Double(n)
         let j = japaneseOn ? japaneseScore(keys) : -.infinity
         let whole = max(k, e, j)
@@ -179,6 +183,19 @@ public struct ParticleSplitter: Sendable {
         return (best, split)
     }
 
+    /// An acronym people write (`EnglishModel.acronyms`: RNA, GMT, not EKF of 딸한테) before a
+    /// Korean particle, where nothing but Shift held on (`DubeolsikLayout.hasHeldOverCapital`)
+    /// would make the keys Korean throughout: RNARkwl is RNA까지, not 꿈까지. The acronym has to
+    /// be the whole run of capitals (EHSms stays 또는; the particle's own shift keys aside, the R
+    /// of 까지), and where it spells Hangul people use (RNA, 꿈), the particle has to be the form
+    /// the acronym takes: RNA를, but RNAdmf is 꿈을.
+    private func isHeldShiftAcronym(_ front: String, tail: String, particle: String, keys: String) -> Bool {
+        guard EnglishModel.acronyms.contains(front), DubeolsikLayout.hasHeldOverCapital(keys),
+              tail.allSatisfy({ !$0.isUppercase || DubeolsikLayout.isKoreanShiftKey($0) }) else { return false }
+        return !readsAsKorean(front)
+            || MixedWord.particleAgrees(particle, final: MixedWord.finalSound(ofAcronym: front)) != false
+    }
+
     /// Whether an acronym or name may be the front of a split, not only compete with one: when
     /// a capital no lingering Shift explains is in the keys, or a known Korean word follows and
     /// its own keys spell a syllable no list or corpus has (EU as ㄸ+ㅕ: 뗘). Korean typed fast
@@ -215,7 +232,7 @@ public struct ParticleSplitter: Sendable {
         // Shift held on (RKFRMA, 깔끔 of 깔끔하다; rjtQNS, 것뿐). One syllable is still an acronym
         // (RNA, not 꿈), and so is one whose syllables nobody writes (TOEIC, not 썌땿).
         let composed = HangulComposer.compose(keys: front)
-        let held = Self.capitalRunsStartOnShiftKeys(front) && (composed?.syllables.count ?? 0) >= 2
+        let held = DubeolsikLayout.capitalRunsStartOnShiftKeys(front) && (composed?.syllables.count ?? 0) >= 2
             && readsAsKorean(front)
         let korean = (held || front.allSatisfy { !$0.isUppercase || DubeolsikLayout.isKoreanShiftKey($0) })
             && composed.map { $0.strayJamo.isEmpty } == true
@@ -256,17 +273,6 @@ public struct ParticleSplitter: Sendable {
         let part = String(chars[last...])
         guard part.count >= 3, english.isKnownWord(part) else { return nil }
         return english.level(part)
-    }
-
-    /// Every run of capitals begins on a Korean shift key (RKFRMA, rjtQNS), as when Shift is held
-    /// on from a double consonant; not Hello, OpenAI or TypeScript.
-    private static func capitalRunsStartOnShiftKeys(_ front: String) -> Bool {
-        var previous: Character?
-        for c in front {
-            if c.isUppercase, previous?.isUppercase != true, !DubeolsikLayout.isKoreanShiftKey(c) { return false }
-            previous = c
-        }
-        return true
     }
 
     /// API, UI, PR: 2 to 6 capitals.

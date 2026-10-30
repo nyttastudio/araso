@@ -33,6 +33,15 @@ public final class EnglishModel: @unchecked Sendable {
     /// Loading the word list takes a moment; share one instance.
     public static let shared = EnglishModel(listURL: Resources.englishWords, spellingPath: spellingList)
 
+    /// Acronyms people write (RNA, GMT, WYSIWYG; SCOWL, Data/english_acronyms.txt), in capitals.
+    public static let acronyms: Set<String> = {
+        guard let url = Resources.englishAcronyms, let text = try? String(contentsOf: url, encoding: .utf8) else {
+            NSLog("Araso: English acronym list missing")
+            return []
+        }
+        return Set(text.split(whereSeparator: \.isNewline).map(String.init))
+    }()
+
     /// From a word<TAB>level file; a missing file leaves only `commonWords` (logged). Trigrams
     /// are trained on `spellingPath`'s words when it can be read, otherwise on the list.
     public convenience init(listURL: URL?, spellingPath: String? = nil, extraWords: [String] = EnglishModel.commonWords) {
