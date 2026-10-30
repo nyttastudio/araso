@@ -541,6 +541,42 @@ import Testing
         #expect(session.engine.correctedOnce("world", app: nil) == .korean)
     }
 
+    /// A word Return only confirmed is the word just committed too, with no boundary: a switch key
+    /// changes it, learned when the next Return closes the window.
+    @Test func switchKeyAfterReturnConfirmedAWord() {
+        type("hello world")
+        #expect(session.handle(.enter, client: field))
+        #expect(session.handle(.cycle, client: field))
+        #expect(field.text == "hello \(korean("world"))")
+        #expect(!session.handle(.enter, client: field)) // the app's newline
+        #expect(session.engine.correctedOnce("world", app: nil) == .korean)
+    }
+
+    /// ← after it makes it a fix, from the caret where the app's ← leaves it inside the word.
+    @Test(arguments: [true, false]) func leftAfterReturnConfirmedAWord(atOnce: Bool) throws {
+        field.marksFromCaret = true
+        field.insertsFromCaret = true
+        field.insertsRightAfterAnInsert = atOnce
+        type("hello world")
+        session.handle(.enter, client: field)
+        session.handle(.cycle, client: field)
+        if atOnce {
+            #expect(session.handle(.left, client: field))
+        } else {
+            #expect(!session.handle(.left, client: field))
+            field.cursor -= 1 // the app's ←: before the last letter
+            #expect(session.caretMoved(client: field) == nil)
+        }
+        let fixing = try #require(session.fixing)
+        #expect(fixing.cut == 4)
+        #expect(field.marked.location == 6)
+        session.handle(.right, client: field)
+        session.handle(.enter, client: field)
+        #expect(field.text == "hello \(korean("world"))")
+        #expect(field.cursor == (field.text as NSString).length)
+        #expect(field.marked.location == NSNotFound)
+    }
+
     /// The strip lists the clause's readings after ←/→ too: a cut's front part, or the words of a
     /// longer clause read together.
     @Test func readingsFollowTheClause() {

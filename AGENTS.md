@@ -177,7 +177,10 @@ tests use `FakeTextField`). It owns the preview and hysteresis, commits, Esc rea
   `fcitx` and `sendsLine`, linux/tests). Not where a composition is only at the caret and can't be
   moved there (`TextClient.marksAnywhere`, `TextContext.marksAtCaret`: Windows floating).
 - Return on an underlined word only confirms it (`returnConfirmsOnly`, on by default); off, the
-  app gets the Return too, except after Japanese.
+  app gets the Return too, except after Japanese. A word only confirmed is the word just committed,
+  with no boundary (the macOS ← after a switch then leaves the caret before its last character, where
+  `caretMoved` fixes it from). Notes gives nothing for the empty range at the text's end, so
+  `IMKClient.text(in:)` answers "" there (`input.length()`): the line's end is known.
 - Vim reports its modes through `scripts/vim/araso.{lua,vim}` (`Araso --vim <mode> --app
   $__CFBundleIdentifier`, a distributed notification). `Runtime` hands it to the active controller,
   which takes it only if vim runs in its app (a signal without `--app`, only where Esc isn't a

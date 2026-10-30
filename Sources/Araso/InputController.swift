@@ -688,7 +688,10 @@ private final class IMKClient: TextClient {
     func markedRange() -> NSRange { input.markedRange() }
 
     func text(in range: NSRange) -> String? {
-        input.attributedSubstring(from: range)?.string
+        if let text = input.attributedSubstring(from: range)?.string { return text }
+        // Notes gives nothing for the empty range at the text's end, which is still known: the line
+        // ends there (the word Return just confirmed, fixed from there).
+        return range.length == 0 && range.location == input.length() ? "" : nil
     }
 
     /// The settings window's text view marked at the caret, not where the range named started.

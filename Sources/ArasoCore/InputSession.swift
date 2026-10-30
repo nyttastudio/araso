@@ -773,6 +773,21 @@ public final class InputSession {
             // is the app's. Passed on (the setting off), terminals and web chats may still drop a
             // Return that ended a composition. A Japanese phrase is only confirmed either way.
             let japanese = currentLanguage() == .japanese
+            let marked = client.markedRange()
+            let location = marked.location != NSNotFound ? marked.location : client.selectedRange().location
+            if returnConfirmsOnly || japanese, heldBoundary == nil, location != NSNotFound {
+                // Only confirmed, the caret stays after it: the word just committed, with no boundary,
+                // so a switch key still changes it as after Space.
+                let previous = previousLanguage
+                passedRun = nil
+                let word = finishWord()
+                client.insertText(word.text, replacing: nil)
+                noteRun(word.text)
+                lastCommit = Committed(keys: word.keys, decided: word.decided, committedAs: word.language,
+                                       language: word.language, text: word.text, boundary: "",
+                                       location: location, previous: previous, learns: !inURLRun)
+                return true
+            }
             commit(client: client)
             return returnConfirmsOnly || japanese
 
@@ -1268,7 +1283,7 @@ public final class InputSession {
         let client = Self.uncased(cased)
         let caret = client.selectedRange()
         let range = NSRange(location: commit.location, length: utf16(commit.text))
-        guard conversion == nil, commit.inLine == nil, !capsWord, client.marksAnywhere, !commit.boundary.isEmpty,
+        guard conversion == nil, commit.inLine == nil, !capsWord, client.marksAnywhere,
               caret.location == NSMaxRange(range), caret.length == 0, client.text(in: range) == commit.text
         else { return false }
         finalize(Committed(keys: commit.keys, decided: commit.decided, committedAs: commit.language,
@@ -1314,8 +1329,11 @@ public final class InputSession {
             fixAfterArrow = nil
             let at = recent.last.map { $0.location + utf16($0.text) - utf16($0.boundary) }
             let caret = Self.uncased(cased).selectedRange()
+            // The app's ← put the caret at the word's end, or before its last character when it has
+            // no boundary (confirmed with Return).
+            let last = commit.boundary.isEmpty ? commit.text.last.map { utf16(String($0)) } ?? 0 : 0
             if keys.isEmpty, fixing == nil, recent.last?.location == commit.location,
-               caret == NSRange(location: at ?? NSNotFound, length: 0),
+               caret == NSRange(location: (at ?? NSNotFound) - last, length: 0),
                startFixing(cased, asIs: true, cut: true) {
                 return nil
             }
