@@ -577,6 +577,65 @@ import Testing
         #expect(field.marked.location == NSNotFound)
     }
 
+    /// The field's first word in a macOS text view, which drops an empty insert: a zero-width space
+    /// before it has the caret there, so it is marked and resized as any word, and the space goes
+    /// once the fix is in or put back; the words after it are where they were for the next fix.
+    @Test func fixingTheFirstWordWithAPlaceholder() throws {
+        field.marksFromCaret = true
+        field.insertsFromCaret = true
+        field.dropsEmptyInserts = true
+        type("hello world ")
+        caret(at: 2) // inside hello
+        #expect(session.handle(.cycle, client: field))
+        #expect(field.marked.location == 1)
+        #expect(field.text.hasPrefix("\u{200B}"))
+        session.handle(.left, client: field) // hell|o
+        #expect(session.fixing?.cut == 4)
+        session.handle(.right, client: field)
+        session.handle(.enter, client: field)
+        let hello = korean("hello")
+        #expect(field.text == "\(hello) world ")
+        #expect(field.cursor == (field.text as NSString).length)
+        #expect(field.marked.location == NSNotFound)
+
+        caret(at: (hello as NSString).length + 3) // inside world
+        session.handle(.cycle, client: field)
+        #expect(field.marked.location == (hello as NSString).length + 1)
+        session.handle(.escape, client: field)
+        #expect(field.text == "\(hello) world ")
+
+        caret(at: 1)
+        session.handle(.cycle, client: field)
+        session.handle(.escape, client: field)
+        #expect(field.text == "\(hello) world ")
+        #expect(field.cursor == (field.text as NSString).length)
+    }
+
+    /// The word just committed at the field's start, after a switch key and ←: marked the same way.
+    @Test func leftAfterASwitchOnTheFirstWordWithAPlaceholder() throws {
+        field.marksFromCaret = true
+        field.insertsFromCaret = true
+        field.insertsRightAfterAnInsert = false
+        field.dropsEmptyInserts = true
+        type("gksrmf.")
+        #expect(field.text == "한글.")
+        session.handle(.cycle, client: field)
+        #expect(field.text == "gksrmf.")
+        #expect(!session.handle(.left, client: field))
+        field.cursor -= 1 // the app's ←: before the period
+        #expect(session.caretMoved(client: field) == nil)
+        #expect(session.fixing?.cut == 5)
+        #expect(field.marked.location == 1)
+        session.handle(.left, client: field)
+        session.handle(.left, client: field)
+        #expect(session.fixing?.cut == 3)
+        #expect(field.text == "\u{200B}gks글.")
+        session.handle(.enter, client: field) // the front settled
+        session.handle(.enter, client: field)
+        #expect(field.text == "gks글.")
+        #expect(field.cursor == (field.text as NSString).length)
+    }
+
     /// The strip lists the clause's readings after ←/→ too: a cut's front part, or the words of a
     /// longer clause read together.
     @Test func readingsFollowTheClause() {

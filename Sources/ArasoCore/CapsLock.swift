@@ -22,6 +22,7 @@ final class CapsLockClient: TextClient {
     var marksAnywhere: Bool { base.marksAnywhere }
     var marksFromCaret: Bool { base.marksFromCaret }
     var insertsRightAfterAnInsert: Bool { base.insertsRightAfterAnInsert }
+    var dropsEmptyInserts: Bool { base.dropsEmptyInserts }
 
     /// ASCII letters in capitals; Hangul, kana and everything else as they are.
     static func capitals(_ text: String) -> String {

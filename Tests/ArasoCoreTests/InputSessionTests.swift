@@ -32,6 +32,8 @@ final class FakeTextField: TextClient {
     /// False as in macOS text views: the fix of the word a switch key just changed waits for the
     /// app's caret move (`InputSession.caretMoved`).
     var insertsRightAfterAnInsert = true
+    /// True as in macOS: an empty insert is dropped on the way to the field.
+    var dropsEmptyInserts = false
 
     func setMarkedText(_ s: String, selectedClause: NSRange, replacing range: NSRange?) {
         if let range { setMarkedText(s, replacing: range) } else { setMarkedText(s) }
@@ -62,6 +64,7 @@ final class FakeTextField: TextClient {
     }
 
     func insertText(_ s: String, replacing range: NSRange?) {
+        if dropsEmptyInserts, s.isEmpty { return }
         insertions.append(s)
         selectedClause = nil
         var target = insertsOverMarked && marked.location != NSNotFound ? marked

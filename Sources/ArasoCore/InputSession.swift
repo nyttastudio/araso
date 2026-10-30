@@ -26,12 +26,17 @@ public protocol TextClient: AnyObject {
     /// goes where it says. Not in macOS text views (Notes, 2026-10-30): marking the word a switch key
     /// just changed has to wait for the app to move the caret (`fixAfterArrow`).
     var insertsRightAfterAnInsert: Bool { get }
+    /// An empty insert, to delete a range, never reaches the field (macOS: `startSymbol`, Notes): a fix
+    /// at the field's start has the caret put there with a zero-width space (`Fixing.placeholder`).
+    /// Elsewhere the field's first word is switched in place (`switchInPlace`), as before.
+    var dropsEmptyInserts: Bool { get }
 }
 
 public extension TextClient {
     var marksAnywhere: Bool { true }
     var marksFromCaret: Bool { false }
     var insertsRightAfterAnInsert: Bool { true }
+    var dropsEmptyInserts: Bool { false }
 
     /// A client that draws no clauses shows the plain marked text.
     func setMarkedText(_ text: String, selectedClause: NSRange, replacing range: NSRange?) {
@@ -1027,11 +1032,11 @@ public final class InputSession {
         }
 
         /// Where the marked text starts in the field.
-        let start: Int
+        var start: Int
         /// The line from `start` as it was, to `end`.
         let original: String
         /// Where the line ended before the fix: the caret goes back there (moved by what changed).
-        let end: Int
+        var end: Int
         /// What the marked text took the place of, put back by Esc.
         var markOriginal: String
         /// What the marked text shows now.
@@ -1068,6 +1073,9 @@ public final class InputSession {
         /// The last piece's space or symbol is marked with it: the word just committed, whose marked
         /// text had to take the place of everything up to the caret (`startFixingCommitted`).
         var lastBoundaryMarked = false
+        /// A zero-width space put before the word at the field's start, to have the caret there
+        /// (`takeAway`), and taken away when the fix ends (`removePlaceholder`); `start` and `end` count it.
+        var placeholder = false
     }
 
     /// Starts fixing an unchanged recent word touched by the caret, marking it in its next reading.
@@ -1125,22 +1133,56 @@ public final class InputSession {
         let markEnd = entry.location + utf16(fixing.markOriginal)
         closeFlipWindow()
         if client.marksFromCaret, at != entry.location {
+            guard canTakeAway(entry.location, client) else { return false } // switched in place instead
             // Marked text goes at the caret here, whatever range is named, while an insert that starts
             // or ends at the caret goes where it says. So: the rest of the word over itself (the caret
             // at its end), then the word gone with the character before it put back (the caret at the
             // word's start), then the word marked there, the caret at its end.
-            // Without a character before the word (the field's start) it is switched in place instead.
-            guard let before = characterBefore(entry.location, client) else { return false }
             if at < markEnd, let rest = client.text(in: NSRange(location: at, length: markEnd - at)) {
                 client.insertText(rest, replacing: NSRange(location: at, length: markEnd - at))
             }
-            client.insertText(before.text, replacing: NSRange(location: before.range.location, length: markEnd - before.range.location))
+            takeAway(&fixing, to: markEnd, client)
             showFixing(&fixing, client)
         } else {
             showFixing(&fixing, client, replacing: NSRange(location: entry.location, length: utf16(fixing.markOriginal)))
         }
         self.fixing = fixing
         return true
+    }
+
+    /// The fix's text from its start to `end`, the caret, taken away with the caret left at its start,
+    /// where marked text then goes in a macOS text view: the character before it put back over it (an
+    /// insert ending at the caret goes where it says). At the field's start, with no character before,
+    /// a zero-width space instead (`Fixing.placeholder`), since an empty insert is dropped on the way
+    /// to the app (Notes: the word stayed, and the marked text went in after it).
+    private func takeAway(_ fixing: inout Fixing, to end: Int, _ client: TextClient) {
+        if let before = characterBefore(fixing.start, client) {
+            client.insertText(before.text, replacing: NSRange(location: before.range.location, length: end - before.range.location))
+        } else {
+            client.insertText(Self.placeholder, replacing: NSRange(location: fixing.start, length: end - fixing.start))
+            fixing.placeholder = true
+            fixing.start += 1
+            fixing.end += 1
+        }
+    }
+
+    private static let placeholder = "\u{200B}"
+
+    /// Whether `takeAway` can leave the caret at `location`.
+    private func canTakeAway(_ location: Int, _ client: TextClient) -> Bool {
+        client.dropsEmptyInserts || characterBefore(location, client) != nil
+    }
+
+    /// The fix's zero-width space taken away once the fix is in or put back: the text from it to the
+    /// caret put back without it, an insert ending at the caret going where it says. Left where the
+    /// caret isn't after it or the text there isn't as expected.
+    private func removePlaceholder(_ fixing: Fixing, _ client: TextClient) {
+        guard fixing.placeholder else { return }
+        let at = fixing.start - 1, caret = client.selectedRange()
+        guard caret.location != NSNotFound, caret.length == 0, caret.location > at + 1,
+              let text = client.text(in: NSRange(location: at, length: caret.location - at)),
+              text.hasPrefix(Self.placeholder) else { return }
+        client.insertText(String(text.dropFirst()), replacing: NSRange(location: at, length: caret.location - at))
     }
 
     /// The character just before `location` and where it is, if the field has one there.
@@ -1253,8 +1295,7 @@ public final class InputSession {
               client.insertsRightAfterAnInsert || afterCaretMove,
               caret.location == NSMaxRange(range), caret.length == 0, client.text(in: range) == commit.text
         else { return false }
-        let before = characterBefore(commit.location, client)
-        if client.marksFromCaret, before == nil { return false }
+        if client.marksFromCaret, !canTakeAway(commit.location, client) { return false }
         let piece = Fixing.Piece(keys: commit.keys, decided: commit.decided, language: commit.language,
                                  text: String(commit.text.dropLast(commit.boundary.count)), boundary: commit.boundary,
                                  typedBoundary: commit.typedBoundary, learns: commit.learns, typed: true)
@@ -1264,9 +1305,8 @@ public final class InputSession {
                             trailing: "", language: commit.language)
         fixing.lastBoundaryMarked = true
         fixing.chosen = true
-        if client.marksFromCaret, let before {
-            client.insertText(before.text, replacing: NSRange(location: before.range.location,
-                                                              length: caret.location - before.range.location))
+        if client.marksFromCaret {
+            takeAway(&fixing, to: caret.location, client)
             showFixing(&fixing, client)
         } else {
             showFixing(&fixing, client, replacing: range)
@@ -1471,6 +1511,7 @@ public final class InputSession {
             self.fixing = nil
             client.insertText(fixing.markOriginal, replacing: nil)
             caretToLineEnd(fixing, client, delta: 0)
+            removePlaceholder(fixing, client)
             resetRun()
             return true
 
@@ -1720,10 +1761,11 @@ public final class InputSession {
         client.insertText(text, replacing: nil)
         let delta = utf16(text) - utf16(fixing.markOriginal)
         caretToLineEnd(fixing, client, delta: delta)
+        removePlaceholder(fixing, client)
         let later = Array(recent.dropFirst(fixing.firstEntry + fixing.pieces.count))
         var updated = Array(recent.prefix(fixing.firstEntry))
         if !fixing.split, fixing.cut == nil {
-            var location = fixing.start
+            var location = fixing.start - (fixing.placeholder ? 1 : 0)
             for (i, piece) in fixing.pieces.enumerated() {
                 let language = i < fixing.count ? fixing.language : piece.language
                 if i < fixing.count, piece.learns, piece.typed {
@@ -1791,6 +1833,7 @@ public final class InputSession {
         guard marked.location != NSNotFound, marked.length > 0,
               NSIntersectionRange(marked, original).length == 0 else { return }
         client.setMarkedText("")
+        removePlaceholder(fixing, client)
     }
 
     /// Where the app had the marked text, and where the fix had put it, when a fix was dropped for

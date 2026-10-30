@@ -697,6 +697,7 @@ private final class IMKClient: TextClient {
     /// The settings window's text view marked at the caret, not where the range named started.
     var marksFromCaret: Bool { true }
     var insertsRightAfterAnInsert: Bool { false }
+    var dropsEmptyInserts: Bool { true }
 }
 
 extension NSEvent.ModifierFlags {

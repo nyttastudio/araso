@@ -150,7 +150,11 @@ tests use `FakeTextField`). It owns the preview and hysteresis, commits, Esc rea
   (`growMark`) takes the marked text away (the caret at its start) and marks it again over the next
   word; inserts there right after the marked text went in landed at the caret instead (Notes, real
   keys, 2026-10-29). Only forward: the caret can't be put before text that stays after it, so a word
-  ← gives back stays marked. The field's first word has no such character: from
+  ← gives back stays marked. The field's first word has no such character, and an empty insert never
+  reaches a macOS text view (`TextClient.dropsEmptyInserts`; Notes kept the word and the marked text
+  went in after it): there a zero-width space takes its place (`takeAway`, `Fixing.placeholder`,
+  counted in `start` and `end`) and goes when the fix is in, reverted or dropped (`removePlaceholder`,
+  an insert from it to the caret; Notes, real keys, 2026-10-30). Elsewhere (fcitx5), from
   inside it, `switchInPlace` switches it as the word just committed is (no mark; `Committed.inLine`
   updates its `recent` entry when the window closes). ⇧← on the word being typed,
   or ←/→ right after a switch key changed it, makes it a fix (`startFixingTyped`; `Key.shiftLeft`/
