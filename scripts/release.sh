@@ -5,9 +5,6 @@
 #   Araso-<version>.pkg, Araso.pkg   an installer into /Library/Input Methods that registers
 #                                          it for the logged-in user (Araso.pkg keeps
 #                                          releases/latest/download stable for the website)
-#   Legato.pkg, Legato.zip,                the same files under the earlier names: the update
-#   Seamtype.pkg, Seamtype.zip             check of Legato (0.2.0) and Seamtype (0.1.x) looks for
-#                                          <name>.pkg, and their get.sh downloads <name>.zip
 #
 # With a Developer ID, the app and the package are also signed (hardened runtime), notarized and
 # stapled:
@@ -102,11 +99,7 @@ if [[ -n ${ARASO_NOTARY_PROFILE:-} ]]; then
   xcrun stapler staple $pkg
 fi
 cp $pkg $out/Araso.pkg
-for name in Legato Seamtype; do
-  cp $out/Araso.pkg $out/$name.pkg
-  cp $out/Araso.zip $out/$name.zip
-done
 [[ -z ${ARASO_APP_SIGN:-} ]] &&
   echo "warning: ad-hoc app: Gatekeeper rejects it once installed from the pkg (it is selected but never starts); try installs with scripts/install.sh"
-echo "built $out/Araso-$version.zip, $out/Araso.zip, $pkg, $out/Araso.pkg (and as Legato.*, Seamtype.*)"
+echo "built $out/Araso-$version.zip, $out/Araso.zip, $pkg, $out/Araso.pkg"
 echo "  (${ARASO_APP_SIGN:-ad-hoc app}, ${ARASO_PKG_SIGN:-unsigned pkg}${ARASO_NOTARY_PROFILE:+, notarized})"
