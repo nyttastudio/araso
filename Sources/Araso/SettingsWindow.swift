@@ -102,6 +102,14 @@ func runSettingsApp(tab: SettingsTab) -> Never {
     window.orderFrontRegardless()
     app.activate(ignoringOtherApps: true)
 
+    // The menu bar and the window's name (Mission Control, the Window menu) follow the language too.
+    let language = model.$settings.map(\.displayLanguage).removeDuplicates().dropFirst().sink { chosen in
+        MainActor.assumeIsolated {
+            Localization.language = chosen // @Published sends before the model's didSet sets it
+            window.title = L("Araso Settings")
+            app.mainMenu = SettingsAppDelegate.mainMenu()
+        }
+    }
     DistributedNotificationCenter.default().addObserver(forName: SettingsLauncher.showTab, object: nil, queue: .main) { note in
         let tab = (note.object as? String).flatMap(SettingsTab.init(rawValue:))
         MainActor.assumeIsolated {
@@ -117,7 +125,7 @@ func runSettingsApp(tab: SettingsTab) -> Never {
     DistributedNotificationCenter.default().addObserver(forName: SettingsNotice.changedByInputMethod, object: nil, queue: .main) { _ in
         MainActor.assumeIsolated { model.reload() }
     }
-    withExtendedLifetime((delegate, window)) { app.run() }
+    withExtendedLifetime((delegate, window, language)) { app.run() }
     exit(0)
 }
 
@@ -164,6 +172,7 @@ final class SettingsModel: ObservableObject {
             LatinLayout.active = settings.latinLayout
             KoreanLayout.active = settings.koreanLayout
             LatinLayout.activeRomaji = settings.japaneseLayout
+            Localization.language = settings.displayLanguage
         }
     }
     @Published private(set) var defaultPolicy = AppPolicy.standard
@@ -489,6 +498,9 @@ struct SettingsView: View {
             .clipped()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        // Built again in the chosen language: every pane reads its words through L.
+        .id(model.settings.displayLanguage)
+        .environment(\.locale, Localization.locale)
         .background(Seam.bg)
         .tint(Seam.blue)
         // Under the transparent title bar too; the window stays the size below.
@@ -635,6 +647,19 @@ private struct GeneralPane: View {
                             detail: L("Kanji you pick come first next time.")) {
                         Button(L("Reset…")) { confirmKanji = true }
                     }
+                }
+            }
+            SeamCard(title: L("Display")) {
+                SeamRow(title: L("Language"), detail: L("Of this window, the input menu and Araso's messages.")) {
+                    Picker(L("Language"), selection: Binding(get: { model.settings.displayLanguage },
+                                                             set: { model.set(\.displayLanguage, $0) })) {
+                        Text(L("System")).tag(String?.none)
+                        // Each in its own language, so it can be found in either.
+                        Text(verbatim: "English").tag(String?.some("en"))
+                        Text(verbatim: "한국어").tag(String?.some("ko"))
+                    }
+                    .labelsHidden()
+                    .fixedSize()
                 }
             }
         }

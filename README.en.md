@@ -525,6 +525,7 @@ restart the input method: `pkill -x Araso`.
 | `koreanLayout` | `"dubeolsik"` | The Korean layout; `"sebeolsikFinal"` is 3-set final (세벌식 최종), `"sebeolsik390"` 3-set 390 (세벌식 390). Jamo on digit and symbol keys (ㅆ of 갔 on 2, ㅂ of 밥 on ;) read as jamo inside a word where they fit, and as the symbol where they don't (the ! of 안녕!). Digits alone stay a number, except 00 after Korean, which is ㅋㅋ (other ㅋㅋ and ㅠㅠ (55) take a switch key). Keys that type a digit or symbol on 3-set (on 최종 ⇧B ?, ⇧/ !, ⇧H 0, [ (; on 390 ⇧B !, ⇧M 1) type 3-set's straight after a Korean word and in the symbols that follow it, and QWERTY's anywhere else (Bob); a switch key right after takes them back to the keys as typed (지냈어? → ldhr2jtB). |
 | `japaneseEngine` | `"apple"` | Kanji conversion: `"apple"` uses the engine of macOS's Japanese input, `"azooKey"` the AzooKey converter in the app. |
 | `checkForUpdates` | on | Once a day, ask GitHub for the latest release's version (nothing else is sent), and say so in the input menu and About when it is newer. |
+| `displayLanguage` | none | The language of the settings window and the input menu (`"en"`, `"ko"`); without it, the system's. macOS only for now. |
 
 With live conversion:
 

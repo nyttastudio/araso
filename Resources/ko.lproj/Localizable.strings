@@ -216,6 +216,10 @@
 "Type Japanese with romaji; Space converts to kanji." = "로마자로 일본어를 치고, Space로 한자로 바꿉니다.";
 "Kanji candidate order" = "한자 후보 순서";
 "Kanji you pick come first next time." = "고른 한자가 다음에 앞에 나옵니다.";
+"Display" = "표시";
+"Language" = "언어";
+"Of this window, the input menu and Araso's messages." = "이 창과 입력 메뉴, Araso가 보여 주는 글의 언어입니다.";
+"System" = "시스템 설정";
 "Reset…" = "초기화…";
 
 /* 키 */
