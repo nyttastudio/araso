@@ -582,6 +582,59 @@ import Testing
         #expect(field.marked.location == NSNotFound)
     }
 
+    /// The pause key between the switch and the app's ←: no fix starts, the switch only learned.
+    @Test func pauseBeforeTheDeferredFixStartsNone() {
+        field.marksFromCaret = true
+        field.insertsFromCaret = true
+        field.insertsRightAfterAnInsert = false
+        type("hello world ")
+        session.handle(.cycle, client: field)
+        let switched = field.text
+        #expect(!session.handle(.left, client: field))
+        session.togglePause(client: field)
+        field.cursor -= 1 // the app's ←
+        #expect(session.caretMoved(client: field) == nil)
+        #expect(session.fixing == nil)
+        #expect(field.text == switched)
+        #expect(field.marked.location == NSNotFound)
+    }
+
+    /// The field's first word where nothing can take its place (no zero-width space): the app's ←
+    /// inside its `, ` stays where it put the caret, the boundary not put back over itself.
+    @Test func leftInsideTheBoundaryOfTheFirstWordStaysWhereNoFixCanStart() {
+        field.marksFromCaret = true
+        field.insertsFromCaret = true
+        field.insertsRightAfterAnInsert = false
+        type("world, ")
+        session.handle(.cycle, client: field)
+        let switched = field.text
+        #expect(!session.handle(.left, client: field))
+        field.cursor -= 1 // the app's ←: inside ", "
+        let caret = field.cursor
+        #expect(session.caretMoved(client: field) == nil)
+        #expect(session.fixing == nil)
+        #expect(field.text == switched)
+        #expect(field.cursor == caret)
+    }
+
+    /// A 3-set symbol left out of the marked text stays as it is in the field (`?`, not its key, B)
+    /// when the line's last word is fixed to another reading, so a switch key right after changes it.
+    @Test func switchKeyAfterFixingAWordBeforeA3SetSymbol() {
+        KoreanLayout.$override.withValue(.sebeolsikFinal) {
+            type("ldhr2jtB")
+            #expect(field.text == "지냈어?")
+            caret(at: 1)
+            session.handle(.cycle, client: field)
+            session.handle(.enter, client: field)
+            let fixed = field.text
+            #expect(fixed.hasSuffix("?") && fixed != "지냈어?")
+            #expect(session.handle(.cycle, client: field))
+            #expect(field.text != fixed)
+            #expect(session.fixing == nil) // changed as the word just committed, not marked again
+            #expect(field.marked.location == NSNotFound)
+        }
+    }
+
     /// The field's first word in a macOS text view, which drops an empty insert: a zero-width space
     /// before it has the caret there, so it is marked and resized as any word, and the space goes
     /// once the fix is in or put back; the words after it are where they were for the next fix.

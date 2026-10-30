@@ -1401,6 +1401,7 @@ public final class InputSession {
     public func caretMoved(client cased: TextClient) -> NSRange? {
         if let commit = fixAfterArrow {
             fixAfterArrow = nil
+            if paused { learnUnmarked(commit); return nil } // the pause key came between: no fix
             let at = recent.last.map { $0.location + utf16($0.text) - utf16($0.boundary) }
             let caret = Self.uncased(cased).selectedRange()
             // The app's ← put the caret at the word's end, or before its last character when it has
@@ -1418,6 +1419,7 @@ public final class InputSession {
             let end = commit.location + utf16(commit.text)
             if keys.isEmpty, fixing == nil, recent.last?.location == commit.location, let at,
                caret.length == 0, caret.location > at, caret.location < end,
+               !Self.uncased(cased).marksFromCaret || canTakeAway(commit.location, Self.uncased(cased)),
                Self.uncased(cased).text(in: NSRange(location: commit.location, length: end - commit.location)) == commit.text {
                 let rest = NSRange(location: caret.location, length: end - caret.location)
                 Self.uncased(cased).insertText((commit.text as NSString).substring(from: rest.location - commit.location),
@@ -1817,6 +1819,7 @@ public final class InputSession {
         removePlaceholder(fixing, client)
         let later = Array(recent.dropFirst(fixing.firstEntry + fixing.pieces.count))
         var updated = Array(recent.prefix(fixing.firstEntry))
+        var lastBoundary = ""
         if !fixing.split, fixing.cut == nil {
             var location = fixing.start - (fixing.placeholder ? 1 : 0)
             for (i, piece) in fixing.pieces.enumerated() {
@@ -1831,8 +1834,13 @@ public final class InputSession {
                 }
                 let word = i < fixing.count ? (i == 0 ? fixing.kanji : nil) ?? committedReading(piece.keys, as: language)
                                             : piece.text
+                // A boundary left out of the marked text stays as it was in the field (3-set's `?` of a
+                // word fixed to English).
+                let boundary = i < fixing.count && boundaryMarked(fixing, i) ? piece.boundary(in: language)
+                                                                              : piece.boundary(in: piece.language)
+                if i < fixing.count { lastBoundary = boundary }
                 let entry = Committed(keys: piece.keys, decided: piece.decided, committedAs: language, language: language,
-                                      text: word + piece.boundary(in: language), boundary: piece.boundary,
+                                      text: word + boundary, boundary: piece.boundary,
                                       location: location, previous: nil, learns: piece.learns,
                                       typedBoundary: piece.typedBoundary)
                 updated.append(entry)
@@ -1848,8 +1856,8 @@ public final class InputSession {
         // The line ends with the fixed words, the caret back after the last one's space: a switch key
         // now changes that word as it does the word just committed. Not a cut word, which `recent`
         // doesn't keep; `cycle` checks the caret and the field when the key comes.
-        if later.isEmpty, !fixing.split, fixing.cut == nil, let last = recent.last,
-           fixing.lastBoundaryMarked || fixing.trailing == last.boundary(in: last.language) {
+        if later.isEmpty, fixing.count == fixing.pieces.count, !fixing.split, fixing.cut == nil, let last = recent.last,
+           fixing.lastBoundaryMarked || fixing.trailing == lastBoundary {
             lastCommit = last
         }
     }
@@ -2944,7 +2952,9 @@ public final class InputSession {
               client.text(in: range) == commit.text else { return nil }
 
         let language = commit.language.next(for: commit.keys, japanese: japaneseEnabled, splits: engineSplits(commit.keys))
-        let text = committedReading(commit.keys, as: language) + commit.boundary(in: language)
+        // Back to the reading it went in as: what went in, a kanji Return confirmed with live conversion too.
+        let text = language == commit.committedAs ? commit.firstText ?? committedReading(commit.keys, as: language) + commit.boundary(in: language)
+                                                  : committedReading(commit.keys, as: language) + commit.boundary(in: language)
         client.insertText(text, replacing: range)
         if runText.hasSuffix(commit.text) { runText = String(runText.dropLast(commit.text.count)) + text }
         if commit.inLine == nil { previousLanguage = language.sentenceLanguage }

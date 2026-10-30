@@ -362,10 +362,10 @@ typed can be cut the same way: after a switch key changed its reading ←/→ do
 (`helloab`, ⇧←⇧← → `hello` | `ab`; ← before a switch puts the word in and moves the caret, as
 before). A whole word fixed as Japanese opens the candidate window on Space, chosen as for a word
 being typed (Space and ↑/↓ for candidates, ←/→ resize the clause, Return or a digit picks and ends
-the fix, Esc goes back to the kana). A word just committed with Space becomes such a fix too
-when ← follows a switch key that changed it (before one, ⌥← to its start, then the switch key). Return or any other key puts the
+the fix, Esc goes back to the kana). A word just committed with Space or Return becomes such a fix too
+when ← (→ too on Windows and Linux) follows a switch key that changed it (before one, ⌥← to its start, then the switch key). Return or any other key puts the
 fix in and takes the caret back to the end of the line (⌘Z takes two: one selects the rest of the
-line, the next puts the fix back). When the fix was of the line's last word, a switch key right after
+line, the next puts the fix back). When the fix was of the line's last word, whole (not cut), a switch key right after
 changes it again, as it does a word just committed. Esc (where it isn't a switch key) and Delete
 put it back as it was before anything was touched: a word being typed is typed again, read as before
 the switch; a word just committed goes back to how it went in, and a switch key changes it again. The
