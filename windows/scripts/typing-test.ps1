@@ -293,12 +293,12 @@ function Front-Window {
 # go through it. The privacy screen ("Choose privacy settings for your device", WWAHost's "Microsoft
 # account") takes Return through its pages (Next, then Accept); the search flyout and widgets after it, Esc.
 function Clear-FirstSignIn {
-    for ($i = 0; $i -lt 8; $i++) {
+    for ($i = 0; ; $i++) {
         $front = Front-Window
         if ($front -eq "WWAHost 'Microsoft account'") { $scan = 0x1C }
         elseif ($front -match "^(SearchHost|StartMenuExperienceHost|Widgets) ") { $scan = 0x01 }
         else { return }
-        if ($i -eq 7) { throw "the first sign-in's $front stays in front" }
+        if ($i -eq 8) { throw "the first sign-in's $front stays in front after 8 keys" }
         Write-Host "the first sign-in's $front is in front: $(if ($scan -eq 0x1C) { 'Return' } else { 'Esc' })"
         [Keys]::Key($scan, $false, $false); Start-Sleep -Milliseconds 60; [Keys]::Key($scan, $true, $false)
         Start-Sleep -Seconds 2
