@@ -255,19 +255,25 @@ function Ready($field, [string]$kind) {
     Write-Host "${kind}: in front $front, layout $layout, ArasoTip.dll $(if ($loaded) { $loaded.FileName } else { 'not loaded' })"
 }
 
+# CI's ARM64 runner, fresh from its first sign-in, still opens windows of its own over the field now
+# and then (WSL's first run, again after it was closed) and its x64 host may answer a key late: there a
+# case that comes out wrong is typed once more, in a new field, and has to come out right then.
 function Case([string]$keys, [string]$expected, [scriptblock]$after, [string]$kind = "notepad") {
-    $field = Open-Field $kind
-    $notepad = $field.process
-    $window = $field.window
-    Ready $field $kind
-    Send-Keys $keys
-    if ($after) { & $after }
-    Start-Sleep -Milliseconds 800
-    if ([Keys]::GetForegroundWindow() -ne $window) { Write-Host "${kind}: no longer in front after the keys" }
-    $text = & $field.read
-    Stop-Process -Id $notepad.Id -Force
-    Write-Host "$kind typed '$keys' → '$text'"
-    return $text -eq $expected
+    $attempts = if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") { 2 } else { 1 }
+    for ($attempt = 1; ; $attempt++) {
+        $field = Open-Field $kind
+        $window = $field.window
+        Ready $field $kind
+        Send-Keys $keys
+        if ($after) { & $after }
+        Start-Sleep -Milliseconds 800
+        if ([Keys]::GetForegroundWindow() -ne $window) { Write-Host "${kind}: no longer in front after the keys" }
+        $text = & $field.read
+        Stop-Process -Id $field.process.Id -Force
+        Write-Host "$kind typed '$keys' → '$text'"
+        if ($text -eq $expected -or $attempt -ge $attempts) { return $text -eq $expected }
+        Write-Host "${kind}: again"
+    }
 }
 
 # Switching the word just committed comes after a person's pause (300 ms here): in a classic app the
@@ -299,12 +305,13 @@ function Front-Window {
 # every other window from coming forward: no key reached any field until a case's Return happened to
 # go through it. The privacy screen ("Choose privacy settings for your device", WWAHost's "Microsoft
 # account") takes Return through its pages (Next, then Accept); the search flyout and widgets after it, Esc.
-# WSL's first run comes up in Windows Terminal a little later and takes the focus whenever a field
-# closes: it is closed.
+# WSL's first run comes up in Windows Terminal a little later, and again after it was closed, and
+# takes the focus: Windows Terminal is closed (the fields have no console, so none of its windows is
+# the test's).
 function Clear-FirstSignIn {
-    $wsl = @(Get-Process WindowsTerminal -ErrorAction SilentlyContinue | Where-Object MainWindowTitle -like "*wsl.exe")
+    $wsl = @(Get-Process WindowsTerminal -ErrorAction SilentlyContinue)
     if ($wsl) {
-        Write-Host "the first sign-in's WSL terminal is open: closed"
+        Write-Host "the first sign-in's WSL terminal is open ($(($wsl | ForEach-Object MainWindowTitle) -join ', ')): closed"
         $wsl | Stop-Process -Force -ErrorAction SilentlyContinue
         Get-Process wsl -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
     }
