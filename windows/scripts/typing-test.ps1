@@ -30,6 +30,7 @@ public static class Keys {
     [DllImport("input.dll", CharSet = CharSet.Unicode)] public static extern bool InstallLayoutOrTip(string profile, uint flags);
     [DllImport("input.dll", CharSet = CharSet.Unicode)] public static extern bool SetDefaultLayoutOrTip(string profile, uint flags);
     [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr window, IntPtr process);
+    [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr window, out uint process);
     [DllImport("user32.dll")] public static extern IntPtr GetKeyboardLayout(uint thread);
     [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr window, uint message, IntPtr w, IntPtr l);
     const uint SCANCODE = 0x8, KEYUP = 0x2, EXTENDED = 0x1;
@@ -234,6 +235,7 @@ function Ready($field, [string]$kind) {
         $layout = "{0:X8}" -f [Keys]::GetKeyboardLayout($thread).ToInt64()
     }
     $loaded = (Get-Process -Id $field.process.Id).Modules | Where-Object { $_.ModuleName -eq "ArasoTip.dll" } | Select-Object -First 1
+    if (-not $front) { Write-Host "${kind}: $(Front-Process) is in front" }
     Write-Host "${kind}: in front $front, layout $layout, ArasoTip.dll $(if ($loaded) { $loaded.FileName } else { 'not loaded' })"
 }
 
@@ -268,6 +270,24 @@ function Tap([int]$scan) {
 # The classic field: Notepad's Edit control (Windows 10, Server), or the same control in a WinForms
 # window where Notepad is Windows 11's own app (CI's ARM64 runner).
 $classic = if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") { "winforms" } else { "notepad" }
+
+# The process whose window is in front.
+function Front-Process {
+    $id = [uint32]0
+    [Keys]::GetWindowThreadProcessId([Keys]::GetForegroundWindow(), [ref]$id) | Out-Null
+    (Get-Process -Id $id -ErrorAction SilentlyContinue).ProcessName
+}
+
+# CI's ARM64 runner comes up with the first sign-in's privacy screen ("Choose privacy settings for
+# your device", WWAHost's "Microsoft account") in front, which keeps every other window from coming
+# forward: no key reached any field until a case's Return happened to go through its pages. Return
+# goes through them (Next, then Accept) before the cases.
+for ($i = 0; $i -lt 8 -and (Front-Process) -eq "WWAHost"; $i++) {
+    Write-Host "the first sign-in's screen is in front: Return"
+    [Keys]::Key(0x1C, $false, $false); Start-Sleep -Milliseconds 60; [Keys]::Key(0x1C, $true, $false)
+    Start-Sleep -Seconds 3
+}
+Write-Host "in front before the cases: $(Front-Process)"
 
 # The first WPF window of a fresh machine loads .NET's WPF for a while and may come up behind:
 # one opened and closed first.
