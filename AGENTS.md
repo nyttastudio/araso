@@ -103,6 +103,9 @@ guards; an entry limited to apps applies to the keys as a whole, by `DecisionCon
 **`InputSession`** is one state machine per text client, behind the `TextClient` protocol (the
 tests use `FakeTextField`). It owns the preview and hysteresis, commits, Esc reading cycling, the
 "flip the word just committed" window, kana-kanji conversion and live conversion.
+- The flip window (`lastCommit`) stays open over symbols and a space typed after a word a symbol
+  ended (`world. `, `world?! `: `Committed.followed(by:)`), not over the input method's own symbols
+  (Japanese ones after Japanese, a closing bracket, a URL); Delete then takes back one character.
 - Some splits happen here, not in the engine, because the part after the split keeps composing
   (the Japanese half needs conversion): Korean → English or Japanese (`오늘은` + `google에서`,
   `이력` + `rireki`) and Japanese → Korean (`rireki` + `를`, `kyouha` + `도시락`). The front part

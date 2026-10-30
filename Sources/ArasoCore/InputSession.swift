@@ -208,11 +208,20 @@ public final class InputSession {
         /// and its length before, so the window closing updates it there instead of adding it.
         var inLine: (index: Int, length: Int)?
 
-        /// The same word after Delete took back its boundary character.
+        /// The same word after Delete took back its boundary's last character (all of it but a
+        /// symbol and what followed, `followed(by:)`).
         var withoutBoundary: Committed {
             Committed(keys: keys, decided: decided, committedAs: committedAs, language: language,
-                      text: String(text.dropLast(boundary.count)), boundary: "", location: location,
-                      previous: previous, learns: learns)
+                      text: String(text.dropLast()), boundary: String(boundary.dropLast()), location: location,
+                      previous: previous, learns: learns,
+                      typedBoundary: boundary.count > 1 ? typedBoundary.map { String($0.dropLast()) } : nil)
+        }
+
+        /// The same word with another symbol or a space typed after its boundary.
+        func followed(by ch: Character) -> Committed {
+            Committed(keys: keys, decided: decided, committedAs: committedAs, language: language, text: text + String(ch),
+                      boundary: boundary + String(ch), location: location, previous: previous, learns: learns,
+                      typedBoundary: typedBoundary.map { $0 + String(ch) })
         }
 
         /// The boundary as it goes in after the word in `language`.
@@ -545,6 +554,21 @@ public final class InputSession {
         if arrow, keys.isEmpty, listed != nil, let pending {
             if startFixingCommitted(pending, client) { return handleFixing(key, client: client) }
             if key == .left, deferFixing(pending, client) { return false } // the app moves the caret first
+        }
+        // More symbols or a space right after a word a symbol ended (`world. `, `world?! `): the window
+        // stays open over them, so a switch key still changes the word, as after `world `. Up to the
+        // first space. Not where the key is the input method's own (Japanese symbols and full-width
+        // space after Japanese, a closing bracket, a URL), which goes on as after any word.
+        if case .printable(let ch) = key, ch == " " || Self.isBoundarySymbol(ch), keys.isEmpty, let pending,
+           pending.inLine == nil, let end = pending.boundary.last, !end.isWhitespace,
+           !Self.hasURLMarker(run(client) + String(ch)), !closesFullWidth(ch),
+           previousLanguage != .japanese || (ch == " " && !(fullWidthSpace && japaneseEnabled && policy.fullWidth)) {
+            lastCommit = pending.followed(by: ch)
+            passedRun = nil
+            afterDigit = false
+            afterKoreanSymbol = inKoreanSymbols && ch != " "
+            noteRun(String(ch))
+            return false // the app types it
         }
         if let pending { finalize(pending) }
         if switchesLanguage, keys.isEmpty, let run = passedRunBeforeCaret(client) {

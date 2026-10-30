@@ -477,6 +477,47 @@ import Testing
         #expect(field.text == line)
     }
 
+    /// After a word a symbol ended, more symbols and a space keep the word just committed: a switch
+    /// key changes it with them, ← after one makes it a fix, Delete takes back only the space, and a
+    /// fix confirmed there leaves it for the switch key too.
+    @Test func symbolsAndASpaceAfterTheWordJustCommitted() {
+        type("hello world?! ")
+        let world = korean("world")
+        #expect(session.handle(.cycle, client: field))
+        #expect(field.text == "hello \(world)?! ")
+        #expect(!session.handle(.delete, client: field))
+        field.text = String(field.text.dropLast()) // the app's Delete
+        field.cursor -= 1
+        #expect(session.handle(.cycle, client: field))
+        #expect(field.text == "hello world?!")
+
+        type(" ")
+        session.handle(.cycle, client: field) // still open after the switch
+        #expect(field.text == "hello \(world)?! ")
+    }
+
+    @Test func fixingAfterASymbolAndASpace() {
+        field.marksFromCaret = true
+        field.insertsFromCaret = true
+        type("hello world, ")
+        session.handle(.cycle, client: field)
+        #expect(session.handle(.left, client: field))
+        #expect(field.marked.location == 6)
+        #expect(NSMaxRange(field.marked) == (field.text as NSString).length)
+        session.handle(.enter, client: field)
+        #expect(field.text.hasSuffix(", "))
+        #expect(field.cursor == (field.text as NSString).length)
+
+        type("again. ")
+        caret(at: (field.text as NSString).length - 4) // inside again
+        session.handle(.cycle, client: field)
+        session.handle(.enter, client: field)
+        let line = field.text
+        #expect(session.handle(.cycle, client: field))
+        #expect(field.text != line)
+        #expect(field.text.hasSuffix("again. "))
+    }
+
     /// The strip lists the clause's readings after ←/→ too: a cut's front part, or the words of a
     /// longer clause read together.
     @Test func readingsFollowTheClause() {
