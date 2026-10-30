@@ -518,6 +518,29 @@ import Testing
         #expect(field.text.hasSuffix("again. "))
     }
 
+    /// Where the mark waits for the caret, ← after a symbol and a space leaves it inside them: the word
+    /// is marked with both from the end all the same, cut as ← cuts it.
+    @Test func leftAfterASymbolAndASpaceWaitsForTheCaret() throws {
+        field.marksFromCaret = true
+        field.insertsFromCaret = true
+        field.insertsRightAfterAnInsert = false
+        type("hello world, ")
+        session.handle(.cycle, client: field)
+        let world = korean("world")
+        #expect(!session.handle(.left, client: field))
+        field.cursor -= 1 // the app's ←: after the comma
+        #expect(session.caretMoved(client: field) == nil)
+        let fixing = try #require(session.fixing)
+        #expect(fixing.cut == 4)
+        #expect(field.marked.location == 6)
+        session.handle(.right, client: field)
+        session.handle(.enter, client: field)
+        #expect(field.text == "hello \(world), ")
+        #expect(field.marked.location == NSNotFound)
+        #expect(field.cursor == (field.text as NSString).length)
+        #expect(session.engine.correctedOnce("world", app: nil) == .korean)
+    }
+
     /// The strip lists the clause's readings after ←/→ too: a cut's front part, or the words of a
     /// longer clause read together.
     @Test func readingsFollowTheClause() {

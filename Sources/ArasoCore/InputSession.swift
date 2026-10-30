@@ -1230,11 +1230,12 @@ public final class InputSession {
     /// The line after it isn't read: the caret was typing there, and goes back there once the fix is in
     /// (Notes gives nothing for the empty range at the text's end, which `readTrailing` takes for an end
     /// not known). Not a word switched in place, or one typed with Caps Lock.
-    private func startFixingCommitted(_ commit: Committed, _ cased: TextClient) -> Bool {
+    private func startFixingCommitted(_ commit: Committed, _ cased: TextClient, afterCaretMove: Bool = false) -> Bool {
         let client = Self.uncased(cased)
         let caret = client.selectedRange()
         let range = NSRange(location: commit.location, length: utf16(commit.text))
-        guard conversion == nil, commit.inLine == nil, !capsWord, client.marksAnywhere, client.insertsRightAfterAnInsert,
+        guard conversion == nil, commit.inLine == nil, !capsWord, client.marksAnywhere,
+              client.insertsRightAfterAnInsert || afterCaretMove,
               caret.location == NSMaxRange(range), caret.length == 0, client.text(in: range) == commit.text
         else { return false }
         let before = characterBefore(commit.location, client)
@@ -1312,10 +1313,26 @@ public final class InputSession {
         if let commit = fixAfterArrow {
             fixAfterArrow = nil
             let at = recent.last.map { $0.location + utf16($0.text) - utf16($0.boundary) }
+            let caret = Self.uncased(cased).selectedRange()
             if keys.isEmpty, fixing == nil, recent.last?.location == commit.location,
-               Self.uncased(cased).selectedRange() == NSRange(location: at ?? NSNotFound, length: 0),
+               caret == NSRange(location: at ?? NSNotFound, length: 0),
                startFixing(cased, asIs: true, cut: true) {
                 return nil
+            }
+            // Its boundary longer than one character (`world, `): the app's ← left the caret inside it.
+            // The rest of it over itself puts the caret back at the end, and the word and its boundary
+            // are marked from there, as the arrow does where that works at once (`startFixingCommitted`).
+            let end = commit.location + utf16(commit.text)
+            if keys.isEmpty, fixing == nil, recent.last?.location == commit.location, let at,
+               caret.length == 0, caret.location > at, caret.location < end,
+               Self.uncased(cased).text(in: NSRange(location: commit.location, length: end - commit.location)) == commit.text {
+                let rest = NSRange(location: caret.location, length: end - caret.location)
+                Self.uncased(cased).insertText((commit.text as NSString).substring(from: rest.location - commit.location),
+                                               replacing: rest)
+                if startFixingCommitted(commit, cased, afterCaretMove: true) {
+                    _ = handleFixing(.left, client: cased)
+                    return nil
+                }
             }
             learnUnmarked(commit)
         }

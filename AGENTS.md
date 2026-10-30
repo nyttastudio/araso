@@ -106,6 +106,8 @@ tests use `FakeTextField`). It owns the preview and hysteresis, commits, Esc rea
 - The flip window (`lastCommit`) stays open over symbols and a space typed after a word a symbol
   ended (`world. `, `world?! `: `Committed.followed(by:)`), not over the input method's own symbols
   (Japanese ones after Japanese, a closing bracket, a URL); Delete then takes back one character.
+  The macOS ← after a switch there leaves the caret inside the boundary: `caretMoved` puts the rest
+  over itself, back at the end, and marks from there (`startFixingCommitted(afterCaretMove:)`).
 - Some splits happen here, not in the engine, because the part after the split keeps composing
   (the Japanese half needs conversion): Korean → English or Japanese (`오늘은` + `google에서`,
   `이력` + `rireki`) and Japanese → Korean (`rireki` + `를`, `kyouha` + `도시락`). The front part
