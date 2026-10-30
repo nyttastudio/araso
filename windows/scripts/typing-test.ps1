@@ -305,11 +305,14 @@ function Front-Window {
 # every other window from coming forward: no key reached any field until a case's Return happened to
 # go through it. The privacy screen ("Choose privacy settings for your device", WWAHost's "Microsoft
 # account") takes Return through its pages (Next, then Accept); the search flyout and widgets after it, Esc.
-# WSL's first run comes up in Windows Terminal a little later, and again after it was closed, and
-# takes the focus: Windows Terminal is closed (the fields have no console, so none of its windows is
-# the test's).
+# On ARM64, WSL's first run comes up in Windows Terminal a little later, and again after it was
+# closed (titled wsl.exe, then Terminal), and takes the focus: that Windows Terminal is closed. Only
+# by those titles: the runner's own agent may be in a Windows Terminal too (x64), and goes with it.
 function Clear-FirstSignIn {
-    $wsl = @(Get-Process WindowsTerminal -ErrorAction SilentlyContinue)
+    $wsl = @()
+    if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") {
+        $wsl = @(Get-Process WindowsTerminal -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -eq "Terminal" -or $_.MainWindowTitle -like "*wsl.exe" })
+    }
     if ($wsl) {
         Write-Host "the first sign-in's WSL terminal is open ($(($wsl | ForEach-Object MainWindowTitle) -join ', ')): closed"
         $wsl | Stop-Process -Force -ErrorAction SilentlyContinue
