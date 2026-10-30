@@ -105,6 +105,38 @@ let splitting = SplittingEngine(base: sharedEngine, english: sharedEngine.englis
         #expect(d.output == expected)
     }
 
+    /// Developer acronyms SCOWL lacks, so not in `EnglishModel.acronyms`: keys from outside the
+    /// list the held-Shift guard was built and measured on.
+    static let techAcronyms = """
+    ACL AGI AKS ALB APT ARM ASR AWS BDD BOM CDN CI CICD CLI CLR COO CORS CRLF CRM CRUD CSP CSR CSRF CSS
+    CSV CTO DB DDD DDL DDOS DL DML DNS DOM DPI ECR ECS EKS ELB ELT EOF EOL ERP ETL FPS GAN GCP GIL GKE
+    GPT GRPC HDR HTTPS IAM IDS IOPS IOT IPS JDK JPG JRE JSON JVM JWT KPI KVM LLM LLVM LSTM LTE LTS MIME
+    ML MR MTTR MVC MVVM NAT NLB NLP NPM NPU OKR OLAP OLED OLTP OOP ORM OTP PIP PKI PL PNG POC PWA QPS
+    RAG RBAC RDB RDBMS RDS REPL REST RFID RHEL RLHF RNN ROI RPC RPO RPS RTO SCM SDK SEO SFT SFTP SLA SLI
+    SLO SNS SOAP SPA SQS SSD SSG SSH SSL SSO STT SVG TCP TLS TPS TPU TSV TTS UDP UEFI UI URI UTF UX VM
+    VPC VPN WAF WAN WASM WSL WWDC XSS YAML YUM
+    """.split(whereSeparator: \.isWhitespace).map(String.init)
+
+    // Those acronyms before particles, on every layout: where held Shift could make them Korean,
+    // the particle splitter still reads them as acronyms, though the list doesn't name them (their
+    // keys spell Hangul nobody writes, or one syllable before a particle: RAG를, ETL에).
+    @Test(arguments: LatinLayout.allCases)
+    func techAcronymsBeforeParticlesOverHeldShift(layout: LatinLayout) {
+        LatinLayout.$override.withValue(layout) {
+            var held = 0
+            for acronym in Self.techAcronyms {
+                for particle in ["fmf", "dp", "aks", "Rkwl", "dptj", "fh", "eh", "dml"] {
+                    let keys = acronym + String(particle.map(layout.character(onSeat:)))
+                    guard keys.allSatisfy(\.isLetter), DubeolsikLayout.hasHeldOverCapital(keys) else { continue }
+                    held += 1
+                    let d = splitting.decide(keys, context: DecisionContext())
+                    #expect(d.output.hasPrefix(acronym), "\(layout) \(keys) → \(d.output) \(d.explanation)")
+                }
+            }
+            #expect(held > 0, "no key reached held Shift on \(layout)")
+        }
+    }
+
     @Test(arguments: [("RNAdmf", "꿈을"), ("RNAdms", "꿈은"), ("EKFgksxp", "딸한테"), ("RMXdldi", "끝이야"),
                       ("QNSdldi", "뿐이야"), ("EKDdmf", "땅을"), ("EHSms", "또는"), ("TMdl", "쓰이")])
     func heldShiftWithoutAnAcronymStaysKorean(keys: String, expected: String) {
