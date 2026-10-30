@@ -23,6 +23,9 @@ sleep 3
 failures=0
 run() {  # name, GTK_IM_MODULE ("" for Wayland's text-input), keys, expected
   rm -f /tmp/out.txt "$HOME/.config/araso/dictionary.json"
+  # Nothing learned in an earlier case: the dictionary read again, as the settings window has it.
+  python3 -c 'import os,socket; s=socket.socket(socket.AF_UNIX,socket.SOCK_DGRAM); s.sendto(b"{\"op\":\"reload\"}", os.environ["XDG_RUNTIME_DIR"] + "/araso/ime")'
+  sleep 0.5
   GTK_IM_MODULE=$2 python3 "$here/field.py" /tmp/out.txt >/dev/null 2>&1 &
   pid=$!
   sleep 2.5
@@ -43,5 +46,8 @@ run "Wayland, GTK module" fcitx "dkssud hello " "안녕 hello "
 run "Wayland, text-input" "" "dkssud hello " "안녕 hello "
 run "Wayland, the switch key" "" "dkssud{AltR} " "dkssud "
 run "Wayland, the 한/영 key" "" "dkssud{Hangul} " "dkssud "
+run "Wayland, GTK module, a word earlier in the line" fcitx "dkssud gktpdy dlTek {Left}{Left}{Left}{Left}{Left}{AltR}{Right}{Return}hello " "안녕 gktpdy dlTek hello "
+run "Wayland, text-input, a word earlier in the line" "" "dkssud gktpdy dlTek {Left}{Left}{Left}{Left}{Left}{AltR}{Right}{Return}hello " "안녕 gktpdy dlTek hello "
+run "Wayland, text-input, the same at a person's pace" "" "dkssud gktpdy dlTek {Wait}{Left}{Left}{Left}{Left}{Left}{Wait}{AltR}{Wait}{Right}{Wait}{Return}{Wait}hello " "안녕 gktpdy dlTek hello "
 echo "$failures failed"
 exit "$failures"

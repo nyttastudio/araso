@@ -36,3 +36,10 @@ ttedokoni⏎	ってどこに
 chrao 	촉매␣
 hello chrao 	hello 촉매␣
 dkssud chrao 	안녕 촉매␣
+🔒dkssud 	dkssud␣
+🔒PASSWORD!2 	PASSWORD!2␣
+🅡dkssud 	안녕␣
+🔒dkssud🔓dkssud 	dkssud안녕␣
+dkssud🔒abc 	안녕abc␣
+kyouha 🔒abc	今日はabc
+dkssud 🔒abc🔓⎋	안녕 abc

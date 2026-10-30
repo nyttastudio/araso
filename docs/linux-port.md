@@ -34,7 +34,13 @@ its protocol and much of its shape.
   preedit put in at the caret, in UTF-16 units. The session's edits come back as ranges of it and
   are made as `deleteSurroundingText` (characters around the caret), `commitString` and the new
   preedit; what lies between a range and the caret goes in again after the text (a word switched
-  after its Space keeps its Space). After a commit, the addon writes what the field will hold into
+  after its Space keeps its Space). The context goes on to the end of the caret's line (up to 4096
+  units) and says `marksFromCaret`: the preedit is at the caret whatever range is named, so a word
+  earlier in the line is marked as in a macOS text view, the caret moved to it first by deleting and
+  committing around it (`TypingTests`: fixing a word mid-line, → over the next, Return). A key's
+  edits go to the app as one deletion and one commit (`Coalesced`): fcitx5 sends deletions as they
+  come and a key's commits together after them, and Wayland's text-input has one of each a frame,
+  so two of each (the caret moved to a word) came out in the wrong places in GTK. After a commit, the addon writes what the field will hold into
   the input context's surrounding text, so a key that comes before the app reports it sees it.
   An app that sends no surrounding text (xterm over XIM) gets the composition only: what needs the
   text before the caret (a switch right after a word, URLs) doesn't work there, as on Windows.

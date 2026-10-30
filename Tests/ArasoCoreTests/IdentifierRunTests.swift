@@ -127,7 +127,7 @@ import Testing
     @Test func aJapanesePhraseBeforeADigitIsAWord() {
         type("kyouha1", into: japanese)
         #expect(field.text == "きょうは1")
-        type("⎋ ", into: japanese)
+        type("⎋ x", into: japanese) // the next word closes the window the switch was made in
         #expect(learning.pending["kyouha"] != nil)
     }
 }

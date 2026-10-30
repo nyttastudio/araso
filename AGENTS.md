@@ -103,6 +103,11 @@ guards; an entry limited to apps applies to the keys as a whole, by `DecisionCon
 **`InputSession`** is one state machine per text client, behind the `TextClient` protocol (the
 tests use `FakeTextField`). It owns the preview and hysteresis, commits, Esc reading cycling, the
 "flip the word just committed" window, kana-kanji conversion and live conversion.
+- The flip window (`lastCommit`) stays open over symbols and a space typed after a word a symbol
+  ended (`world. `, `world?! `: `Committed.followed(by:)`), not over the input method's own symbols
+  (Japanese ones after Japanese, a closing bracket, a URL); Delete then takes back one character.
+  The macOS ← after a switch there leaves the caret inside the boundary: `caretMoved` puts the rest
+  over itself, back at the end, and marks from there (`startFixingCommitted(afterCaretMove:)`).
 - Some splits happen here, not in the engine, because the part after the split keeps composing
   (the Japanese half needs conversion): Korean → English or Japanese (`오늘은` + `google에서`,
   `이력` + `rireki`) and Japanese → Korean (`rireki` + `를`, `kyouha` + `도시락`). The front part
@@ -139,9 +144,15 @@ tests use `FakeTextField`). It owns the preview and hysteresis, commits, Esc rea
   again (`Fixing.marked` words; the rest of the line, `trailing`, isn't touched), read the next way;
   the switch key cycles the clause, ←/→ resize it as in kanji conversion (the next words past a
   word's end, a cut inside one leaving the rest read on its own), Return on a cut settles the front,
-  Esc and Delete revert, a mark the app didn't put there drops the fix untouched (`markLanded`), and
+  Esc and Delete revert to before anything was touched (the word being typed is typed again, `Fixing.typedKeys`;
+  the word just committed goes back as it went in, `Committed.firstText`, in the flip window again,
+  `Fixing.revert`), Space on a whole word read as Japanese converts it to kanji (`startConvertingFix`:
+  the session's `conversion`, whose keys `handleFixing` takes while it is set, shown in the clause's place,
+  `Fixing.kanji`; Return or a digit on the last clause confirms the fix), a mark the app didn't put there drops the fix untouched (`markLanded`), and
   anything else confirms with one insert over the marked text, then the rest of the line over itself
-  so the caret ends where it was typing (`caretToLineEnd`; ⌘Z takes two). macOS text views mark and
+  so the caret ends where it was typing (`caretToLineEnd`; ⌘Z takes two); when the line ends with
+  the fixed words, the last becomes `lastCommit`, so a switch key right after changes it as it does the
+  word just committed (not a cut word). macOS text views mark and
   insert at the caret whatever range is named (the settings window's typing pane and Notes: real
   keys, 2026-10-28; marking with the caret elsewhere lost text in both), except an insert whose range
   starts or ends at the caret, and marked text with a range, which goes at the caret with that much
@@ -151,24 +162,45 @@ tests use `FakeTextField`). It owns the preview and hysteresis, commits, Esc rea
   (`growMark`) takes the marked text away (the caret at its start) and marks it again over the next
   word; inserts there right after the marked text went in landed at the caret instead (Notes, real
   keys, 2026-10-29). Only forward: the caret can't be put before text that stays after it, so a word
-  ← gives back stays marked. The field's first word has no such character: from
+  ← gives back stays marked. The field's first word has no such character, and an empty insert never
+  reaches a macOS text view (`TextClient.dropsEmptyInserts`; Notes kept the word and the marked text
+  went in after it): there a zero-width space takes its place (`takeAway`, `Fixing.placeholder`,
+  counted in `start` and `end`) and goes when the fix is in, reverted or dropped (`removePlaceholder`,
+  an insert from it to the caret; Notes, real keys, 2026-10-30). Elsewhere (fcitx5), from
   inside it, `switchInPlace` switches it as the word just committed is (no mark; `Committed.inLine`
   updates its `recent` entry when the window closes). ⇧← on the word being typed,
   or ←/→ right after a switch key changed it, makes it a fix (`startFixingTyped`; `Key.shiftLeft`/
-  `.shiftRight`, elsewhere ←/→). Not the word just committed: marking it needs the caret moved
-  back first, and an insert to do that right after the switch key's went in at the caret (Notes and
-  the typing pane, tried both ways); making that switch a fix broke the learned capsule, Caps Lock
-  and 3-set boundaries. Only through the field itself
+  `.shiftRight`, elsewhere ←/→). So does ←/→ right after a switch key changed the word just
+  committed (`startFixingCommitted`: marked as it reads; its boundary too only where what is taken
+  away must end at the caret, `marksFromCaret`, or a switch changes it, 3-set's symbol,
+  `Fixing.lastBoundaryMarked`, as a boundary is marked anywhere in a fix; learned when the fix goes in,
+  as a typed piece).
+  Not in macOS text views (`TextClient.insertsRightAfterAnInsert`): an insert sent with the key
+  right after the switch key's went in at the caret, and the mark with it (Notes, real keys,
+  2026-10-30; the typing pane before), while after a caret move the app made (a click) the same
+  marking landed. There only ← does it, as `deferFixing`: the app takes the ←, putting the caret at
+  the word's end, and `caretMoved` (which `InputController` calls after it) marks it there with
+  `startFixing(asIs:cut:)`; any key before that only learns the switch. Windows' text service asks
+  (`test`) before it sends a key, and an arrow with nothing typed went to the app untried: there
+  `InputSession.takesArrow` keeps ←/→ right after the switch (Windows ARM VM, real keys, 2026-10-30). Making the switch key itself
+  start a fix broke the learned capsule, Caps Lock and 3-set boundaries. Only through the field itself
   (`uncased`: Caps Lock's client would change the rest of the line). The strip lists the clause's readings
   (`clauseReadings`), numbered (`Readings.numbered`): a digit picks one. `caretMoved` lists an unsure
   word's readings (`fixHintConfidence`) after an arrow the app took, under the word's range it returns:
   with nothing marked only `firstRect` places it, whose origin comes at the line's top through IMK
   (TextEdit and Notes, against `attributes(forCharacterIndex:)` for the same marked text, 2026-10-29;
   the list covered the line), so `InputController.firstRect` moves it down by its height, for the
-  caret's place (`PauseHUD`) too. Not where a composition is only
-  at the caret (`TextClient.marksAnywhere`, `TextContext.marksAtCaret`: fcitx5, Windows floating).
+  caret's place (`PauseHUD`) too. fcitx5's preedit is always at the caret too, and deletions and
+  commits around it go where they say, so the addon sends `TextContext.marksFromCaret` and is fixed
+  as a macOS text view is; Windows' text service and the addon send the rest of the line after the
+  caret (up to 4096 units), for the caret anywhere in the word and back at the line's end (`FakeDocument`'s
+  `fcitx` and `sendsLine`, linux/tests). Not where a composition is only at the caret and can't be
+  moved there (`TextClient.marksAnywhere`, `TextContext.marksAtCaret`: Windows floating).
 - Return on an underlined word only confirms it (`returnConfirmsOnly`, on by default); off, the
-  app gets the Return too, except after Japanese.
+  app gets the Return too, except after Japanese. A word only confirmed is the word just committed,
+  with no boundary (the macOS ← after a switch then leaves the caret before its last character, where
+  `caretMoved` fixes it from). Notes gives nothing for the empty range at the text's end, so
+  `IMKClient.text(in:)` answers "" there (`input.length()`): the line's end is known.
 - Vim reports its modes through `scripts/vim/araso.{lua,vim}` (`Araso --vim <mode> --app
   $__CFBundleIdentifier`, a distributed notification). `Runtime` hands it to the active controller,
   which takes it only if vim runs in its app (a signal without `--app`, only where Esc isn't a
@@ -183,6 +215,15 @@ tests use `FakeTextField`). It owns the preview and hysteresis, commits, Esc rea
   ⇧ was already down) and drops whatever the input method inserts; deciding each key there lost
   letters (`PASSWORD` came out `pASSwrD`). A terminal with Secure Keyboard Entry reports its
   caret, so it isn't affected.
+- A terminal waiting for a password (sudo, ssh) gets the keys passed straight too, though nothing
+  tells the input method so where the terminal doesn't turn Secure Event Input on (Orca, Claude's):
+  `PasswordPrompt.isWaiting` (asked by `InputController` after `MaskedField`, every key, 1–2 ms)
+  sees one of the user's `/dev/ttys*` reading a line with echo off (ICANON on, ECHO off; vim is
+  raw). It can't tell which tab has focus, so another tab's prompt passes keys in every app until
+  it ends; ssh's far side isn't seen (the local tty is raw). The prompt can start mid-word, with
+  focus unchanged: its first key commits what was being typed (`passingPassword`), else the
+  app's insert replaced the underlined word, and starts a new context; a switch tap does nothing
+  meanwhile. The start and end are logged at info.
 - Caps Lock doesn't change what a word reads as: `InputController` hands letters over in the case
   Shift alone gives (macOS types capitals with Caps Lock, Shift or not), `handle(_:client:capsLock:)`
   notes it per word (`capsWord`; a toggle inside a word commits what came before), and every client
@@ -330,8 +371,8 @@ runtime.
   `ARASO_PKG_SIGN="Developer ID Installer: Dongbin Lee (2UZ65T3U82)"` and
   `ARASO_NOTARY_PROFILE=seamtype` (this keychain's profile kept its old name), or the assets come
   out ad hoc and unsigned. Upload `Araso.pkg` (the website's download button) and `Araso.zip`
-  (`scripts/get.sh`) under those names for `releases/latest/download/`, plus the versioned copies,
-  and the same two as `Legato.*` and `Seamtype.*` (see Earlier names below).
+  (`scripts/get.sh`) under those names for `releases/latest/download/`, plus the versioned copies;
+  nothing under the earlier names (see Earlier names below).
   The Windows workflow (`windows.yml`) adds `Araso-Setup.exe` and `Araso-Setup-<version>.exe` to
   the same draft on the tag once the repository variable `ARASO_WINDOWS_RELEASE` is `true` (signed
   when `WINDOWS_SIGN_PFX` is set; see the workflow's header). Until then a Windows beta is its own
@@ -425,8 +466,9 @@ runtime.
   and stop their processes; `Registration` selects Araso when one of them was the input source in
   use; `Uninstaller` removes leftovers of any; `SupportDirectory` moves the newest of
   `Application Support/Legato` and `/Seamtype` to `Araso` on the first read, in the app only (not in
-  tests, the CLI or `--selftest`). Releases upload `Legato.pkg`/`.zip` and `Seamtype.pkg`/`.zip` too,
-  since those versions' update check and get.sh look for their own names: keep them while such copies
-  are around. Old `seamtype.*`/`legato.*` vim scripts find no app and do nothing.
+  tests, the CLI or `--selftest`). Releases stopped uploading `Legato.*` and `Seamtype.*` after 0.4.0,
+  so those versions' update check and get.sh, which look for their own names, find nothing newer:
+  their users install `Araso.pkg` by hand. Old `seamtype.*`/`legato.*` vim scripts find no app and do
+  nothing.
 - **Stale registrations:** extra copies of the app registered with LaunchServices (`build/`,
   the old `AutoIME.app`) can make macOS launch the wrong one. `build-app.sh` unregisters its copy.

@@ -3,6 +3,17 @@ import Cocoa
 import InputMethodKit
 import Carbon
 
+// A `--` flag none of the branches below takes (`--help`, a typo) would otherwise fall through to
+// a second IMKServer: it can't get the connection name but keeps running, and apps launched after
+// it quits never reach the input method until Araso restarts (#23). Only `--` flags: macOS may
+// pass its own (`-psn_…`, `-AppleLanguages`).
+let knownFlags: Set = ["--vim", "--app", "--settings", "--register", "--registered", "--uninstall",
+                       "--delete-data", "--selftest"]
+if CommandLine.arguments.dropFirst().contains(where: { $0.hasPrefix("--") && !knownFlags.contains($0) }) {
+    print("usage: Araso [--vim insert|normal|off [--app <bundle id>] | --settings [tab] | --register | --registered | --uninstall [--delete-data] | --selftest]")
+    exit(2)
+}
+
 // `Araso --vim insert|normal|off [--app <bundle id>]`: vim tells the input method which mode
 // it is in, and in which app (see README, "vim"), so normal-mode keys go straight through without
 // guessing. Runs before anything else loads: it is started on every mode change.

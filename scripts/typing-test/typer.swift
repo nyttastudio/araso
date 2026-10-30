@@ -4,9 +4,24 @@
 //
 // usage: typer <cases.tsv> <Araso.app> [probe]    each line: script<TAB>expected
 // probe: the keys of 안녕 + Space on the suite's layout (dkssud on 2-set, the default).
-// script: characters as typed; ⏎ Return, ⎋ Esc, ⇧ Shift+Esc, ⌫ Delete, ← → arrows.
+// script: characters as typed; ⏎ Return, ⎋ Esc, ⇧ Shift+Esc, ⌫ Delete, ← → arrows;
+// 🔒 a terminal starts waiting for a password, 🅡 a full-screen program (vim), 🔓 neither (a shell).
 import AppKit
 import Carbon
+
+// A pty this process holds open, set as a terminal would be: Araso reads every one of the user's
+// ttys (`PasswordPrompt`). 🔒 a line read with echo off (sudo), 🅡 raw keys, 🔓 a line with echo.
+var ptyMaster: Int32 = 0, ptySlave: Int32 = 0
+precondition(openpty(&ptyMaster, &ptySlave, nil, nil, nil) == 0)
+var shellTerminal = termios()
+tcgetattr(ptySlave, &shellTerminal)
+func setTerminal(_ ch: Character) {
+    var t = shellTerminal
+    if ch == "🔒" { t.c_lflag &= ~tcflag_t(ECHO) }
+    if ch == "🅡" { t.c_lflag &= ~tcflag_t(ECHO | ICANON) }
+    tcsetattr(ptySlave, TCSANOW, &t)
+    usleep(100_000)
+}
 
 let keyCodes: [Character: (CGKeyCode, Bool)] = {
     var m: [Character: (CGKeyCode, Bool)] = [:]
@@ -31,6 +46,7 @@ let keyCodes: [Character: (CGKeyCode, Bool)] = {
 }()
 
 func press(_ ch: Character) {
+    if "🔒🅡🔓".contains(ch) { return setTerminal(ch) }
     guard let (code, shift) = keyCodes[ch] else { fatalError("no key for \(ch)") }
     key(code, shift ? .maskShift : [])
     // Conversion (Space/Return in Japanese) and word commits take a moment.
@@ -124,7 +140,8 @@ for c in cases where c.count == 2 {
     let ok = actual == expected
     if ok { passed += 1 }
     print("\(ok ? "PASS" : "FAIL")  \(script)  →  \(actual)\(ok ? "" : "   (expected \(expected))")")
-    // Commit anything left composing before the next case.
+    // Commit anything left composing before the next case, with no terminal waiting.
+    setTerminal("🔓")
     press("⏎")
 }
 let total = cases.filter { $0.count == 2 }.count

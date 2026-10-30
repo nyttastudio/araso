@@ -340,7 +340,9 @@ import Testing
     /// in kanji conversion; before one, ← puts the word in.
     @Test func arrowsAfterASwitchOnTheWordBeingTyped() throws {
         type("helloab")
+        let shown = field.text
         session.handle(.cycle, client: field) // another reading of the word
+        #expect(field.text != shown)
         #expect(session.handle(.left, client: field))
         let fixing = try #require(session.fixing)
         #expect(fixing.cut == 6)
@@ -348,9 +350,391 @@ import Testing
         #expect(session.fixing?.cut == 5)
         session.handle(.right, client: field)
         #expect(session.fixing?.cut == 6)
-        session.handle(.escape, client: field) // all back, as it was before the arrows
+        session.handle(.escape, client: field) // back to typing it, read as before the switch
         #expect(session.fixing == nil)
+        #expect(session.keys == "helloab")
+        #expect(field.text == shown)
+        #expect(field.marked.location == 0)
+    }
+
+    /// After a switch key changed the word just committed, ← and → make it the fix too, as for the
+    /// word being typed: marked as it now reads, without its space, and ← cuts it. Esc puts it back as
+    /// it went in, the switch key changing it again; Return puts the fix in, learned as the word's reading.
+    @Test func arrowsAfterASwitchOnTheWordJustCommitted() throws {
+        type("the helloab ")
+        session.handle(.cycle, client: field)
+        let switched = "\(korean("helloab")) "
+        #expect(field.text == "the \(switched)")
+        #expect(session.handle(.left, client: field))
+        let fixing = try #require(session.fixing)
+        #expect(fixing.cut == 6)
+        #expect(field.marked.location == 4) // the word alone, the front part the clause
+        #expect(NSMaxRange(field.marked) == (field.text as NSString).length - 1)
+        #expect(field.selectedClause?.location == 0)
+        session.handle(.right, client: field) // the whole word again
+        #expect(session.fixing?.cut == nil)
+        session.handle(.escape, client: field) // as it went in, before the switch
+        #expect(field.text == "the helloab ")
         #expect(field.marked.location == NSNotFound)
+        #expect(field.cursor == (field.text as NSString).length)
+        session.handle(.cycle, client: field) // still the word just committed
+        #expect(field.text == "the \(switched)")
+
+        type("hello ")
+        session.handle(.cycle, client: field)
+        #expect(session.handle(.right, client: field)) // nothing after it to take in: marked whole
+        #expect(session.fixing?.cut == nil)
+        session.handle(.enter, client: field)
+        #expect(field.text == "the \(switched)\(korean("hello")) ")
+        #expect(field.cursor == (field.text as NSString).length)
+        #expect(session.engine.correctedOnce("hello", app: nil) == .korean)
+    }
+
+    /// Where marked text goes at the caret, the word just committed is taken away up to the caret,
+    /// the character before it put back, and marked there; at the field's start, with no character
+    /// before it, the arrow goes to the app as before.
+    @Test func arrowsAfterASwitchOnTheWordJustCommittedFromTheCaret() {
+        field.marksFromCaret = true
+        field.insertsFromCaret = true
+        type("hello ")
+        session.handle(.cycle, client: field)
+        #expect(!session.handle(.left, client: field))
+        #expect(session.fixing == nil)
+
+        caret(at: (field.text as NSString).length)
+        type("world ")
+        session.handle(.cycle, client: field)
+        #expect(field.text == "\(korean("hello")) \(korean("world")) ")
+        let start = (korean("hello") as NSString).length + 1
+        #expect(session.handle(.left, client: field))
+        #expect(session.fixing?.cut == 4)
+        #expect(field.marked.location == start)
+        #expect(NSMaxRange(field.marked) == (field.text as NSString).length)
+        #expect(field.text.hasPrefix("\(korean("hello")) "))
+        session.handle(.cycle, client: field) // the cut's front part read the next way
+        session.handle(.right, client: field)
+        session.handle(.enter, client: field)
+        #expect(field.marked.location == NSNotFound)
+        #expect(field.cursor == (field.text as NSString).length)
+        #expect(field.text.hasPrefix("\(korean("hello")) "))
+        #expect(field.text.hasSuffix(" "))
+    }
+
+    /// Where the mark can't follow the switch key's insert at once (macOS text views), ← goes to the
+    /// app, and once the caret is at the word's end (`caretMoved`) the word is marked as it reads, cut
+    /// as ← cuts it; learned when the fix goes in. Another key before that only learns the switch.
+    @Test func leftAfterASwitchOnTheWordJustCommittedWaitsForTheCaret() throws {
+        field.marksFromCaret = true
+        field.insertsFromCaret = true
+        field.insertsRightAfterAnInsert = false
+        type("hello world ")
+        session.handle(.cycle, client: field)
+        let world = korean("world")
+        #expect(!session.handle(.left, client: field))
+        #expect(session.fixing == nil)
+        field.cursor -= 1 // the app's ←: before the space
+        #expect(session.caretMoved(client: field) == nil)
+        let fixing = try #require(session.fixing)
+        #expect(fixing.cut == 4)
+        #expect(field.marked.location == 6)
+        session.handle(.right, client: field) // the whole word
+        #expect(session.fixing?.cut == nil)
+        #expect(field.text == "hello \(world) ")
+        session.handle(.enter, client: field)
+        #expect(field.text == "hello \(world) ")
+        #expect(field.marked.location == NSNotFound)
+        #expect(field.cursor == (field.text as NSString).length)
+        #expect(session.engine.correctedOnce("world", app: nil) == .korean)
+
+        type("again ")
+        session.handle(.cycle, client: field)
+        #expect(!session.handle(.left, client: field))
+        type("x") // before the caret move was seen
+        #expect(session.fixing == nil)
+        #expect(session.engine.correctedOnce("again", app: nil) == .korean)
+    }
+
+    /// Right after a fix of the line's last word went in, the switch key changes that word again as
+    /// it does the word just committed, where marked text goes at the caret too; a fix earlier in the
+    /// line, or of a cut word, leaves it.
+    @Test func switchKeyRightAfterAFixChangesItAgain() {
+        field.marksFromCaret = true
+        field.insertsFromCaret = true
+        type("hello world ")
+        caret(at: 8) // inside world
+        session.handle(.cycle, client: field)
+        session.handle(.enter, client: field)
+        let world = korean("world")
+        #expect(field.text == "hello \(world) ")
+        #expect(session.handle(.cycle, client: field))
+        #expect(field.text == "hello world ")
+        #expect(session.readings?.numbered == true)
+        #expect(field.marked.location == NSNotFound)
+        session.handle(.cycle, client: field)
+        #expect(field.text == "hello \(world) ")
+
+        type("again ")
+        caret(at: 2) // inside hello
+        session.handle(.cycle, client: field)
+        session.handle(.enter, client: field)
+        let line = field.text
+        session.handle(.cycle, client: field) // hello isn't the word before the caret
+        #expect(field.text == line)
+    }
+
+    /// After a word a symbol ended, more symbols and a space keep the word just committed: a switch
+    /// key changes it with them, ← after one makes it a fix, Delete takes back only the space, and a
+    /// fix confirmed there leaves it for the switch key too.
+    @Test func symbolsAndASpaceAfterTheWordJustCommitted() {
+        type("hello world?! ")
+        let world = korean("world")
+        #expect(session.handle(.cycle, client: field))
+        #expect(field.text == "hello \(world)?! ")
+        #expect(!session.handle(.delete, client: field))
+        field.text = String(field.text.dropLast()) // the app's Delete
+        field.cursor -= 1
+        #expect(session.handle(.cycle, client: field))
+        #expect(field.text == "hello world?!")
+
+        type(" ")
+        session.handle(.cycle, client: field) // still open after the switch
+        #expect(field.text == "hello \(world)?! ")
+    }
+
+    @Test func fixingAfterASymbolAndASpace() {
+        field.marksFromCaret = true
+        field.insertsFromCaret = true
+        type("hello world, ")
+        session.handle(.cycle, client: field)
+        #expect(session.handle(.left, client: field))
+        #expect(field.marked.location == 6)
+        #expect(NSMaxRange(field.marked) == (field.text as NSString).length)
+        session.handle(.enter, client: field)
+        #expect(field.text.hasSuffix(", "))
+        #expect(field.cursor == (field.text as NSString).length)
+
+        type("again. ")
+        caret(at: (field.text as NSString).length - 4) // inside again
+        session.handle(.cycle, client: field)
+        session.handle(.enter, client: field)
+        let line = field.text
+        #expect(session.handle(.cycle, client: field))
+        #expect(field.text != line)
+        #expect(field.text.hasSuffix("again. "))
+    }
+
+    /// Where the mark waits for the caret, ← after a symbol and a space leaves it inside them: the word
+    /// is marked with both from the end all the same, cut as ← cuts it.
+    @Test func leftAfterASymbolAndASpaceWaitsForTheCaret() throws {
+        field.marksFromCaret = true
+        field.insertsFromCaret = true
+        field.insertsRightAfterAnInsert = false
+        type("hello world, ")
+        session.handle(.cycle, client: field)
+        let world = korean("world")
+        #expect(!session.handle(.left, client: field))
+        field.cursor -= 1 // the app's ←: after the comma
+        #expect(session.caretMoved(client: field) == nil)
+        let fixing = try #require(session.fixing)
+        #expect(fixing.cut == 4)
+        #expect(field.marked.location == 6)
+        session.handle(.right, client: field)
+        session.handle(.enter, client: field)
+        #expect(field.text == "hello \(world), ")
+        #expect(field.marked.location == NSNotFound)
+        #expect(field.cursor == (field.text as NSString).length)
+        #expect(session.engine.correctedOnce("world", app: nil) == .korean)
+    }
+
+    /// A word Return only confirmed is the word just committed too, with no boundary: a switch key
+    /// changes it, learned when the next Return closes the window.
+    @Test func switchKeyAfterReturnConfirmedAWord() {
+        type("hello world")
+        #expect(session.handle(.enter, client: field))
+        #expect(session.handle(.cycle, client: field))
+        #expect(field.text == "hello \(korean("world"))")
+        #expect(!session.handle(.enter, client: field)) // the app's newline
+        #expect(session.engine.correctedOnce("world", app: nil) == .korean)
+    }
+
+    /// ← after it makes it a fix, from the caret where the app's ← leaves it inside the word.
+    @Test(arguments: [true, false]) func leftAfterReturnConfirmedAWord(atOnce: Bool) throws {
+        field.marksFromCaret = true
+        field.insertsFromCaret = true
+        field.insertsRightAfterAnInsert = atOnce
+        type("hello world")
+        session.handle(.enter, client: field)
+        session.handle(.cycle, client: field)
+        if atOnce {
+            #expect(session.handle(.left, client: field))
+        } else {
+            #expect(!session.handle(.left, client: field))
+            field.cursor -= 1 // the app's ←: before the last letter
+            #expect(session.caretMoved(client: field) == nil)
+        }
+        let fixing = try #require(session.fixing)
+        #expect(fixing.cut == 4)
+        #expect(field.marked.location == 6)
+        session.handle(.right, client: field)
+        session.handle(.enter, client: field)
+        #expect(field.text == "hello \(korean("world"))")
+        #expect(field.cursor == (field.text as NSString).length)
+        #expect(field.marked.location == NSNotFound)
+    }
+
+    /// The pause key between the switch and the app's ←: no fix starts, the switch only learned.
+    @Test func pauseBeforeTheDeferredFixStartsNone() {
+        field.marksFromCaret = true
+        field.insertsFromCaret = true
+        field.insertsRightAfterAnInsert = false
+        type("hello world ")
+        session.handle(.cycle, client: field)
+        let switched = field.text
+        #expect(!session.handle(.left, client: field))
+        session.togglePause(client: field)
+        field.cursor -= 1 // the app's ←
+        #expect(session.caretMoved(client: field) == nil)
+        #expect(session.fixing == nil)
+        #expect(field.text == switched)
+        #expect(field.marked.location == NSNotFound)
+    }
+
+    /// The field's first word where nothing can take its place (no zero-width space): the app's ←
+    /// inside its `, ` stays where it put the caret, the boundary not put back over itself.
+    @Test func leftInsideTheBoundaryOfTheFirstWordStaysWhereNoFixCanStart() {
+        field.marksFromCaret = true
+        field.insertsFromCaret = true
+        field.insertsRightAfterAnInsert = false
+        type("world, ")
+        session.handle(.cycle, client: field)
+        let switched = field.text
+        #expect(!session.handle(.left, client: field))
+        field.cursor -= 1 // the app's ←: inside ", "
+        let caret = field.cursor
+        #expect(session.caretMoved(client: field) == nil)
+        #expect(session.fixing == nil)
+        #expect(field.text == switched)
+        #expect(field.cursor == caret)
+    }
+
+    /// A 3-set symbol left out of the marked text stays as it is in the field (`?`, not its key, B)
+    /// when the line's last word is fixed to another reading, so a switch key right after changes it.
+    @Test func switchKeyAfterFixingAWordBeforeA3SetSymbol() {
+        KoreanLayout.$override.withValue(.sebeolsikFinal) {
+            type("ldhr2jtB")
+            #expect(field.text == "지냈어?")
+            caret(at: 1)
+            session.handle(.cycle, client: field)
+            session.handle(.enter, client: field)
+            let fixed = field.text
+            #expect(fixed.hasSuffix("?") && fixed != "지냈어?")
+            #expect(session.handle(.cycle, client: field))
+            #expect(field.text != fixed)
+            #expect(session.fixing == nil) // changed as the word just committed, not marked again
+            #expect(field.marked.location == NSNotFound)
+        }
+    }
+
+    /// The field's first word in a macOS text view, which drops an empty insert: a zero-width space
+    /// before it has the caret there, so it is marked and resized as any word, and the space goes
+    /// once the fix is in or put back; the words after it are where they were for the next fix.
+    @Test func fixingTheFirstWordWithAPlaceholder() throws {
+        field.marksFromCaret = true
+        field.insertsFromCaret = true
+        field.dropsEmptyInserts = true
+        type("hello world ")
+        caret(at: 2) // inside hello
+        #expect(session.handle(.cycle, client: field))
+        #expect(field.marked.location == 1)
+        #expect(field.text.hasPrefix("\u{200B}"))
+        session.handle(.left, client: field) // hell|o
+        #expect(session.fixing?.cut == 4)
+        session.handle(.right, client: field)
+        session.handle(.enter, client: field)
+        let hello = korean("hello")
+        #expect(field.text == "\(hello) world ")
+        #expect(field.cursor == (field.text as NSString).length)
+        #expect(field.marked.location == NSNotFound)
+
+        caret(at: (hello as NSString).length + 3) // inside world
+        session.handle(.cycle, client: field)
+        #expect(field.marked.location == (hello as NSString).length + 1)
+        session.handle(.escape, client: field)
+        #expect(field.text == "\(hello) world ")
+
+        caret(at: 1)
+        session.handle(.cycle, client: field)
+        session.handle(.escape, client: field)
+        #expect(field.text == "\(hello) world ")
+        #expect(field.cursor == (field.text as NSString).length)
+    }
+
+    /// The word just committed at the field's start, after a switch key and ←: marked the same way.
+    @Test func leftAfterASwitchOnTheFirstWordWithAPlaceholder() throws {
+        field.marksFromCaret = true
+        field.insertsFromCaret = true
+        field.insertsRightAfterAnInsert = false
+        field.dropsEmptyInserts = true
+        type("gksrmf.")
+        #expect(field.text == "한글.")
+        session.handle(.cycle, client: field)
+        #expect(field.text == "gksrmf.")
+        #expect(!session.handle(.left, client: field))
+        field.cursor -= 1 // the app's ←: before the period
+        #expect(session.caretMoved(client: field) == nil)
+        #expect(session.fixing?.cut == 5)
+        #expect(field.marked.location == 1)
+        session.handle(.left, client: field)
+        session.handle(.left, client: field)
+        #expect(session.fixing?.cut == 3)
+        #expect(field.text == "\u{200B}gks글.")
+        session.handle(.enter, client: field) // the front settled
+        session.handle(.enter, client: field)
+        #expect(field.text == "gks글.")
+        #expect(field.cursor == (field.text as NSString).length)
+    }
+
+    /// Esc on the fix of the word just committed puts it back as it went in, wherever the fix began
+    /// (the macOS caret move, a symbol and a space): nothing learned, the switch key changing it again,
+    /// and the word kept for a later fix.
+    @Test(arguments: ["hello world ", "hello world, "]) func escapeOnTheWordJustCommittedPutsItBack(line: String) throws {
+        field.marksFromCaret = true
+        field.insertsFromCaret = true
+        field.insertsRightAfterAnInsert = false
+        type(line)
+        session.handle(.cycle, client: field)
+        #expect(field.text != line)
+        #expect(!session.handle(.left, client: field))
+        field.cursor -= 1 // the app's ←
+        #expect(session.caretMoved(client: field) == nil)
+        _ = try #require(session.fixing)
+        session.handle(.escape, client: field)
+        #expect(field.text == line)
+        #expect(field.cursor == (line as NSString).length)
+        #expect(field.marked.location == NSNotFound)
+        #expect(session.engine.correctedOnce("world", app: nil) == nil)
+        session.handle(.cycle, client: field)
+        #expect(field.text == line.replacingOccurrences(of: "world", with: korean("world")))
+
+        type("again ")
+        caret(at: 8) // inside world
+        session.handle(.cycle, client: field)
+        #expect(session.fixing != nil)
+    }
+
+    /// Delete too takes the word being typed back to typing it, read as before the switch.
+    @Test func deleteOnTheFixOfTheWordBeingTypedTypesItAgain() {
+        type("hello wkf")
+        let shown = field.text
+        session.handle(.cycle, client: field)
+        session.handle(.left, client: field)
+        #expect(session.fixing != nil)
+        session.handle(.delete, client: field)
+        #expect(session.fixing == nil)
+        #expect(field.text == shown)
+        #expect(session.keys == "wkf")
+        type(" ")
+        #expect(field.text == shown + " ")
     }
 
     /// The strip lists the clause's readings after ←/→ too: a cut's front part, or the words of a

@@ -118,7 +118,8 @@ public struct TextContext: Codable, Equatable, Sendable {
     /// The composition (marked text), or nil when there is none.
     public var marked: [Int]?
     /// The field's text from `start`: up to 256 units before the composition or caret, through
-    /// the end of the composition and the selection.
+    /// the end of the composition and the selection, and on to the end of the line where the text
+    /// service can read it.
     public var text: String
     public var start: Int
     /// The text can't be read (a field that gives no text): only the selection is known.
@@ -128,6 +129,10 @@ public struct TextContext: Codable, Equatable, Sendable {
     /// A composition can only be at the caret (fcitx5's preedit, a word Windows keeps for a
     /// classic app): `TextClient.marksAnywhere` is false.
     public var marksAtCaret: Bool?
+    /// A composition goes at the caret whatever range is named, while text replaced around the
+    /// caret goes where it says (fcitx5's preedit, with deletions around the caret): the caret is
+    /// moved first to mark a word elsewhere, as in a macOS text view (`TextClient.marksFromCaret`).
+    public var marksFromCaret: Bool?
 
     public init(selection: [Int], marked: [Int]? = nil, text: String = "", start: Int = 0) {
         self.selection = selection

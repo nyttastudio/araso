@@ -113,7 +113,7 @@ pkg, not both.
 The same input method on Windows 10 (1809) or later. Deciding words, the dictionary and learning are
 the same code as on macOS; kanji conversion is AzooKey's.
 
-1. Download `Araso-Setup.exe` from the [Windows beta](https://github.com/nyttastudio/araso/releases/tag/windows-beta-1)
+1. Download `Araso-Setup.exe` from the [Windows beta](https://github.com/nyttastudio/araso/releases/tag/windows-beta-2)
    and install it. It registers Araso and adds it to Korean's input methods, on x64 and ARM64 PCs
    alike. It isn't code-signed yet: when "Windows protected your PC" shows, choose **More info → Run anyway**.
 2. Pick **Araso** in the taskbar's input indicator. Its menu is the macOS input menu.
@@ -149,7 +149,7 @@ and distributions like it (glibc 2.35 or later).
    The settings window runs on Qt 5, which the package doesn't carry: on Arch install `qt5-base`, on
    Fedora `qt5-qtbase-gui`. When it's missing, `install.sh` says which command installs it.
 2. Download `Araso-linux-<arch>.tar.gz` for your architecture (`uname -m`) from the
-   [Linux beta](https://github.com/nyttastudio/araso/releases/tag/linux-beta-2), unpack it and run
+   [Linux beta](https://github.com/nyttastudio/araso/releases/tag/linux-beta-3), unpack it and run
    its `./install.sh`; it asks for your password. To install from source instead (Swift 6.2, CMake,
    fcitx5's development files and Qt 6; the list is in [docs/linux-port.md](docs/linux-port.md)):
 
@@ -206,8 +206,8 @@ installer, checks its signature and opens it, so you only enter your password.
 Seamtype (0.1.x) became Legato in 0.2.0 and Araso in 0.2.1. Each name is a different input method to
 macOS, so if you used Seamtype or Legato, once:
 
-1. Update from the input menu or the settings window's **About**, or download and open the new
-   `Araso.pkg`. The installer removes Seamtype and Legato and registers Araso. Settings, per-app rules, the
+1. Download and open the new `Araso.pkg`. Seamtype and Legato don't find updates after 0.4.0.
+   The installer removes Seamtype and Legato and registers Araso. Settings, per-app rules, the
    dictionary and kanji learning move over as they are the first time Araso runs.
 2. Add it in **System Settings → Keyboard → Input Sources → Edit… → + → Korean → Araso** (the
    installer opens Keyboard settings when it's done). macOS doesn't let an installer turn a new input
@@ -338,18 +338,19 @@ phrase live conversion leaves as kana (`たけ`), a switch key switches at once.
 
 ### Undo after commit, and learning
 
-Right after a word is committed with Space or punctuation, a language switch key switches it to its
-next reading, and pressing it again keeps cycling. Deleting the space or punctuation first keeps
-that chance; any other key ends it. This needs the caret still right after the word, and an app that
+Right after a word is committed with Space or punctuation (or only confirmed with Return), a language switch key switches it to its
+next reading, and pressing it again keeps cycling. More symbols and a space after the punctuation
+(`world. `, `world?! `) or deleting the space or punctuation first keep that chance; any other key ends it. This needs the caret still right after the word, and an app that
 lets Araso read the text there. Right after such a switch the strip is numbered, and a digit picks that
 reading (a digit typed without a switch goes in as usual).
 
 A word earlier in the line can be fixed too. Put the caret anywhere in it (click, ⌥←, ⌥→) and tap
 right ⌥ (or ⇧Esc, or ⌥Space if chosen): that word alone is underlined again, read the next way,
-the caret at its end; the words after it stay as they are. The field's first word is underlined only
-with the caret before it, and switched in place, without an underline, from anywhere else in it
-(macOS text views put marked text at the caret, and moving the caret there needs a character before
-the word). Tapping again keeps cycling, and as in
+the caret at its end; the words after it stay as they are. The field's first word too: macOS text
+views put marked text at the caret, so the caret is moved to the word's start, and at the field's
+start a zero-width space stands in for the character before it until the fix ends. On Linux the
+field's first word is underlined only with the caret before it, and switched in place, without an
+underline, from anywhere else in it. Tapping again keeps cycling, and as in
 Japanese conversion the thick underline is the part being fixed: → makes it a key longer, taking in
 the next word past the end of one (`dkssud gktpdy` → `안녕 하세요`, the underline growing with it); ← makes it shorter, and a cut
 inside a word leaves the rest of its keys to be read on their own (`hellofmf` → `hello` + `를`). A word ← gives
@@ -359,17 +360,24 @@ switches to that reading, as in the candidate window. Return on such a front
 part settles it and goes on with the rest. ⇧←/⇧→ do the same. The word being
 typed can be cut the same way: after a switch key changed its reading ←/→ do it, before that ⇧←
 (`helloab`, ⇧←⇧← → `hello` | `ab`; ← before a switch puts the word in and moves the caret, as
-before). A word just committed with Space is fixed from its start, after ⌥← (macOS text views put
-marked text only at the caret). Return or any other key puts the
+before). A whole word fixed as Japanese opens the candidate window on Space, chosen as for a word
+being typed (Space and ↑/↓ for candidates, ←/→ resize the clause, Return or a digit picks and ends
+the fix, Esc goes back to the kana). A word just committed with Space or Return becomes such a fix too
+when ← (→ too on Windows and Linux) follows a switch key that changed it (before one, ⌥← to its start, then the switch key). Return or any other key puts the
 fix in and takes the caret back to the end of the line (⌘Z takes two: one selects the rest of the
-line, the next puts the fix back); Esc (where it isn't a switch key) and Delete
-put everything back. A whole word fixed
+line, the next puts the fix back). When the fix was of the line's last word, whole (not cut), a switch key right after
+changes it again, as it does a word just committed. Esc (where it isn't a switch key) and Delete
+put it back as it was before anything was touched: a word being typed is typed again, read as before
+the switch; a word just committed goes back to how it went in, and a switch key changes it again. The
+underline covers the word alone, not the space or symbol after it (except 3-set's symbols, which a
+switch changes, and where the caret's place makes it go with the word: a comma and a space right after
+a commit on macOS and Linux). A whole word fixed
 is learned as a correction right after the commit is; a cut word isn't. When an arrow key leaves the
 caret on a word Araso wasn't sure of, its readings show in the strip under it first. Words before a
-Return can't be fixed, nor words changed by hand since. On Linux (fcitx5), and on Windows in apps
-where Araso keeps the word itself, an underline can only be at the caret, so this isn't there; on
-Windows the text after the caret can't be read, so the caret has to be right after the word (and
-stays there rather than going back to the end of the line).
+Return can't be fixed, nor words changed by hand since. It works the same on Windows and on Linux
+(fcitx5), except in Windows apps where Araso keeps the word itself (the ones that show it
+underlined in a small window at the caret, as Windows 10's Notepad does): there an underline can
+only be at the caret, so this isn't there.
 
 A word corrected once leans that way from then on: a close call (`so`/`내`) turns, a clear one
 doesn't, so a stray switch doesn't do much. It is forgotten after 30 days unless corrected or typed
@@ -711,6 +719,9 @@ held-out score. Many remaining misses are genuinely ambiguous keys: `so`/내, `g
 - Never tested end to end in every app.
 - Secure fields (passwords) bypass input methods. A masked field that still reaches it (KakaoTalk's
   login, App Store's password sheet) gets the keys as typed, with no word decided.
+- While a terminal asks for a password (`sudo`, `ssh`'s `Password:`), keys go in as typed. Which tab
+  asks isn't known, so while another tab asks, that holds in every app. `sudo` on a server reached
+  over ssh isn't seen.
 - Undo after commit needs apps that report their caret and text. In a terminal, set
   `"holdSpace": true` to keep the word underlined after Space or punctuation instead.
 - Where Esc is a switch key, Esc right after a word (e.g. to close a popup) changes that word first.

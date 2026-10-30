@@ -1,6 +1,7 @@
 // Types on Wayland as a real keyboard does: the US keymap and each key's evdev code (wtype makes up
 // a keymap of its own, which Araso, reading keys by where they are, can't take for a keyboard).
-//   vkbd 'text'   characters as on a US keyboard; {Hangul} {Return} {AltR} {CtrlR} keys by name
+//   vkbd 'text'   characters as on a US keyboard; {Hangul} {Return} {AltR} {CtrlR} {Left} {Right}
+//                 keys by name, {Wait} a pause of 0.8 s (a person between keys)
 #define _GNU_SOURCE
 #include <string.h>
 #include <stdio.h>
@@ -77,8 +78,15 @@ int main(int argc, char **argv) {
         if (*p == '{') {
             const char *end = strchr(p, '}');
             if (!end) break;
+            if (!strncmp(p, "{Wait}", 6)) {
+                wl_display_roundtrip(display);
+                usleep(800000);
+                p = end;
+                continue;
+            }
             int code = !strncmp(p, "{Hangul}", 8) ? 122 : !strncmp(p, "{Return}", 8) ? 28
-                     : !strncmp(p, "{AltR}", 6) ? 100 : !strncmp(p, "{CtrlR}", 7) ? 97 : 0;
+                     : !strncmp(p, "{AltR}", 6) ? 100 : !strncmp(p, "{CtrlR}", 7) ? 97
+                     : !strncmp(p, "{Left}", 6) ? 105 : !strncmp(p, "{Right}", 7) ? 106 : 0;
             if (code) key(code, 0);
             p = end;
             continue;

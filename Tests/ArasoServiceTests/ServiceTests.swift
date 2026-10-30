@@ -12,8 +12,13 @@ final class FakeDocument {
     var composition: NSRange?
     var cursor = 0
     var readable = true
-    /// The composition can only be at the caret (fcitx5's preedit).
+    /// The composition can only be at the caret (a word Windows keeps for a classic app).
     var marksAtCaret = false
+    /// The composition goes at the caret whatever range is named, as fcitx5's preedit does, and
+    /// the edits are made as `Document::apply` (linux/addon) makes them with deletions around it.
+    var fcitx = false
+    /// The text after the composition or caret is sent too, to the end of its line.
+    var sendsLine = false
     /// The clause the last mark drew as the one being converted.
     var clause: [Int]?
 
@@ -21,16 +26,22 @@ final class FakeDocument {
         let ns = text as NSString
         let anchor = composition?.location ?? cursor
         let start = max(0, anchor - 256)
-        let end = max(composition.map(NSMaxRange) ?? cursor, cursor)
+        var end = max(composition.map(NSMaxRange) ?? cursor, cursor)
+        if sendsLine {
+            let rest = ns.range(of: "\n", range: NSRange(location: end, length: ns.length - end))
+            end = rest.location == NSNotFound ? ns.length : rest.location
+        }
         var context = TextContext(selection: [cursor, 0], marked: composition.map { [$0.location, $0.length] },
                                   text: ns.substring(with: NSRange(location: start, length: end - start)), start: start)
         if !readable { context.unreadable = true }
         if marksAtCaret { context.marksAtCaret = true }
+        if fcitx { context.marksFromCaret = true }
         return context
     }
 
     func apply(_ ops: [EditOp]) {
         for op in ops {
+            if fcitx { applyAtCaret(op); continue }
             let target = op.replace.map { NSRange(location: $0[0], length: $0[1]) } ?? composition ?? NSRange(location: cursor, length: 0)
             text = (text as NSString).replacingCharacters(in: target, with: op.text)
             let length = (op.text as NSString).length
@@ -43,6 +54,44 @@ final class FakeDocument {
             }
             cursor = target.location + length
         }
+    }
+
+    /// As fcitx5 makes an edit: the preedit is never in the app's text, so what a range covers
+    /// outside it is deleted around the caret and committed again at the caret, and a new preedit
+    /// goes at the caret, what lies between the range and the caret staying before it.
+    private func applyAtCaret(_ op: EditOp) {
+        let ns = text as NSString
+        let caret = composition?.location ?? cursor
+        let end = composition.map(NSMaxRange) ?? cursor
+        var from = caret, to = end
+        if let range = op.replace { from = range[0]; to = range[0] + range[1] }
+        let length = (op.text as NSString).length
+        if op.kind == .insert {
+            let low = min(from, caret), high = max(to, end)
+            let put = ns.substring(with: NSRange(location: low, length: from - low)) + op.text
+                + ns.substring(with: NSRange(location: to, length: high - to))
+            text = ns.replacingCharacters(in: NSRange(location: low, length: high - low), with: put)
+            cursor = low + (put as NSString).length
+            composition = nil
+            clause = nil
+            return
+        }
+        if to <= caret {
+            let between = ns.substring(with: NSRange(location: to, length: caret - to))
+            text = ns.replacingCharacters(in: NSRange(location: from, length: end - from), with: between + op.text)
+            cursor = from + (between as NSString).length
+        } else if from >= end {
+            let between = ns.substring(with: NSRange(location: end, length: from - end))
+            text = ns.replacingCharacters(in: NSRange(location: caret, length: to - caret), with: op.text + between)
+            cursor = caret
+        } else {
+            let low = min(from, caret), high = max(to, end)
+            text = ns.replacingCharacters(in: NSRange(location: low, length: high - low), with: op.text)
+            cursor = low
+        }
+        composition = length > 0 ? NSRange(location: cursor, length: length) : nil
+        clause = length > 0 ? op.clause : nil
+        cursor += length
     }
 
     /// The app types a key the input method didn't take.
@@ -89,6 +138,7 @@ enum Keys {
     static let back = WindowsKey(vk: KeyMapper.vkBack, scan: 0x0E)
     static let enter = WindowsKey(vk: KeyMapper.vkReturn, scan: 0x1C)
     static let left = WindowsKey(vk: KeyMapper.vkLeft, scan: 0x4B, extended: true)
+    static let right = WindowsKey(vk: KeyMapper.vkRight, scan: 0x4D, extended: true)
     static let space = key(" ")
 }
 
@@ -161,6 +211,19 @@ final class Harness {
         }
     }
 
+    /// A key as the text service sends one: `test` first; kept, it comes `claimed`, else the app
+    /// takes it (an arrow moves the caret). Returns whether it was kept.
+    @discardableResult
+    func pressTested(_ key: WindowsKey, appMoves caretBy: Int = 0) -> Bool {
+        guard send(ServiceRequest(op: .test, client: client, key: key)).reply.handled else {
+            document.cursor += caretBy
+            return false
+        }
+        var request = ServiceRequest(op: .key, client: client, key: key)
+        request.claimed = true
+        return send(request).reply.handled
+    }
+
     /// A modifier tapped: its down only seen, its up kept when `test` says it does something.
     func tap(_ down: WindowsKey, _ up: WindowsKey) -> Bool {
         press(down)
@@ -201,35 +264,124 @@ final class Harness {
         #expect(h.ui?.readings?.texts.contains("ㅗ디ㅣㅐ") == true)
     }
 
-    /// A word earlier in the line, the caret moved onto it: the switch key composes it again where
-    /// it is, read the next way, and Enter puts it in. The text service sends nothing after the
-    /// caret, so the caret stays after the word.
+    /// A word earlier in the line, the caret moved into it: the switch key composes it again where
+    /// it is, read the next way, → takes in the next word, and Enter puts them in with the caret back
+    /// at the end of the line, which the text service sends too.
     @Test func switchKeyFixesAWordEarlierInTheLine() throws {
+        let h = try Harness()
+        h.document.sendsLine = true
+        h.type("hello world again ")
+        h.document.cursor = 8 // wo|rld
+        #expect(h.tap(Keys.rightAlt, Keys.rightAltUp))
+        let marked = try #require(h.document.composition)
+        #expect(marked.location == 6)
+        #expect(h.document.text.hasPrefix("hello ") && h.document.text.hasSuffix(" again "))
+        #expect(!h.document.text.contains("world"))
+        #expect(h.ui?.readings?.texts.contains("world") == true)
+        // The text service asks first whether a key is kept: while fixing, arrows and Return are.
+        #expect(h.send(ServiceRequest(op: .test, client: h.client, key: Keys.left)).reply.handled)
+        #expect(h.send(ServiceRequest(op: .test, client: h.client, key: Keys.enter)).reply.handled)
+        #expect(h.document.composition == marked) // the test changed nothing
+        h.press(Keys.right)
+        let clause = try #require(h.document.composition)
+        #expect(clause.location == 6 && NSMaxRange(clause) == (h.document.text as NSString).length - 1)
+        h.press(Keys.enter)
+        #expect(h.document.composition == nil)
+        #expect(h.document.text.hasPrefix("hello ") && !h.document.text.contains("again"))
+        #expect(h.document.cursor == (h.document.text as NSString).length)
+    }
+
+    /// Where the text service sends nothing after the caret, a word is fixed with the caret right
+    /// after it, and the caret stays there.
+    @Test func switchKeyFixesAWordWithNothingSentAfterTheCaret() throws {
         let h = try Harness()
         h.type("hello world ")
         h.document.cursor = 5 // right after hello: what is after the caret isn't sent
         #expect(h.tap(Keys.rightAlt, Keys.rightAltUp))
         #expect(h.document.text == "ㅗ디ㅣㅐ world ")
         #expect(h.document.composition == NSRange(location: 0, length: 4))
-        #expect(h.ui?.readings?.texts.contains("ㅗ디ㅣㅐ") == true)
-        // The text service asks first whether a key is kept: while fixing, ← and Return are.
-        #expect(h.send(ServiceRequest(op: .test, client: h.client, key: Keys.left)).reply.handled)
-        #expect(h.send(ServiceRequest(op: .test, client: h.client, key: Keys.enter)).reply.handled)
-        #expect(h.document.composition == NSRange(location: 0, length: 4)) // the test changed nothing
         h.press(Keys.enter)
         #expect(h.document.text == "ㅗ디ㅣㅐ world ")
         #expect(h.document.composition == nil)
     }
 
-    /// Where the composition is always at the caret (fcitx5), a word earlier in the line stays.
+    /// fcitx5: the preedit is always at the caret, so the caret is moved to the word first, by
+    /// deletions and commits around it, as in a macOS text view. The word is fixed in the middle
+    /// of the line, → takes in the next one, and Return puts them in with the caret at the line's end.
+    @Test func fixesAWordEarlierInTheLineWithThePreeditAtTheCaret() throws {
+        let h = try Harness(platform: "linux")
+        h.document.fcitx = true
+        h.document.sendsLine = true
+        h.type("hello world again ")
+        h.document.cursor = 8 // wo|rld
+        #expect(h.tap(Keys.rightAlt, Keys.rightAltUp))
+        let marked = try #require(h.document.composition)
+        #expect(marked.location == 6)
+        #expect(h.document.text.hasPrefix("hello ") && h.document.text.hasSuffix(" again "))
+        #expect(!h.document.text.contains("world"))
+        h.press(Keys.right)
+        let clause = try #require(h.document.composition)
+        #expect(clause.location == 6 && NSMaxRange(clause) == (h.document.text as NSString).length - 1)
+        h.press(Keys.left) // again given back, still marked
+        #expect(h.document.text.hasSuffix(" again "))
+        h.press(Keys.escape) // all as it was
+        #expect(h.document.text == "hello world again ")
+        #expect(h.document.composition == nil)
+        h.document.cursor = 8
+        #expect(h.tap(Keys.rightAlt, Keys.rightAltUp))
+        h.press(Keys.right)
+        h.press(Keys.enter)
+        #expect(h.document.composition == nil)
+        #expect(h.document.text.hasPrefix("hello ") && !h.document.text.contains("again"))
+        #expect(h.document.cursor == (h.document.text as NSString).length)
+    }
+
+    /// Windows: ← right after a switch key changed the word just committed is kept (`test`), and
+    /// the word becomes the fix, marked alone; Esc puts it back as it went in.
+    @Test func leftAfterASwitchOnTheWordJustCommittedIsKept() throws {
+        let h = try Harness()
+        h.type("dkssud gksrmf ")
+        let typed = h.document.text
+        #expect(h.tap(Keys.rightAlt, Keys.rightAltUp))
+        #expect(h.document.text != typed)
+        #expect(h.pressTested(Keys.left, appMoves: -1))
+        let marked = try #require(h.document.composition)
+        #expect(NSMaxRange(marked) == (h.document.text as NSString).length - 1) // not its space
+        h.pressTested(Keys.escape)
+        #expect(h.document.text == typed)
+        #expect(h.document.composition == nil)
+        #expect(!h.pressTested(Keys.left, appMoves: -1)) // nothing switched now: the app's
+    }
+
+    /// fcitx5, the field's first word: no character before it to move the caret by, so it is
+    /// switched where it is, unmarked, from anywhere in it.
+    @Test func switchesTheFirstWordInPlaceWithThePreeditAtTheCaret() throws {
+        let h = try Harness(platform: "linux")
+        h.document.fcitx = true
+        h.document.sendsLine = true
+        h.type("hello world ")
+        h.document.cursor = 2 // he|llo
+        #expect(h.tap(Keys.rightAlt, Keys.rightAltUp))
+        #expect(h.document.text == "ㅗ디ㅣㅐ world ")
+        #expect(h.document.composition == nil)
+        #expect(h.ui?.readings?.texts.contains("hello") == true)
+        #expect(h.tap(Keys.rightAlt, Keys.rightAltUp))
+        #expect(h.document.text == "hello world ")
+    }
+
+    /// Where the composition is only at the caret and can't be moved (a word Windows keeps for a
+    /// classic app), a word earlier in the line stays.
     @Test func noFixingWhereTheCompositionIsAtTheCaret() throws {
         let h = try Harness()
         h.document.marksAtCaret = true
+        h.document.sendsLine = true // the words are known: only marksAtCaret keeps them as they are
         h.type("hello world ")
-        h.document.cursor = 2
-        _ = h.tap(Keys.rightAlt, Keys.rightAltUp)
-        #expect(h.document.text == "hello world ")
-        #expect(h.document.composition == nil)
+        for cursor in [8, 2] { // wo|rld, and he|llo, the field's first word
+            h.document.cursor = cursor
+            _ = h.tap(Keys.rightAlt, Keys.rightAltUp)
+            #expect(h.document.text == "hello world ")
+            #expect(h.document.composition == nil)
+        }
     }
 
     @Test func aCorrectionMadeTwiceIsMarkedAndListedInTheMenu() throws {
