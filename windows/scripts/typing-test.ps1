@@ -31,6 +31,8 @@ public static class Keys {
     [DllImport("input.dll", CharSet = CharSet.Unicode)] public static extern bool SetDefaultLayoutOrTip(string profile, uint flags);
     [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr window, IntPtr process);
     [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr window, out uint process);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetWindowText(IntPtr window, StringBuilder text, int size);
+    public static string Title(IntPtr window) { var text = new StringBuilder(256); GetWindowText(window, text, 256); return text.ToString(); }
     [DllImport("user32.dll")] public static extern IntPtr GetKeyboardLayout(uint thread);
     [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr window, uint message, IntPtr w, IntPtr l);
     const uint SCANCODE = 0x8, KEYUP = 0x2, EXTENDED = 0x1;
@@ -225,7 +227,6 @@ function Ready($field, [string]$kind) {
     Start-Sleep -Milliseconds 500
     $thread = [Keys]::GetWindowThreadProcessId($window, [IntPtr]::Zero)
     $layout = "{0:X8}" -f [Keys]::GetKeyboardLayout($thread).ToInt64()
-    $front = [Keys]::GetForegroundWindow() -eq $window
     for ($i = 0; $i -lt 10 -and -not $layout.EndsWith($script:language); $i++) {
         [Keys]::Front($window) | Out-Null
         # As the taskbar's indicator does: ask the window to switch to the language Araso is listed under.
@@ -234,8 +235,9 @@ function Ready($field, [string]$kind) {
         Start-Sleep -Milliseconds 800
         $layout = "{0:X8}" -f [Keys]::GetKeyboardLayout($thread).ToInt64()
     }
+    $front = [Keys]::GetForegroundWindow() -eq $window
     $loaded = (Get-Process -Id $field.process.Id).Modules | Where-Object { $_.ModuleName -eq "ArasoTip.dll" } | Select-Object -First 1
-    if (-not $front) { Write-Host "${kind}: $(Front-Process) is in front" }
+    if (-not $front) { Write-Host "${kind}: $(Front-Window) is in front" }
     Write-Host "${kind}: in front $front, layout $layout, ArasoTip.dll $(if ($loaded) { $loaded.FileName } else { 'not loaded' })"
 }
 
@@ -271,23 +273,24 @@ function Tap([int]$scan) {
 # window where Notepad is Windows 11's own app (CI's ARM64 runner).
 $classic = if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") { "winforms" } else { "notepad" }
 
-# The process whose window is in front.
-function Front-Process {
+# The window in front: its process and title.
+function Front-Window {
+    $window = [Keys]::GetForegroundWindow()
     $id = [uint32]0
-    [Keys]::GetWindowThreadProcessId([Keys]::GetForegroundWindow(), [ref]$id) | Out-Null
-    (Get-Process -Id $id -ErrorAction SilentlyContinue).ProcessName
+    [Keys]::GetWindowThreadProcessId($window, [ref]$id) | Out-Null
+    "$((Get-Process -Id $id -ErrorAction SilentlyContinue).ProcessName) '$([Keys]::Title($window))'"
 }
 
 # CI's ARM64 runner comes up with the first sign-in's privacy screen ("Choose privacy settings for
 # your device", WWAHost's "Microsoft account") in front, which keeps every other window from coming
 # forward: no key reached any field until a case's Return happened to go through its pages. Return
 # goes through them (Next, then Accept) before the cases.
-for ($i = 0; $i -lt 8 -and (Front-Process) -eq "WWAHost"; $i++) {
+for ($i = 0; $i -lt 8 -and (Front-Window) -eq "WWAHost 'Microsoft account'"; $i++) {
     Write-Host "the first sign-in's screen is in front: Return"
     [Keys]::Key(0x1C, $false, $false); Start-Sleep -Milliseconds 60; [Keys]::Key(0x1C, $true, $false)
     Start-Sleep -Seconds 3
 }
-Write-Host "in front before the cases: $(Front-Process)"
+Write-Host "in front before the cases: $(Front-Window)"
 
 # The first WPF window of a fresh machine loads .NET's WPF for a while and may come up behind:
 # one opened and closed first.
