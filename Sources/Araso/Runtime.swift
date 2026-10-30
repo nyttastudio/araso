@@ -28,6 +28,7 @@ final class Runtime {
     private init() {
         AppPolicies.migrateSwitchKey()
         settings = Settings.load()
+        Localization.language = settings.displayLanguage
         LatinLayout.active = settings.latinLayout
         KoreanLayout.active = settings.koreanLayout
         LatinLayout.activeRomaji = settings.japaneseLayout
@@ -147,6 +148,7 @@ final class Runtime {
             converter = Self.makeConverter(new)
         }
         settings = new
+        Localization.language = new.displayLanguage
         LatinLayout.active = new.latinLayout
         KoreanLayout.active = new.koreanLayout
         LatinLayout.activeRomaji = new.japaneseLayout

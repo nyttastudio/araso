@@ -35,11 +35,16 @@ public struct Settings: Codable, Equatable, Sendable {
     public var koreanLayout: KoreanLayout = .dubeolsik
     /// The layout romaji is typed on, when not English's (`latinLayout`): absent follows it.
     public var japaneseLayout: LatinLayout?
+    /// The language of the settings window, the input menu and the rest of the UI: "en" or "ko";
+    /// absent follows the system's.
+    public var displayLanguage: String?
 
     public init(japanese: Bool = false, liveConversion: Bool = false, pauseKey: PauseKey = .standard,
                 returnConfirmsOnly: Bool = true, checkForUpdates: Bool = true, japaneseEngine: String = "apple",
                 fullWidthDigits: Bool = false, fullWidthSpace: Bool = false, latinLayout: LatinLayout = .qwerty,
-                koreanLayout: KoreanLayout = .dubeolsik, japaneseLayout: LatinLayout? = nil) {
+                koreanLayout: KoreanLayout = .dubeolsik, japaneseLayout: LatinLayout? = nil,
+                displayLanguage: String? = nil) {
+        self.displayLanguage = displayLanguage
         self.latinLayout = latinLayout
         self.koreanLayout = koreanLayout
         self.japaneseLayout = japaneseLayout
@@ -72,6 +77,7 @@ public struct Settings: Codable, Equatable, Sendable {
         latinLayout = value(.latinLayout, .qwerty)
         koreanLayout = value(.koreanLayout, .dubeolsik)
         japaneseLayout = value(.japaneseLayout, nil as LatinLayout?)
+        displayLanguage = value(.displayLanguage, nil as String?)
     }
 
     private enum LegacyKeys: String, CodingKey { case rightCommandPause }
@@ -98,6 +104,7 @@ public struct Settings: Codable, Equatable, Sendable {
         object.merge(mine) { _, new in new }
         object[LegacyKeys.rightCommandPause.rawValue] = nil // now in pauseKey
         if japaneseLayout == nil { object[CodingKeys.japaneseLayout.stringValue] = nil } // follows English again
+        if displayLanguage == nil { object[CodingKeys.displayLanguage.stringValue] = nil } // follows the system again
         let data = try JSONSerialization.data(withJSONObject: object, options: [.prettyPrinted, .sortedKeys])
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         try data.write(to: url, options: .atomic)
