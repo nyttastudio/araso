@@ -1691,6 +1691,13 @@ public final class InputSession {
             previousLanguage = fixing.language.sentenceLanguage
         }
         resetRun()
+        // The line ends with the fixed words, the caret back after the last one's space: a switch key
+        // now changes that word as it does the word just committed. Not a cut word, which `recent`
+        // doesn't keep; `cycle` checks the caret and the field when the key comes.
+        if later.isEmpty, !fixing.split, fixing.cut == nil, let last = recent.last,
+           fixing.lastBoundaryMarked || fixing.trailing == last.boundary(in: last.language) {
+            lastCommit = last
+        }
     }
 
     /// The text's length in the field's UTF-16 range units.

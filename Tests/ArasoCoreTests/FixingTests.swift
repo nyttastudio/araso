@@ -449,6 +449,34 @@ import Testing
         #expect(session.engine.correctedOnce("again", app: nil) == .korean)
     }
 
+    /// Right after a fix of the line's last word went in, the switch key changes that word again as
+    /// it does the word just committed, where marked text goes at the caret too; a fix earlier in the
+    /// line, or of a cut word, leaves it.
+    @Test func switchKeyRightAfterAFixChangesItAgain() {
+        field.marksFromCaret = true
+        field.insertsFromCaret = true
+        type("hello world ")
+        caret(at: 8) // inside world
+        session.handle(.cycle, client: field)
+        session.handle(.enter, client: field)
+        let world = korean("world")
+        #expect(field.text == "hello \(world) ")
+        #expect(session.handle(.cycle, client: field))
+        #expect(field.text == "hello world ")
+        #expect(session.readings?.numbered == true)
+        #expect(field.marked.location == NSNotFound)
+        session.handle(.cycle, client: field)
+        #expect(field.text == "hello \(world) ")
+
+        type("again ")
+        caret(at: 2) // inside hello
+        session.handle(.cycle, client: field)
+        session.handle(.enter, client: field)
+        let line = field.text
+        session.handle(.cycle, client: field) // hello isn't the word before the caret
+        #expect(field.text == line)
+    }
+
     /// The strip lists the clause's readings after ←/→ too: a cut's front part, or the words of a
     /// longer clause read together.
     @Test func readingsFollowTheClause() {

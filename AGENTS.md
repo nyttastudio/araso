@@ -133,7 +133,9 @@ tests use `FakeTextField`). It owns the preview and hysteresis, commits, Esc rea
   the session's `conversion`, whose keys `handleFixing` takes while it is set, shown in the clause's place,
   `Fixing.kanji`; Return or a digit on the last clause confirms the fix), a mark the app didn't put there drops the fix untouched (`markLanded`), and
   anything else confirms with one insert over the marked text, then the rest of the line over itself
-  so the caret ends where it was typing (`caretToLineEnd`; ⌘Z takes two). macOS text views mark and
+  so the caret ends where it was typing (`caretToLineEnd`; ⌘Z takes two); when the line ends with
+  the fixed words, the last becomes `lastCommit`, so a switch key right after changes it as it does the
+  word just committed (not a cut word). macOS text views mark and
   insert at the caret whatever range is named (the settings window's typing pane and Notes: real
   keys, 2026-10-28; marking with the caret elsewhere lost text in both), except an insert whose range
   starts or ends at the caret, and marked text with a range, which goes at the caret with that much

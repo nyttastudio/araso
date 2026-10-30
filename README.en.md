@@ -364,7 +364,8 @@ being typed (Space and ↑/↓ for candidates, ←/→ resize the clause, Return
 the fix, Esc goes back to the kana). A word just committed with Space becomes such a fix too
 when ← follows a switch key that changed it (before one, ⌥← to its start, then the switch key). Return or any other key puts the
 fix in and takes the caret back to the end of the line (⌘Z takes two: one selects the rest of the
-line, the next puts the fix back); Esc (where it isn't a switch key) and Delete
+line, the next puts the fix back). When the fix was of the line's last word, a switch key right after
+changes it again, as it does a word just committed. Esc (where it isn't a switch key) and Delete
 put everything back. A whole word fixed
 is learned as a correction right after the commit is; a cut word isn't. When an arrow key leaves the
 caret on a word Araso wasn't sure of, its readings show in the strip under it first. Words before a
