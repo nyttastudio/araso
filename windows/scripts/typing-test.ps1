@@ -202,7 +202,13 @@ function Open-Field([string]$kind) {
     if ($kind -ne "notepad") {
         $out = Join-Path $env:TEMP "araso-field.txt"
         Remove-Item $out -ErrorAction SilentlyContinue
-        $process = Start-Process powershell -ArgumentList "-STA", "-NoProfile", "-File", "$PSScriptRoot\field.ps1", $kind, $out -PassThru
+        # No console: where Windows Terminal is the default terminal (CI's ARM64 runner) a console is
+        # a terminal window, which came forward over the field and stayed when the field closed.
+        $start = New-Object Diagnostics.ProcessStartInfo "powershell"
+        $start.Arguments = "-STA -NoProfile -File `"$PSScriptRoot\field.ps1`" $kind `"$out`""
+        $start.UseShellExecute = $false
+        $start.CreateNoWindow = $true
+        $process = [Diagnostics.Process]::Start($start)
         for ($i = 0; $i -lt 60 -and $process.MainWindowHandle -eq [IntPtr]::Zero; $i++) { Start-Sleep -Milliseconds 250; $process.Refresh() }
         Start-Sleep -Seconds 2 # the window draws, then focuses the box
         return @{ process = $process; window = $process.MainWindowHandle; read = { if (Test-Path $out) { [IO.File]::ReadAllText($out) } else { "" } }.GetNewClosure() }
@@ -244,7 +250,7 @@ function Ready($field, [string]$kind) {
         $layout = "{0:X8}" -f [Keys]::GetKeyboardLayout($thread).ToInt64()
     }
     $front = [Keys]::GetForegroundWindow() -eq $window
-    $loaded = (Get-Process -Id $field.process.Id).Modules | Where-Object { $_.ModuleName -eq "ArasoTip.dll" } | Select-Object -First 1
+    $loaded = (Get-Process -Id $field.process.Id -ErrorAction SilentlyContinue).Modules | Where-Object { $_.ModuleName -eq "ArasoTip.dll" } | Select-Object -First 1
     if (-not $front) { Write-Host "${kind}: $(Front-Window) is in front" }
     Write-Host "${kind}: in front $front, layout $layout, ArasoTip.dll $(if ($loaded) { $loaded.FileName } else { 'not loaded' })"
 }
