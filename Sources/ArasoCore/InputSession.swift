@@ -1092,7 +1092,10 @@ public final class InputSession {
             let text: String
             let boundary: String
             let typedBoundary: String?
-            let learns: Bool
+            /// Why the piece went in as typed (`AsTyped`): a fix there isn't learned, and an `.ending`
+            /// stays one, so Delete taking that key back still makes it a word.
+            let asTyped: AsTyped?
+            var learns: Bool { asTyped == nil }
             /// The word that was being typed (`startFixingTyped`): learned as a word finished with Space
             /// is, by whether a reading was chosen (`Fixing.chosen`), not by how it went in.
             var typed = false
@@ -1167,7 +1170,7 @@ public final class InputSession {
         func piece(_ entry: Committed) -> Fixing.Piece {
             Fixing.Piece(keys: entry.keys, decided: entry.decided, language: entry.language,
                          text: String(entry.text.dropLast(entry.boundary.count)), boundary: entry.boundary,
-                         typedBoundary: entry.typedBoundary, learns: entry.learns)
+                         typedBoundary: entry.typedBoundary, asTyped: entry.asTyped)
         }
         func intact(_ entry: Committed) -> Bool {
             client.text(in: NSRange(location: entry.location, length: utf16(entry.text))) == entry.text
@@ -1337,7 +1340,7 @@ public final class InputSession {
         guard shown != .japanese, marked.location != NSNotFound, marked.length > 0,
               let original = client.text(in: marked) else { return false }
         let piece = Fixing.Piece(keys: keys, decided: committedLanguage(), language: shown, text: original,
-                                 boundary: "", typedBoundary: nil, learns: asTyped == nil, typed: true)
+                                 boundary: "", typedBoundary: nil, asTyped: asTyped, typed: true)
         fixing = Fixing(start: marked.location, original: original, end: NSMaxRange(marked), markOriginal: original,
                         shown: original, firstEntry: recent.count, pieces: [piece], trailing: "", language: shown)
         fixing?.chosen = forced != nil && forcedByUser
@@ -1376,7 +1379,7 @@ public final class InputSession {
         if client.marksFromCaret, !canTakeAway(commit.location, client) { return false }
         let piece = Fixing.Piece(keys: commit.keys, decided: commit.decided, language: commit.language,
                                  text: String(commit.text.dropLast(commit.boundary.count)), boundary: commit.boundary,
-                                 typedBoundary: commit.typedBoundary, learns: commit.learns, typed: true)
+                                 typedBoundary: commit.typedBoundary, asTyped: commit.asTyped, typed: true)
         forgetRecent(from: commit.location)
         // The boundary is marked only where a switch changes it (3-set's symbol) or where what is taken
         // away has to end at the caret (`marksFromCaret`).
@@ -1590,7 +1593,7 @@ public final class InputSession {
             fixing.settled += committedReading(head, as: fixing.language)
             fixing.pieces[0] = Fixing.Piece(keys: rest, decided: language, language: language,
                                             text: committedReading(rest, as: language), boundary: piece.boundary,
-                                            typedBoundary: piece.typedBoundary, learns: false)
+                                            typedBoundary: piece.typedBoundary, asTyped: .run)
             fixing.cut = nil
             fixing.count = 1
             fixing.restLanguage = nil
@@ -1899,7 +1902,7 @@ public final class InputSession {
                 if i < fixing.count { lastBoundary = boundary }
                 let entry = Committed(keys: piece.keys, decided: piece.decided, committedAs: language, language: language,
                                       text: word + boundary, boundary: piece.boundary,
-                                      location: location, previous: nil, asTyped: piece.learns ? nil : .run,
+                                      location: location, previous: nil, asTyped: piece.asTyped,
                                       typedBoundary: piece.typedBoundary)
                 updated.append(entry)
                 location += utf16(entry.text)
