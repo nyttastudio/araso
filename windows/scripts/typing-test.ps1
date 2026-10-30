@@ -220,6 +220,7 @@ function Open-Field([string]$kind) {
 # Brings a field's window to the front in Korean (Araso's language) and says how it stands.
 function Ready($field, [string]$kind) {
     $window = $field.window
+    Clear-FirstSignIn
     for ($i = 0; $i -lt 10 -and [Keys]::GetForegroundWindow() -ne $window; $i++) {
         [Keys]::Front($window) | Out-Null
         Start-Sleep -Milliseconds 300
@@ -292,7 +293,15 @@ function Front-Window {
 # every other window from coming forward: no key reached any field until a case's Return happened to
 # go through it. The privacy screen ("Choose privacy settings for your device", WWAHost's "Microsoft
 # account") takes Return through its pages (Next, then Accept); the search flyout and widgets after it, Esc.
+# WSL's first run comes up in Windows Terminal a little later and takes the focus whenever a field
+# closes: it is closed.
 function Clear-FirstSignIn {
+    $wsl = @(Get-Process WindowsTerminal -ErrorAction SilentlyContinue | Where-Object MainWindowTitle -like "*wsl.exe")
+    if ($wsl) {
+        Write-Host "the first sign-in's WSL terminal is open: closed"
+        $wsl | Stop-Process -Force -ErrorAction SilentlyContinue
+        Get-Process wsl -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+    }
     for ($i = 0; ; $i++) {
         $front = Front-Window
         if ($front -eq "WWAHost 'Microsoft account'") { $scan = 0x1C }
