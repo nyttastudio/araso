@@ -353,6 +353,68 @@ import Testing
         #expect(field.marked.location == NSNotFound)
     }
 
+    /// After a switch key changed the word just committed, ← and → make it the fix too, as for the
+    /// word being typed: marked as it now reads, with its space, and ← cuts it. Return puts the fix in,
+    /// learned as the word's reading.
+    @Test func arrowsAfterASwitchOnTheWordJustCommitted() throws {
+        type("the helloab ")
+        session.handle(.cycle, client: field)
+        let switched = "\(korean("helloab")) "
+        #expect(field.text == "the \(switched)")
+        #expect(session.handle(.left, client: field))
+        let fixing = try #require(session.fixing)
+        #expect(fixing.cut == 6)
+        #expect(field.marked.location == 4) // the word and its space, the front part the clause
+        #expect(field.text(in: field.marked)?.hasSuffix(" ") == true)
+        #expect(NSMaxRange(field.marked) == (field.text as NSString).length)
+        #expect(field.selectedClause?.location == 0)
+        session.handle(.right, client: field) // the whole word again
+        #expect(session.fixing?.cut == nil)
+        session.handle(.escape, client: field) // as it was before the arrow
+        #expect(field.text == "the \(switched)")
+        #expect(field.marked.location == NSNotFound)
+        #expect(field.cursor == (field.text as NSString).length)
+
+        type("hello ")
+        session.handle(.cycle, client: field)
+        #expect(session.handle(.right, client: field)) // nothing after it to take in: marked whole
+        #expect(session.fixing?.cut == nil)
+        session.handle(.enter, client: field)
+        #expect(field.text == "the \(switched)\(korean("hello")) ")
+        #expect(field.cursor == (field.text as NSString).length)
+        #expect(session.engine.correctedOnce("hello", app: nil) == .korean)
+    }
+
+    /// Where marked text goes at the caret, the word just committed is taken away up to the caret,
+    /// the character before it put back, and marked there; at the field's start, with no character
+    /// before it, the arrow goes to the app as before.
+    @Test func arrowsAfterASwitchOnTheWordJustCommittedFromTheCaret() {
+        field.marksFromCaret = true
+        field.insertsFromCaret = true
+        type("hello ")
+        session.handle(.cycle, client: field)
+        #expect(!session.handle(.left, client: field))
+        #expect(session.fixing == nil)
+
+        caret(at: (field.text as NSString).length)
+        type("world ")
+        session.handle(.cycle, client: field)
+        #expect(field.text == "\(korean("hello")) \(korean("world")) ")
+        let start = (korean("hello") as NSString).length + 1
+        #expect(session.handle(.left, client: field))
+        #expect(session.fixing?.cut == 4)
+        #expect(field.marked.location == start)
+        #expect(NSMaxRange(field.marked) == (field.text as NSString).length)
+        #expect(field.text.hasPrefix("\(korean("hello")) "))
+        session.handle(.cycle, client: field) // the cut's front part read the next way
+        session.handle(.right, client: field)
+        session.handle(.enter, client: field)
+        #expect(field.marked.location == NSNotFound)
+        #expect(field.cursor == (field.text as NSString).length)
+        #expect(field.text.hasPrefix("\(korean("hello")) "))
+        #expect(field.text.hasSuffix(" "))
+    }
+
     /// The strip lists the clause's readings after ←/→ too: a cut's front part, or the words of a
     /// longer clause read together.
     @Test func readingsFollowTheClause() {
