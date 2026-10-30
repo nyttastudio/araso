@@ -415,6 +415,40 @@ import Testing
         #expect(field.text.hasSuffix(" "))
     }
 
+    /// Where the mark can't follow the switch key's insert at once (macOS text views), ← goes to the
+    /// app, and once the caret is at the word's end (`caretMoved`) the word is marked as it reads, cut
+    /// as ← cuts it; learned when the fix goes in. Another key before that only learns the switch.
+    @Test func leftAfterASwitchOnTheWordJustCommittedWaitsForTheCaret() throws {
+        field.marksFromCaret = true
+        field.insertsFromCaret = true
+        field.insertsRightAfterAnInsert = false
+        type("hello world ")
+        session.handle(.cycle, client: field)
+        let world = korean("world")
+        #expect(!session.handle(.left, client: field))
+        #expect(session.fixing == nil)
+        field.cursor -= 1 // the app's ←: before the space
+        #expect(session.caretMoved(client: field) == nil)
+        let fixing = try #require(session.fixing)
+        #expect(fixing.cut == 4)
+        #expect(field.marked.location == 6)
+        session.handle(.right, client: field) // the whole word
+        #expect(session.fixing?.cut == nil)
+        #expect(field.text == "hello \(world) ")
+        session.handle(.enter, client: field)
+        #expect(field.text == "hello \(world) ")
+        #expect(field.marked.location == NSNotFound)
+        #expect(field.cursor == (field.text as NSString).length)
+        #expect(session.engine.correctedOnce("world", app: nil) == .korean)
+
+        type("again ")
+        session.handle(.cycle, client: field)
+        #expect(!session.handle(.left, client: field))
+        type("x") // before the caret move was seen
+        #expect(session.fixing == nil)
+        #expect(session.engine.correctedOnce("again", app: nil) == .korean)
+    }
+
     /// The strip lists the clause's readings after ←/→ too: a cut's front part, or the words of a
     /// longer clause read together.
     @Test func readingsFollowTheClause() {

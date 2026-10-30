@@ -147,10 +147,16 @@ tests use `FakeTextField`). It owns the preview and hysteresis, commits, Esc rea
   inside it, `switchInPlace` switches it as the word just committed is (no mark; `Committed.inLine`
   updates its `recent` entry when the window closes). ⇧← on the word being typed,
   or ←/→ right after a switch key changed it, makes it a fix (`startFixingTyped`; `Key.shiftLeft`/
-  `.shiftRight`, elsewhere ←/→). Not the word just committed: marking it needs the caret moved
-  back first, and an insert to do that right after the switch key's went in at the caret (Notes and
-  the typing pane, tried both ways); making that switch a fix broke the learned capsule, Caps Lock
-  and 3-set boundaries. Only through the field itself
+  `.shiftRight`, elsewhere ←/→). So does ←/→ right after a switch key changed the word just
+  committed (`startFixingCommitted`: marked as it reads, its boundary too, `Fixing.lastBoundaryMarked`,
+  since what is taken away must end at the caret; learned when the fix goes in, as a typed piece).
+  Not in macOS text views (`TextClient.insertsRightAfterAnInsert`): an insert sent with the key
+  right after the switch key's went in at the caret, and the mark with it (Notes, real keys,
+  2026-10-30; the typing pane before), while after a caret move the app made (a click) the same
+  marking landed. There only ← does it, as `deferFixing`: the app takes the ←, putting the caret at
+  the word's end, and `caretMoved` (which `InputController` calls after it) marks it there with
+  `startFixing(asIs:cut:)`; any key before that only learns the switch. Making the switch key itself
+  start a fix broke the learned capsule, Caps Lock and 3-set boundaries. Only through the field itself
   (`uncased`: Caps Lock's client would change the rest of the line). The strip lists the clause's readings
   (`clauseReadings`), numbered (`Readings.numbered`): a digit picks one. `caretMoved` lists an unsure
   word's readings (`fixHintConfidence`) after an arrow the app took, under the word's range it returns:

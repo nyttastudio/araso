@@ -29,6 +29,9 @@ final class FakeTextField: TextClient {
     /// An insert with a range that neither starts nor ends at the caret goes at the caret, as in
     /// macOS text views (Notes, 2026-10-29).
     var insertsFromCaret = false
+    /// False as in macOS text views: the fix of the word a switch key just changed waits for the
+    /// app's caret move (`InputSession.caretMoved`).
+    var insertsRightAfterAnInsert = true
 
     func setMarkedText(_ s: String, selectedClause: NSRange, replacing range: NSRange?) {
         if let range { setMarkedText(s, replacing: range) } else { setMarkedText(s) }

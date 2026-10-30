@@ -361,8 +361,8 @@ typed can be cut the same way: after a switch key changed its reading ←/→ do
 (`helloab`, ⇧←⇧← → `hello` | `ab`; ← before a switch puts the word in and moves the caret, as
 before). A whole word fixed as Japanese opens the candidate window on Space, chosen as for a word
 being typed (Space and ↑/↓ for candidates, ←/→ resize the clause, Return or a digit picks and ends
-the fix, Esc goes back to the kana). A word just committed with Space is fixed from its start, after ⌥← (macOS text views put
-marked text only at the caret). Return or any other key puts the
+the fix, Esc goes back to the kana). A word just committed with Space becomes such a fix too
+when ← follows a switch key that changed it (before one, ⌥← to its start, then the switch key). Return or any other key puts the
 fix in and takes the caret back to the end of the line (⌘Z takes two: one selects the rest of the
 line, the next puts the fix back); Esc (where it isn't a switch key) and Delete
 put everything back. A whole word fixed
