@@ -171,11 +171,13 @@ final class InputController: IMKInputController {
             syncStrip(input)
             if !handled, key != .shiftLeft, key != .shiftRight, [KeyCode.left, KeyCode.right, KeyCode.up, KeyCode.down].contains(event.keyCode) {
                 // The app moves the caret after this returns: then a word Araso wasn't sure of, if
-                // the caret is on one, lists its readings under it (`caretMoved`).
+                // the caret is on one, lists its readings under it (`caretMoved`). A ← right after a
+                // switch key changed the word just committed marks it there instead.
                 DispatchQueue.main.async { [weak self] in
-                    guard let self, let word = self.session.caretMoved(client: self.textClient(input)) else { return }
-                    self.wordRect = self.placeOf(word, in: input)
-                    self.syncStrip(input)
+                    guard let self else { return }
+                    let word = self.session.caretMoved(client: self.textClient(input))
+                    if let word { self.wordRect = self.placeOf(word, in: input) }
+                    if word != nil || self.session.fixing != nil { self.syncStrip(input) }
                 }
             }
             // The settings window's typing test shows how each word was decided; only there.
@@ -686,11 +688,16 @@ private final class IMKClient: TextClient {
     func markedRange() -> NSRange { input.markedRange() }
 
     func text(in range: NSRange) -> String? {
-        input.attributedSubstring(from: range)?.string
+        if let text = input.attributedSubstring(from: range)?.string { return text }
+        // Notes gives nothing for the empty range at the text's end, which is still known: the line
+        // ends there (the word Return just confirmed, fixed from there).
+        return range.length == 0 && range.location == input.length() ? "" : nil
     }
 
     /// The settings window's text view marked at the caret, not where the range named started.
     var marksFromCaret: Bool { true }
+    var insertsRightAfterAnInsert: Bool { false }
+    var dropsEmptyInserts: Bool { true }
 }
 
 extension NSEvent.ModifierFlags {

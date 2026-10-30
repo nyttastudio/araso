@@ -38,6 +38,20 @@ import Testing
         #expect(session.keys.isEmpty && session.conversion == nil)
     }
 
+    /// Kanji Return confirmed come back when a switch key cycles back to Japanese, not their kana.
+    @Test func switchKeyBackToJapaneseAfterReturnKeepsTheKanji() {
+        type("kyouhaiitenkidesune⏎")
+        let kanji = field.text
+        var seen: [String] = []
+        for _ in 0..<4 {
+            _ = session.handle(.cycle, client: field)
+            seen.append(field.text)
+            if field.text == kanji { break }
+        }
+        #expect(seen.first != kanji)
+        #expect(seen.last == kanji, "\(seen)")
+    }
+
     @Test func lettersWaitingForAVowelStayVisible() {
         type("kyouhaiitenkides")
         #expect(field.text.hasPrefix("今日は"), "\(field.text)")
