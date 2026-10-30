@@ -194,6 +194,13 @@ public final class HeuristicEngine: DecisionEngine, @unchecked Sendable {
         if DubeolsikLayout.hasEnglishOnlyCapital(keys) {
             return Decision(language: .english, confidence: 0.99, output: keys, explanation: "uppercase outside QWERTOP")
         }
+        // Held Shift reads as Korean over whole Hangul only. A consonant left over is the next
+        // syllable on its way while typing (깔끔ㅎ of 깔끔하다), but a word that ends on one was
+        // English: Colemak's GMTs (쓸ㅇ), WYSIWYGs.
+        if !context.partial, DubeolsikLayout.hasHeldOverCapital(keys),
+           HangulComposer.compose(keys: keys)?.endsWithPendingConsonant == true {
+            return Decision(language: .english, confidence: 0.99, output: keys, explanation: "held Shift over a stray consonant")
+        }
         let japanese = context.japanese ? self.japanese : nil
         let segmenter = context.japanese ? self.segmenter : nil
 

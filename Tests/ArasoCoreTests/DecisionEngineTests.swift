@@ -61,6 +61,18 @@ let sharedEngine = HeuristicEngine()
         #expect(d.output == expected)
     }
 
+    // A consonant left over after held Shift is the next syllable on its way while typing (빨ㄹ of
+    // 빨리), but the word ends English when it ends there (Colemak's GMTs, not 쓸ㅇ).
+    @Test func heldShiftOverAStrayConsonantIsKoreanOnlyWhileTyping() {
+        #expect(sharedEngine.decide("QKFf", context: DecisionContext(partial: true)).output == "빨ㄹ")
+        #expect(sharedEngine.decide("QKFf", context: DecisionContext()).output == "QKFf")
+        LatinLayout.$override.withValue(.colemak) {
+            #expect(sharedEngine.decide("GMTs", context: DecisionContext(partial: true)).output == "쓸ㅇ")
+            #expect(sharedEngine.decide("GMTs", context: DecisionContext()).output == "GMTs")
+            #expect(sharedEngine.decide("WYSIWYGs", context: DecisionContext()).output == "WYSIWYGs")
+        }
+    }
+
     // A capital that no lingering Shift explains is still only ever English, after a Korean
     // word too. A Shift lingers between lowercase keys, so an acronym typed in capitals
     // throughout (TM, RN, TL) keeps the rule even when it starts on a Korean shift key, and so

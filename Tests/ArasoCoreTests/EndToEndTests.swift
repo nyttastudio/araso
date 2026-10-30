@@ -74,6 +74,11 @@ import Testing
         session.activate(app: "test.terminal")
         type("ok RKFRMAgkek QKFfl RNAfmf RNARkwl EKFgksxp ")
         #expect(field.text == "ok 깔끔하다 빨리 RNA를 RNA까지 딸한테 ")
+        // Held Shift that ends on a stray consonant (Colemak's GMTs, 쓸ㅇ while typing) goes in English.
+        LatinLayout.$override.withValue(.colemak) {
+            type("GMTs ")
+        }
+        #expect(field.text == "ok 깔끔하다 빨리 RNA를 RNA까지 딸한테 GMTs ")
     }
 
     /// An acronym typed straight into a Korean word splits, and the same shape typed as fast Korean doesn't.

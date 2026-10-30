@@ -22,7 +22,8 @@ _Avoid_: stray Shift, Shift leak
 **Held Shift** (누른 채 둔 Shift):
 Shift held down on purpose from a Korean shift key over the keys after it, which it doesn't change,
 and let go before the word ends: 깔끔하다 as `RKFRMAgkek`, 빨리 as `QKFfl`. The keys have to spell
-whole Hangul (`TFxla`, `OAuth` don't). Before a particle, a held part that is an acronym people write
+whole Hangul (`TFxla`, `OAuth` don't; a consonant left over counts only while typing, so Colemak's
+`GMTs` goes in as typed, not 쓸ㅇ). Before a particle, a held part that is an acronym people write
 (`Data/english_acronyms.txt`) stays one (`RNA까지` as `RNARkwl`, not 꿈까지), unless the particle is
 the form the acronym doesn't take (`RNAdmf` is 꿈을); one of two syllables or more people use is
 Korean (`RKFRMA` 깔끔, `rjtQNS` 것뿐), anything else an acronym (`TOEIC은`).
