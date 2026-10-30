@@ -450,6 +450,8 @@ public final class ServiceRuntime {
             // A word being typed, converted or fixed (an earlier one, marked again) takes its keys:
             // ←/→, digits, Delete and Return mean something there.
             if !session.keys.isEmpty || session.conversion != nil || session.fixing != nil { return true }
+            // ←/→ right after a switch key changed the word just committed make it the fix.
+            if session.takesArrow(sessionKey) { return true }
             _ = session.handle(sessionKey, client: SnapshotClient.detached())
             return false
         }

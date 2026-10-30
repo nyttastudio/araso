@@ -1342,6 +1342,13 @@ public final class InputSession {
         return true
     }
 
+    /// ←/→ right after a switch key changed the word just committed, which make it the fix: a text
+    /// service that asks whether it wants a key before sending it (Windows' `test`) keeps them then.
+    public func takesArrow(_ key: Key) -> Bool {
+        (key == .left || key == .right) && keys.isEmpty && conversion == nil && fixing == nil
+            && lastCommit != nil && readings != nil
+    }
+
     /// ← right after a switch key changed the word just committed, where the mark can't follow the
     /// switch key's insert at once (`insertsRightAfterAnInsert`): the word goes into `recent` as it now
     /// reads, not learned yet, and the app takes the ←, which puts the caret at the word's end; there
@@ -1350,7 +1357,7 @@ public final class InputSession {
         let client = Self.uncased(cased)
         let caret = client.selectedRange()
         let range = NSRange(location: commit.location, length: utf16(commit.text))
-        guard conversion == nil, commit.inLine == nil, !capsWord, client.marksAnywhere,
+        guard conversion == nil, commit.inLine == nil, !capsWord, client.marksAnywhere, !client.insertsRightAfterAnInsert,
               caret.location == NSMaxRange(range), caret.length == 0, client.text(in: range) == commit.text
         else { return false }
         finalize(Committed(keys: commit.keys, decided: commit.decided, committedAs: commit.language,

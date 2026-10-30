@@ -211,6 +211,19 @@ final class Harness {
         }
     }
 
+    /// A key as the text service sends one: `test` first; kept, it comes `claimed`, else the app
+    /// takes it (an arrow moves the caret). Returns whether it was kept.
+    @discardableResult
+    func pressTested(_ key: WindowsKey, appMoves caretBy: Int = 0) -> Bool {
+        guard send(ServiceRequest(op: .test, client: client, key: key)).reply.handled else {
+            document.cursor += caretBy
+            return false
+        }
+        var request = ServiceRequest(op: .key, client: client, key: key)
+        request.claimed = true
+        return send(request).reply.handled
+    }
+
     /// A modifier tapped: its down only seen, its up kept when `test` says it does something.
     func tap(_ down: WindowsKey, _ up: WindowsKey) -> Bool {
         press(down)
@@ -321,6 +334,23 @@ final class Harness {
         #expect(h.document.composition == nil)
         #expect(h.document.text.hasPrefix("hello ") && !h.document.text.contains("again"))
         #expect(h.document.cursor == (h.document.text as NSString).length)
+    }
+
+    /// Windows: ← right after a switch key changed the word just committed is kept (`test`), and
+    /// the word becomes the fix, marked alone; Esc puts it back as it went in.
+    @Test func leftAfterASwitchOnTheWordJustCommittedIsKept() throws {
+        let h = try Harness()
+        h.type("dkssud gksrmf ")
+        let typed = h.document.text
+        #expect(h.tap(Keys.rightAlt, Keys.rightAltUp))
+        #expect(h.document.text != typed)
+        #expect(h.pressTested(Keys.left, appMoves: -1))
+        let marked = try #require(h.document.composition)
+        #expect(NSMaxRange(marked) == (h.document.text as NSString).length - 1) // not its space
+        h.pressTested(Keys.escape)
+        #expect(h.document.text == typed)
+        #expect(h.document.composition == nil)
+        #expect(!h.pressTested(Keys.left, appMoves: -1)) // nothing switched now: the app's
     }
 
     /// fcitx5, the field's first word: no character before it to move the caret by, so it is

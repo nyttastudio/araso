@@ -170,7 +170,9 @@ tests use `FakeTextField`). It owns the preview and hysteresis, commits, Esc rea
   2026-10-30; the typing pane before), while after a caret move the app made (a click) the same
   marking landed. There only ← does it, as `deferFixing`: the app takes the ←, putting the caret at
   the word's end, and `caretMoved` (which `InputController` calls after it) marks it there with
-  `startFixing(asIs:cut:)`; any key before that only learns the switch. Making the switch key itself
+  `startFixing(asIs:cut:)`; any key before that only learns the switch. Windows' text service asks
+  (`test`) before it sends a key, and an arrow with nothing typed went to the app untried: there
+  `InputSession.takesArrow` keeps ←/→ right after the switch (Windows ARM VM, real keys, 2026-10-30). Making the switch key itself
   start a fix broke the learned capsule, Caps Lock and 3-set boundaries. Only through the field itself
   (`uncased`: Caps Lock's client would change the rest of the line). The strip lists the clause's readings
   (`clauseReadings`), numbered (`Readings.numbered`): a digit picks one. `caretMoved` lists an unsure
