@@ -224,6 +224,13 @@ function Ready($field, [string]$kind) {
         [Keys]::Front($window) | Out-Null
         Start-Sleep -Milliseconds 300
     }
+    if ([Keys]::GetForegroundWindow() -ne $window) {
+        Clear-FirstSignIn
+        for ($i = 0; $i -lt 5 -and [Keys]::GetForegroundWindow() -ne $window; $i++) {
+            [Keys]::Front($window) | Out-Null
+            Start-Sleep -Milliseconds 300
+        }
+    }
     Start-Sleep -Milliseconds 500
     $thread = [Keys]::GetWindowThreadProcessId($window, [IntPtr]::Zero)
     $layout = "{0:X8}" -f [Keys]::GetKeyboardLayout($thread).ToInt64()
@@ -281,15 +288,22 @@ function Front-Window {
     "$((Get-Process -Id $id -ErrorAction SilentlyContinue).ProcessName) '$([Keys]::Title($window))'"
 }
 
-# CI's ARM64 runner comes up with the first sign-in's privacy screen ("Choose privacy settings for
-# your device", WWAHost's "Microsoft account") in front, which keeps every other window from coming
-# forward: no key reached any field until a case's Return happened to go through its pages. Return
-# goes through them (Next, then Accept) before the cases.
-for ($i = 0; $i -lt 8 -and (Front-Window) -eq "WWAHost 'Microsoft account'"; $i++) {
-    Write-Host "the first sign-in's screen is in front: Return"
-    [Keys]::Key(0x1C, $false, $false); Start-Sleep -Milliseconds 60; [Keys]::Key(0x1C, $true, $false)
-    Start-Sleep -Seconds 3
+# CI's ARM64 runner comes up with its first sign-in still on screen, and what is in front keeps
+# every other window from coming forward: no key reached any field until a case's Return happened to
+# go through it. The privacy screen ("Choose privacy settings for your device", WWAHost's "Microsoft
+# account") takes Return through its pages (Next, then Accept); the search flyout and widgets after it, Esc.
+function Clear-FirstSignIn {
+    for ($i = 0; $i -lt 8; $i++) {
+        $front = Front-Window
+        if ($front -eq "WWAHost 'Microsoft account'") { $scan = 0x1C }
+        elseif ($front -match "^(SearchHost|StartMenuExperienceHost|Widgets) ") { $scan = 0x01 }
+        else { return }
+        Write-Host "the first sign-in's $front is in front: $(if ($scan -eq 0x1C) { 'Return' } else { 'Esc' })"
+        [Keys]::Key($scan, $false, $false); Start-Sleep -Milliseconds 60; [Keys]::Key($scan, $true, $false)
+        Start-Sleep -Seconds 2
+    }
 }
+Clear-FirstSignIn
 Write-Host "in front before the cases: $(Front-Window)"
 
 # The first WPF window of a fresh machine loads .NET's WPF for a while and may come up behind:
