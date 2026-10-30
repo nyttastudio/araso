@@ -340,7 +340,9 @@ import Testing
     /// in kanji conversion; before one, ← puts the word in.
     @Test func arrowsAfterASwitchOnTheWordBeingTyped() throws {
         type("helloab")
+        let shown = field.text
         session.handle(.cycle, client: field) // another reading of the word
+        #expect(field.text != shown)
         #expect(session.handle(.left, client: field))
         let fixing = try #require(session.fixing)
         #expect(fixing.cut == 6)
@@ -348,14 +350,16 @@ import Testing
         #expect(session.fixing?.cut == 5)
         session.handle(.right, client: field)
         #expect(session.fixing?.cut == 6)
-        session.handle(.escape, client: field) // all back, as it was before the arrows
+        session.handle(.escape, client: field) // back to typing it, read as before the switch
         #expect(session.fixing == nil)
-        #expect(field.marked.location == NSNotFound)
+        #expect(session.keys == "helloab")
+        #expect(field.text == shown)
+        #expect(field.marked.location == 0)
     }
 
     /// After a switch key changed the word just committed, ← and → make it the fix too, as for the
-    /// word being typed: marked as it now reads, with its space, and ← cuts it. Return puts the fix in,
-    /// learned as the word's reading.
+    /// word being typed: marked as it now reads, without its space, and ← cuts it. Esc puts it back as
+    /// it went in, the switch key changing it again; Return puts the fix in, learned as the word's reading.
     @Test func arrowsAfterASwitchOnTheWordJustCommitted() throws {
         type("the helloab ")
         session.handle(.cycle, client: field)
@@ -364,16 +368,17 @@ import Testing
         #expect(session.handle(.left, client: field))
         let fixing = try #require(session.fixing)
         #expect(fixing.cut == 6)
-        #expect(field.marked.location == 4) // the word and its space, the front part the clause
-        #expect(field.text(in: field.marked)?.hasSuffix(" ") == true)
-        #expect(NSMaxRange(field.marked) == (field.text as NSString).length)
+        #expect(field.marked.location == 4) // the word alone, the front part the clause
+        #expect(NSMaxRange(field.marked) == (field.text as NSString).length - 1)
         #expect(field.selectedClause?.location == 0)
         session.handle(.right, client: field) // the whole word again
         #expect(session.fixing?.cut == nil)
-        session.handle(.escape, client: field) // as it was before the arrow
-        #expect(field.text == "the \(switched)")
+        session.handle(.escape, client: field) // as it went in, before the switch
+        #expect(field.text == "the helloab ")
         #expect(field.marked.location == NSNotFound)
         #expect(field.cursor == (field.text as NSString).length)
+        session.handle(.cycle, client: field) // still the word just committed
+        #expect(field.text == "the \(switched)")
 
         type("hello ")
         session.handle(.cycle, client: field)
@@ -634,6 +639,49 @@ import Testing
         session.handle(.enter, client: field)
         #expect(field.text == "gks글.")
         #expect(field.cursor == (field.text as NSString).length)
+    }
+
+    /// Esc on the fix of the word just committed puts it back as it went in, wherever the fix began
+    /// (the macOS caret move, a symbol and a space): nothing learned, the switch key changing it again,
+    /// and the word kept for a later fix.
+    @Test(arguments: ["hello world ", "hello world, "]) func escapeOnTheWordJustCommittedPutsItBack(line: String) throws {
+        field.marksFromCaret = true
+        field.insertsFromCaret = true
+        field.insertsRightAfterAnInsert = false
+        type(line)
+        session.handle(.cycle, client: field)
+        #expect(field.text != line)
+        #expect(!session.handle(.left, client: field))
+        field.cursor -= 1 // the app's ←
+        #expect(session.caretMoved(client: field) == nil)
+        _ = try #require(session.fixing)
+        session.handle(.escape, client: field)
+        #expect(field.text == line)
+        #expect(field.cursor == (line as NSString).length)
+        #expect(field.marked.location == NSNotFound)
+        #expect(session.engine.correctedOnce("world", app: nil) == nil)
+        session.handle(.cycle, client: field)
+        #expect(field.text == line.replacingOccurrences(of: "world", with: korean("world")))
+
+        type("again ")
+        caret(at: 8) // inside world
+        session.handle(.cycle, client: field)
+        #expect(session.fixing != nil)
+    }
+
+    /// Delete too takes the word being typed back to typing it, read as before the switch.
+    @Test func deleteOnTheFixOfTheWordBeingTypedTypesItAgain() {
+        type("hello wkf")
+        let shown = field.text
+        session.handle(.cycle, client: field)
+        session.handle(.left, client: field)
+        #expect(session.fixing != nil)
+        session.handle(.delete, client: field)
+        #expect(session.fixing == nil)
+        #expect(field.text == shown)
+        #expect(session.keys == "wkf")
+        type(" ")
+        #expect(field.text == shown + " ")
     }
 
     /// The strip lists the clause's readings after ←/→ too: a cut's front part, or the words of a

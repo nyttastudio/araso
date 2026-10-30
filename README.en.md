@@ -367,7 +367,11 @@ when ← follows a switch key that changed it (before one, ⌥← to its start, 
 fix in and takes the caret back to the end of the line (⌘Z takes two: one selects the rest of the
 line, the next puts the fix back). When the fix was of the line's last word, a switch key right after
 changes it again, as it does a word just committed. Esc (where it isn't a switch key) and Delete
-put everything back. A whole word fixed
+put it back as it was before anything was touched: a word being typed is typed again, read as before
+the switch; a word just committed goes back to how it went in, and a switch key changes it again. The
+underline covers the word alone, not the space or symbol after it (except 3-set's symbols, which a
+switch changes, and where the caret's place makes it go with the word: a comma and a space right after
+a commit on macOS and Linux). A whole word fixed
 is learned as a correction right after the commit is; a cut word isn't. When an arrow key leaves the
 caret on a word Araso wasn't sure of, its readings show in the strip under it first. Words before a
 Return can't be fixed, nor words changed by hand since. It works the same on Windows and on Linux

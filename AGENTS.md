@@ -134,7 +134,9 @@ tests use `FakeTextField`). It owns the preview and hysteresis, commits, Esc rea
   again (`Fixing.marked` words; the rest of the line, `trailing`, isn't touched), read the next way;
   the switch key cycles the clause, ←/→ resize it as in kanji conversion (the next words past a
   word's end, a cut inside one leaving the rest read on its own), Return on a cut settles the front,
-  Esc and Delete revert, Space on a whole word read as Japanese converts it to kanji (`startConvertingFix`:
+  Esc and Delete revert to before anything was touched (the word being typed is typed again, `Fixing.typedKeys`;
+  the word just committed goes back as it went in, `Committed.firstText`, in the flip window again,
+  `Fixing.revert`), Space on a whole word read as Japanese converts it to kanji (`startConvertingFix`:
   the session's `conversion`, whose keys `handleFixing` takes while it is set, shown in the clause's place,
   `Fixing.kanji`; Return or a digit on the last clause confirms the fix), a mark the app didn't put there drops the fix untouched (`markLanded`), and
   anything else confirms with one insert over the marked text, then the rest of the line over itself
@@ -159,8 +161,10 @@ tests use `FakeTextField`). It owns the preview and hysteresis, commits, Esc rea
   updates its `recent` entry when the window closes). ⇧← on the word being typed,
   or ←/→ right after a switch key changed it, makes it a fix (`startFixingTyped`; `Key.shiftLeft`/
   `.shiftRight`, elsewhere ←/→). So does ←/→ right after a switch key changed the word just
-  committed (`startFixingCommitted`: marked as it reads, its boundary too, `Fixing.lastBoundaryMarked`,
-  since what is taken away must end at the caret; learned when the fix goes in, as a typed piece).
+  committed (`startFixingCommitted`: marked as it reads; its boundary too only where what is taken
+  away must end at the caret, `marksFromCaret`, or a switch changes it, 3-set's symbol,
+  `Fixing.lastBoundaryMarked`, as a boundary is marked anywhere in a fix; learned when the fix goes in,
+  as a typed piece).
   Not in macOS text views (`TextClient.insertsRightAfterAnInsert`): an insert sent with the key
   right after the switch key's went in at the caret, and the mark with it (Notes, real keys,
   2026-10-30; the typing pane before), while after a caret move the app made (a click) the same

@@ -192,7 +192,7 @@ public final class InputSession {
         public var learning: DictionaryEngine.Learning = .forGood
     }
 
-    private struct Committed {
+    struct Committed {
         let keys: String
         /// What Araso chose before any Esc.
         let decided: Language
@@ -212,21 +212,34 @@ public final class InputSession {
         /// A word earlier in the line switched where it is (`switchInPlace`): its place in `recent`
         /// and its length before, so the window closing updates it there instead of adding it.
         var inLine: (index: Int, length: Int)?
+        /// What went in before a switch key changed it (nil: as it is): what Esc on its fix puts back.
+        var firstText: String?
+
+        /// The word as it went in, before any switch key: the fix's Esc puts it back (`Fixing.revert`).
+        var beforeSwitching: Committed {
+            Committed(keys: keys, decided: decided, committedAs: committedAs, language: committedAs,
+                      text: firstText ?? text, boundary: boundary, location: location, previous: previous,
+                      learns: learns, typedBoundary: typedBoundary)
+        }
 
         /// The same word after Delete took back its boundary's last character (all of it but a
         /// symbol and what followed, `followed(by:)`).
         var withoutBoundary: Committed {
-            Committed(keys: keys, decided: decided, committedAs: committedAs, language: language,
-                      text: String(text.dropLast()), boundary: String(boundary.dropLast()), location: location,
-                      previous: previous, learns: learns,
-                      typedBoundary: boundary.count > 1 ? typedBoundary.map { String($0.dropLast()) } : nil)
+            var word = Committed(keys: keys, decided: decided, committedAs: committedAs, language: language,
+                                 text: String(text.dropLast()), boundary: String(boundary.dropLast()), location: location,
+                                 previous: previous, learns: learns,
+                                 typedBoundary: boundary.count > 1 ? typedBoundary.map { String($0.dropLast()) } : nil)
+            word.firstText = firstText.map { String($0.dropLast()) }
+            return word
         }
 
         /// The same word with another symbol or a space typed after its boundary.
         func followed(by ch: Character) -> Committed {
-            Committed(keys: keys, decided: decided, committedAs: committedAs, language: language, text: text + String(ch),
-                      boundary: boundary + String(ch), location: location, previous: previous, learns: learns,
-                      typedBoundary: typedBoundary.map { $0 + String(ch) })
+            var word = Committed(keys: keys, decided: decided, committedAs: committedAs, language: language,
+                                 text: text + String(ch), boundary: boundary + String(ch), location: location,
+                                 previous: previous, learns: learns, typedBoundary: typedBoundary.map { $0 + String(ch) })
+            word.firstText = firstText.map { $0 + String(ch) }
+            return word
         }
 
         /// The boundary as it goes in after the word in `language`.
@@ -1076,6 +1089,12 @@ public final class InputSession {
         /// A zero-width space put before the word at the field's start, to have the caret there
         /// (`takeAway`), and taken away when the fix ends (`removePlaceholder`); `start` and `end` count it.
         var placeholder = false
+        /// The word just committed, as it went in before the switch key changed it: Esc puts it back,
+        /// in the flip window again (`startFixingCommitted`, `caretMoved`).
+        var revert: Committed?
+        /// The word being typed, its keys: Esc goes back to typing it, read as before any switch
+        /// (`startFixingTyped`).
+        var typedKeys: String?
     }
 
     /// Starts fixing an unchanged recent word touched by the caret, marking it in its next reading.
@@ -1264,6 +1283,7 @@ public final class InputSession {
         fixing = Fixing(start: marked.location, original: original, end: NSMaxRange(marked), markOriginal: original,
                         shown: original, firstEntry: recent.count, pieces: [piece], trailing: "", language: shown)
         fixing?.chosen = forced != nil && forcedByUser
+        fixing?.typedKeys = keys
         keys = ""
         forced = nil
         forcedByUser = false
@@ -1300,12 +1320,19 @@ public final class InputSession {
                                  text: String(commit.text.dropLast(commit.boundary.count)), boundary: commit.boundary,
                                  typedBoundary: commit.typedBoundary, learns: commit.learns, typed: true)
         forgetRecent(from: commit.location)
+        // The boundary is marked only where a switch changes it (3-set's symbol) or where what is taken
+        // away has to end at the caret (`marksFromCaret`).
+        let marksBoundary = client.marksFromCaret || commit.typedBoundary != nil
+        let marked = marksBoundary ? commit.text : piece.text
         var fixing = Fixing(start: range.location, original: commit.text, end: NSMaxRange(range),
-                            markOriginal: commit.text, shown: commit.text, firstEntry: recent.count, pieces: [piece],
-                            trailing: "", language: commit.language)
-        fixing.lastBoundaryMarked = true
+                            markOriginal: marked, shown: marked, firstEntry: recent.count, pieces: [piece],
+                            trailing: String(commit.text.dropFirst(marked.count)), language: commit.language)
+        fixing.lastBoundaryMarked = marksBoundary
         fixing.chosen = true
-        if client.marksFromCaret {
+        fixing.revert = commit.beforeSwitching
+        if !marksBoundary {
+            showFixing(&fixing, client, replacing: NSRange(location: range.location, length: utf16(marked)))
+        } else if client.marksFromCaret {
             takeAway(&fixing, to: caret.location, client)
             showFixing(&fixing, client)
         } else {
@@ -1375,6 +1402,7 @@ public final class InputSession {
             if keys.isEmpty, fixing == nil, recent.last?.location == commit.location,
                caret == NSRange(location: (at ?? NSNotFound) - last, length: 0),
                startFixing(cased, asIs: true, cut: true) {
+                fixing?.revert = commit.beforeSwitching
                 return nil
             }
             // Its boundary longer than one character (`world, `): the app's ← left the caret inside it.
@@ -1507,12 +1535,30 @@ public final class InputSession {
             return true
 
         case .escape, .delete:
-            // Delete too: the app's Delete would take the last character of the marked text.
+            // Delete too: the app's Delete would take the last character of the marked text. Back to
+            // before anything was touched: the word being typed is typed again, read as Araso reads it;
+            // the word just committed goes back to how it went in, in the flip window again; a word
+            // further back to what it was.
             self.fixing = nil
-            client.insertText(fixing.markOriginal, replacing: nil)
-            caretToLineEnd(fixing, client, delta: 0)
+            if let typed = fixing.typedKeys {
+                keys = typed
+                updatePreview(client)
+                return true
+            }
+            var undo = fixing.markOriginal
+            if let before = fixing.revert {
+                undo = fixing.lastBoundaryMarked ? before.text
+                    : String(before.text.dropLast(before.boundary(in: before.language).count))
+            }
+            client.insertText(undo, replacing: nil)
+            caretToLineEnd(fixing, client, delta: utf16(undo) - utf16(fixing.markOriginal))
             removePlaceholder(fixing, client)
             resetRun()
+            if let before = fixing.revert {
+                forgetRecent(from: before.location)
+                lastCommit = before
+                previousLanguage = before.language.sentenceLanguage
+            }
             return true
 
         default:
@@ -2899,6 +2945,7 @@ public final class InputSession {
                                 language: language, text: text, boundary: commit.boundary, location: commit.location,
                                 previous: commit.previous, learns: commit.learns, typedBoundary: commit.typedBoundary)
         changed.inLine = commit.inLine
+        changed.firstText = commit.firstText ?? commit.text
         return changed
     }
 
