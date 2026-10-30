@@ -298,6 +298,7 @@ function Clear-FirstSignIn {
         if ($front -eq "WWAHost 'Microsoft account'") { $scan = 0x1C }
         elseif ($front -match "^(SearchHost|StartMenuExperienceHost|Widgets) ") { $scan = 0x01 }
         else { return }
+        if ($i -eq 7) { throw "the first sign-in's $front stays in front" }
         Write-Host "the first sign-in's $front is in front: $(if ($scan -eq 0x1C) { 'Return' } else { 'Esc' })"
         [Keys]::Key($scan, $false, $false); Start-Sleep -Milliseconds 60; [Keys]::Key($scan, $true, $false)
         Start-Sleep -Seconds 2
@@ -310,6 +311,9 @@ Write-Host "in front before the cases: $(Front-Window)"
 # one opened and closed first.
 $warm = Open-Field "wpf"
 Start-Sleep -Seconds 2
+# Brought forward in Korean too: the first window to load the text service after the first sign-in
+# (CI's ARM64 runner) stayed in English through every language request.
+Ready $warm "warm-up wpf"
 Stop-Process -Id $warm.process.Id -Force
 
 $results = @(
@@ -454,11 +458,6 @@ reg query "HKCU\Software\Microsoft\CTF\TIP" /s 2>$null | Select-String -Pattern 
 reg query "HKLM\Software\Microsoft\CTF\TIP\{6D6C7D5F-3B7F-4F0E-9A2C-417261736F01}" /s 2>$null | Select-Object -First 20 | Out-Host
 Get-WinUserLanguageList | Format-List | Out-Host
 if ($created -contains $false) { throw "the text service couldn't be created" }
-if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64" -and -not ($results -contains $true)) {
-    # Not one key reached a window: this runner has no interactive desktop to type into.
-    Write-Host "typing test: no key reached any window here; the text service was created in ARM64 and x64 processes"
-    exit 0
-}
 if ($results -contains $false) {
     Get-ChildItem "$env:APPDATA\Araso" -ErrorAction SilentlyContinue | Select-Object Name | Out-Host
     throw "typing test failed"
