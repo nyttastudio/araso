@@ -30,6 +30,9 @@ public static class Keys {
     [DllImport("input.dll", CharSet = CharSet.Unicode)] public static extern bool InstallLayoutOrTip(string profile, uint flags);
     [DllImport("input.dll", CharSet = CharSet.Unicode)] public static extern bool SetDefaultLayoutOrTip(string profile, uint flags);
     [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr window, IntPtr process);
+    [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr window, out uint process);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetWindowText(IntPtr window, StringBuilder text, int size);
+    public static string Title(IntPtr window) { var text = new StringBuilder(256); GetWindowText(window, text, 256); return text.ToString(); }
     [DllImport("user32.dll")] public static extern IntPtr GetKeyboardLayout(uint thread);
     [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr window, uint message, IntPtr w, IntPtr l);
     const uint SCANCODE = 0x8, KEYUP = 0x2, EXTENDED = 0x1;
@@ -199,7 +202,13 @@ function Open-Field([string]$kind) {
     if ($kind -ne "notepad") {
         $out = Join-Path $env:TEMP "araso-field.txt"
         Remove-Item $out -ErrorAction SilentlyContinue
-        $process = Start-Process powershell -ArgumentList "-STA", "-NoProfile", "-File", "$PSScriptRoot\field.ps1", $kind, $out -PassThru
+        # No console: where Windows Terminal is the default terminal (CI's ARM64 runner) a console is
+        # a terminal window, which came forward over the field and stayed when the field closed.
+        $start = New-Object Diagnostics.ProcessStartInfo "powershell"
+        $start.Arguments = "-STA -NoProfile -File `"$PSScriptRoot\field.ps1`" $kind `"$out`""
+        $start.UseShellExecute = $false
+        $start.CreateNoWindow = $true
+        $process = [Diagnostics.Process]::Start($start)
         for ($i = 0; $i -lt 60 -and $process.MainWindowHandle -eq [IntPtr]::Zero; $i++) { Start-Sleep -Milliseconds 250; $process.Refresh() }
         Start-Sleep -Seconds 2 # the window draws, then focuses the box
         return @{ process = $process; window = $process.MainWindowHandle; read = { if (Test-Path $out) { [IO.File]::ReadAllText($out) } else { "" } }.GetNewClosure() }
@@ -217,14 +226,21 @@ function Open-Field([string]$kind) {
 # Brings a field's window to the front in Korean (Araso's language) and says how it stands.
 function Ready($field, [string]$kind) {
     $window = $field.window
+    Clear-FirstSignIn
     for ($i = 0; $i -lt 10 -and [Keys]::GetForegroundWindow() -ne $window; $i++) {
         [Keys]::Front($window) | Out-Null
         Start-Sleep -Milliseconds 300
     }
+    if ([Keys]::GetForegroundWindow() -ne $window) {
+        Clear-FirstSignIn
+        for ($i = 0; $i -lt 5 -and [Keys]::GetForegroundWindow() -ne $window; $i++) {
+            [Keys]::Front($window) | Out-Null
+            Start-Sleep -Milliseconds 300
+        }
+    }
     Start-Sleep -Milliseconds 500
     $thread = [Keys]::GetWindowThreadProcessId($window, [IntPtr]::Zero)
     $layout = "{0:X8}" -f [Keys]::GetKeyboardLayout($thread).ToInt64()
-    $front = [Keys]::GetForegroundWindow() -eq $window
     for ($i = 0; $i -lt 10 -and -not $layout.EndsWith($script:language); $i++) {
         [Keys]::Front($window) | Out-Null
         # As the taskbar's indicator does: ask the window to switch to the language Araso is listed under.
@@ -233,23 +249,31 @@ function Ready($field, [string]$kind) {
         Start-Sleep -Milliseconds 800
         $layout = "{0:X8}" -f [Keys]::GetKeyboardLayout($thread).ToInt64()
     }
-    $loaded = (Get-Process -Id $field.process.Id).Modules | Where-Object { $_.ModuleName -eq "ArasoTip.dll" } | Select-Object -First 1
+    $front = [Keys]::GetForegroundWindow() -eq $window
+    $loaded = (Get-Process -Id $field.process.Id -ErrorAction SilentlyContinue).Modules | Where-Object { $_.ModuleName -eq "ArasoTip.dll" } | Select-Object -First 1
+    if (-not $front) { Write-Host "${kind}: $(Front-Window) is in front" }
     Write-Host "${kind}: in front $front, layout $layout, ArasoTip.dll $(if ($loaded) { $loaded.FileName } else { 'not loaded' })"
 }
 
+# CI's ARM64 runner, fresh from its first sign-in, still opens windows of its own over the field now
+# and then (WSL's first run, again after it was closed) and its x64 host may answer a key late: there a
+# case that comes out wrong is typed once more, in a new field, and has to come out right then.
 function Case([string]$keys, [string]$expected, [scriptblock]$after, [string]$kind = "notepad") {
-    $field = Open-Field $kind
-    $notepad = $field.process
-    $window = $field.window
-    Ready $field $kind
-    Send-Keys $keys
-    if ($after) { & $after }
-    Start-Sleep -Milliseconds 800
-    if ([Keys]::GetForegroundWindow() -ne $window) { Write-Host "${kind}: no longer in front after the keys" }
-    $text = & $field.read
-    Stop-Process -Id $notepad.Id -Force
-    Write-Host "$kind typed '$keys' → '$text'"
-    return $text -eq $expected
+    $attempts = if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") { 2 } else { 1 }
+    for ($attempt = 1; ; $attempt++) {
+        $field = Open-Field $kind
+        $window = $field.window
+        Ready $field $kind
+        Send-Keys $keys
+        if ($after) { & $after }
+        Start-Sleep -Milliseconds 800
+        if ([Keys]::GetForegroundWindow() -ne $window) { Write-Host "${kind}: no longer in front after the keys" }
+        $text = & $field.read
+        Stop-Process -Id $field.process.Id -Force
+        Write-Host "$kind typed '$keys' → '$text'"
+        if ($text -eq $expected -or $attempt -ge $attempts) { return $text -eq $expected }
+        Write-Host "${kind}: again"
+    }
 }
 
 # Switching the word just committed comes after a person's pause (300 ms here): in a classic app the
@@ -269,10 +293,52 @@ function Tap([int]$scan) {
 # window where Notepad is Windows 11's own app (CI's ARM64 runner).
 $classic = if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") { "winforms" } else { "notepad" }
 
+# The window in front: its process and title.
+function Front-Window {
+    $window = [Keys]::GetForegroundWindow()
+    $id = [uint32]0
+    [Keys]::GetWindowThreadProcessId($window, [ref]$id) | Out-Null
+    "$((Get-Process -Id $id -ErrorAction SilentlyContinue).ProcessName) '$([Keys]::Title($window))'"
+}
+
+# CI's ARM64 runner comes up with its first sign-in still on screen, and what is in front keeps
+# every other window from coming forward: no key reached any field until a case's Return happened to
+# go through it. The privacy screen ("Choose privacy settings for your device", WWAHost's "Microsoft
+# account") takes Return through its pages (Next, then Accept); the search flyout and widgets after it, Esc.
+# On ARM64, WSL's first run comes up in Windows Terminal a little later, and again after it was
+# closed (titled wsl.exe, then Terminal), and takes the focus: that Windows Terminal is closed. Only
+# by those titles: the runner's own agent may be in a Windows Terminal too (x64), and goes with it.
+function Clear-FirstSignIn {
+    $wsl = @()
+    if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") {
+        $wsl = @(Get-Process WindowsTerminal -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -eq "Terminal" -or $_.MainWindowTitle -like "*wsl.exe" })
+    }
+    if ($wsl) {
+        Write-Host "the first sign-in's WSL terminal is open ($(($wsl | ForEach-Object MainWindowTitle) -join ', ')): closed"
+        $wsl | Stop-Process -Force -ErrorAction SilentlyContinue
+        Get-Process wsl -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+    }
+    for ($i = 0; ; $i++) {
+        $front = Front-Window
+        if ($front -eq "WWAHost 'Microsoft account'") { $scan = 0x1C }
+        elseif ($front -match "^(SearchHost|StartMenuExperienceHost|Widgets) ") { $scan = 0x01 }
+        else { return }
+        if ($i -eq 8) { throw "the first sign-in's $front stays in front after 8 keys" }
+        Write-Host "the first sign-in's $front is in front: $(if ($scan -eq 0x1C) { 'Return' } else { 'Esc' })"
+        [Keys]::Key($scan, $false, $false); Start-Sleep -Milliseconds 60; [Keys]::Key($scan, $true, $false)
+        Start-Sleep -Seconds 2
+    }
+}
+Clear-FirstSignIn
+Write-Host "in front before the cases: $(Front-Window)"
+
 # The first WPF window of a fresh machine loads .NET's WPF for a while and may come up behind:
 # one opened and closed first.
 $warm = Open-Field "wpf"
 Start-Sleep -Seconds 2
+# Brought forward in Korean too: the first window to load the text service after the first sign-in
+# (CI's ARM64 runner) stayed in English through every language request.
+Ready $warm "warm-up wpf"
 Stop-Process -Id $warm.process.Id -Force
 
 $results = @(
@@ -417,11 +483,6 @@ reg query "HKCU\Software\Microsoft\CTF\TIP" /s 2>$null | Select-String -Pattern 
 reg query "HKLM\Software\Microsoft\CTF\TIP\{6D6C7D5F-3B7F-4F0E-9A2C-417261736F01}" /s 2>$null | Select-Object -First 20 | Out-Host
 Get-WinUserLanguageList | Format-List | Out-Host
 if ($created -contains $false) { throw "the text service couldn't be created" }
-if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64" -and -not ($results -contains $true)) {
-    # Not one key reached a window: this runner has no interactive desktop to type into.
-    Write-Host "typing test: no key reached any window here; the text service was created in ARM64 and x64 processes"
-    exit 0
-}
 if ($results -contains $false) {
     Get-ChildItem "$env:APPDATA\Araso" -ErrorAction SilentlyContinue | Select-Object Name | Out-Host
     throw "typing test failed"
