@@ -118,7 +118,7 @@ let splitting = SplittingEngine(base: sharedEngine, english: sharedEngine.englis
     """.split(whereSeparator: \.isWhitespace).map(String.init)
 
     // Those acronyms before particles, on every layout: where held Shift could make them Korean,
-    // the particle splitter still reads them as acronyms, though the list doesn't name them (their
+    // the particle splitter still splits them as acronym + particle, though the list doesn't name them (their
     // keys spell Hangul nobody writes, or one syllable before a particle: RAG를, ETL에).
     @Test(arguments: LatinLayout.allCases)
     func techAcronymsBeforeParticlesOverHeldShift(layout: LatinLayout) {
@@ -130,7 +130,7 @@ let splitting = SplittingEngine(base: sharedEngine, english: sharedEngine.englis
                     guard keys.allSatisfy(\.isLetter), DubeolsikLayout.hasHeldOverCapital(keys) else { continue }
                     held += 1
                     let d = splitting.decide(keys, context: DecisionContext())
-                    #expect(d.output.hasPrefix(acronym), "\(layout) \(keys) → \(d.output) \(d.explanation)")
+                    #expect(d.language == .mixed && d.output.hasPrefix(acronym), "\(layout) \(keys) → \(d.output) \(d.explanation)")
                 }
             }
             #expect(held > 0, "no key reached held Shift on \(layout)")
