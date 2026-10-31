@@ -339,8 +339,8 @@ phrase live conversion leaves as kana (`たけ`), a switch key switches at once.
 ### Undo after commit, and learning
 
 Right after a word is committed with Space or punctuation (or only confirmed with Return), a language switch key switches it to its
-next reading, and pressing it again keeps cycling. More symbols and a space after the punctuation
-(`world. `, `world?! `) or deleting the space or punctuation first keep that chance; any other key ends it. This needs the caret still right after the word, and an app that
+next reading, and pressing it again keeps cycling. More symbols, digits and a space after the punctuation
+or a digit (`world. `, `world?! `, `utf-8`, `안녕12`) or deleting the space or punctuation first keep that chance; any other key ends it. This needs the caret still right after the word, and an app that
 lets Araso read the text there. Right after such a switch the strip is numbered, and a digit picks that
 reading (a digit typed without a switch goes in as usual).
 
@@ -578,7 +578,9 @@ Locally, in this order. A keystroke's preview takes at most ~3 ms and a word's f
    win (`dictionary.json`; 0.1.16's `lexicon.json` moves into it when first read). A word corrected
    once only nudges the scores.
 2. **Mixed words**: two languages run together, like `github에`, `PDF파일` or `githubで`, are split,
-   in an app set to Strict too.
+   in an app set to Strict too. Digits, `-` and `_` typed into a word shown as English don't end it:
+   `k8s`, `mp3` and `utf-8` stay under one underline and a switch key changes them whole (`ㅏ8ㄴ`),
+   with only a particle after them split off (`mp3fmf` → `mp3를`). A Korean word still ends at a digit (`안녕1`).
 3. **Rules**: what the keys alone settle, like a capital typed with Shift.
 4. **Heuristic**: the keys are scored per keystroke in all three languages, plus a nudge toward the
    previous word's language.
