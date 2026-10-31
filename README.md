@@ -109,7 +109,7 @@ curl -fsSL https://raw.githubusercontent.com/nyttastudio/araso/main/scripts/get.
 Windows 10(1809) 이상에서 도는 같은 입력기입니다. 단어 판단, 사전, 학습은 macOS와 같은 코드이고, 한자 변환은
 AzooKey로 합니다.
 
-1. [Windows 베타](https://github.com/nyttastudio/araso/releases/tag/windows-beta-2)의 `Araso-Setup.exe`를 받아 설치하세요.
+1. [Windows 베타](https://github.com/nyttastudio/araso/releases/tag/windows-beta-3)의 `Araso-Setup.exe`를 받아 설치하세요.
    Araso를 등록하고 한국어 입력 방법에 추가합니다. x64와 ARM64 PC 모두 됩니다. 아직 코드 서명이 없어서
    "Windows의 PC 보호" 창이 뜨면 **추가 정보 → 실행**을 누르세요.
 2. 작업 표시줄의 입력 표시기에서 **Araso**를 고르세요. 그 메뉴가 macOS의 입력 메뉴와 같습니다.
@@ -138,7 +138,7 @@ fcitx5 입력기로 도는 같은 입력기입니다. 단어 판단, 사전, 학
    24.04부터는 `fcitx5-frontend-qt6`도. 그다음 `im-config -n fcitx5`와 로그아웃. 22.04에는 `fcitx5-frontend-qt6`가 없어 Qt 6 앱에는 입력되지 않습니다).
    설정 창은 Qt 5로 돕니다. 묶음에 Qt가 들어 있지 않으니 Arch는 `qt5-base`, Fedora는 `qt5-qtbase-gui`를 설치하세요.
    빠져 있으면 `install.sh`가 설치 명령을 알려 줍니다.
-2. [Linux 베타](https://github.com/nyttastudio/araso/releases/tag/linux-beta-3)에서 아키텍처(`uname -m`)에 맞는
+2. [Linux 베타](https://github.com/nyttastudio/araso/releases/tag/linux-beta-4)에서 아키텍처(`uname -m`)에 맞는
    `Araso-linux-<아키텍처>.tar.gz`를 받아 풀고 그 안의 `./install.sh`를 실행하세요. 관리자 암호를 묻습니다.
    소스에서 설치하려면(Swift 6.2, CMake, fcitx5 개발 파일, Qt 6가 필요합니다. 목록은
    [docs/linux-port.md](docs/linux-port.md)):
