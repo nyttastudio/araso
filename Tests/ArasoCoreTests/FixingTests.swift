@@ -392,16 +392,20 @@ import Testing
 
     /// Where marked text goes at the caret, the word just committed is taken away up to the caret,
     /// the character before it put back, and marked there; at the field's start, with no character
-    /// before it, the arrow goes to the app as before.
+    /// before it, taken away with an empty insert.
     @Test func arrowsAfterASwitchOnTheWordJustCommittedFromTheCaret() {
         field.marksFromCaret = true
         field.insertsFromCaret = true
         type("hello ")
         session.handle(.cycle, client: field)
-        #expect(!session.handle(.left, client: field))
-        #expect(session.fixing == nil)
+        #expect(session.handle(.left, client: field))
+        #expect(session.fixing?.cut == 4)
+        #expect(field.marked.location == 0)
+        session.handle(.right, client: field)
+        session.handle(.enter, client: field)
+        #expect(field.text == "\(korean("hello")) ")
+        #expect(field.cursor == (field.text as NSString).length)
 
-        caret(at: (field.text as NSString).length)
         type("world ")
         session.handle(.cycle, client: field)
         #expect(field.text == "\(korean("hello")) \(korean("world")) ")
@@ -854,23 +858,50 @@ import Testing
         #expect(session.fixing == nil)
     }
 
-    /// The field's first word has no character before it to move the caret with: there it is
-    /// switched where it is, the caret at its end, and the switch key goes on cycling it.
-    @Test func switchInPlaceFromAnywhereInTheFirstWord() {
+    /// The field's first word has no character before it to move the caret with: where an empty
+    /// insert reaches the field (fcitx5), it takes the word away, the caret at the field's start, and
+    /// the word is marked there from anywhere in it, cut with ← and grown with → as any word.
+    @Test func fixingTheFirstWordFromAnywhereInIt() {
         field.marksFromCaret = true
+        field.insertsFromCaret = true
         type("hello world ")
         caret(at: 2) // he|llo
         #expect(session.handle(.cycle, client: field))
         let hello = korean("hello")
         #expect(field.text == "\(hello) world ")
-        #expect(field.cursor == (hello as NSString).length)
+        #expect(field.marked == NSRange(location: 0, length: (hello as NSString).length))
+        session.handle(.left, client: field) // hell|o
+        #expect(session.fixing?.cut == 4)
+        session.handle(.right, client: field) // the whole word
+        session.handle(.right, client: field) // and world
+        #expect(session.fixing?.count == 2)
+        let clause = "\(hello) \(korean("world"))"
+        #expect(field.text == "\(clause) ")
+        #expect(field.marked == NSRange(location: 0, length: (clause as NSString).length))
+        session.handle(.enter, client: field)
+        #expect(field.text == "\(clause) ")
         #expect(field.marked.location == NSNotFound)
-        #expect(session.readings?.texts == ["hello", hello])
-        session.handle(.cycle, client: field)
-        #expect(field.text == "hello world ")
-        session.handle(.cycle, client: field)
-        session.handle(.other, client: field) // closes it: learned
+        #expect(field.cursor == (field.text as NSString).length)
         #expect(session.engine.correctedOnce("hello", app: nil) == .korean)
+    }
+
+    /// The same in a macOS text view, the zero-width space before it: → takes in the next word.
+    @Test func longerClauseFromTheFirstWordWithAPlaceholder() {
+        field.marksFromCaret = true
+        field.insertsFromCaret = true
+        field.dropsEmptyInserts = true
+        type("hello world ")
+        caret(at: 2) // he|llo
+        #expect(session.handle(.cycle, client: field))
+        #expect(session.handle(.right, client: field))
+        #expect(session.fixing?.count == 2)
+        let clause = "\(korean("hello")) \(korean("world"))"
+        #expect(field.text == "\u{200B}\(clause) ")
+        #expect(field.marked == NSRange(location: 1, length: (clause as NSString).length))
+        session.handle(.enter, client: field)
+        #expect(field.text == "\(clause) ")
+        #expect(field.marked.location == NSNotFound)
+        #expect(field.cursor == (field.text as NSString).length)
     }
 
     /// Right after a switch key changed the word just committed, the strip is numbered and a digit
@@ -920,8 +951,7 @@ import Testing
     }
 
     /// A line going on past what is read of it, with no line break: its end isn't known, so no fix
-    /// starts there (the caret couldn't go back to it); the word is switched where it is instead, as
-    /// the field's first word is.
+    /// starts there (the caret couldn't go back to it); the word is switched where it is instead.
     @Test func noFixWhereTheLineEndIsntKnown() {
         type("hello world ")
         let rest = String(repeating: "x", count: 5000)

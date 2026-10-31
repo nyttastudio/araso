@@ -353,9 +353,10 @@ final class Harness {
         #expect(!h.pressTested(Keys.left, appMoves: -1)) // nothing switched now: the app's
     }
 
-    /// fcitx5, the field's first word: no character before it to move the caret by, so it is
-    /// switched where it is, unmarked, from anywhere in it.
-    @Test func switchesTheFirstWordInPlaceWithThePreeditAtTheCaret() throws {
+    /// fcitx5, the field's first word: no character before it to move the caret by, so the word is
+    /// deleted up to the caret and marked at the field's start, from anywhere in it; → takes in the
+    /// next word, and Return puts them in with the caret at the line's end.
+    @Test func fixesTheFirstWordWithThePreeditAtTheCaret() throws {
         let h = try Harness(platform: "linux")
         h.document.fcitx = true
         h.document.sendsLine = true
@@ -363,10 +364,19 @@ final class Harness {
         h.document.cursor = 2 // he|llo
         #expect(h.tap(Keys.rightAlt, Keys.rightAltUp))
         #expect(h.document.text == "ㅗ디ㅣㅐ world ")
-        #expect(h.document.composition == nil)
-        #expect(h.ui?.readings?.texts.contains("hello") == true)
-        #expect(h.tap(Keys.rightAlt, Keys.rightAltUp))
+        #expect(h.document.composition == NSRange(location: 0, length: 4))
+        h.press(Keys.right)
+        let clause = try #require(h.document.composition)
+        #expect(clause.location == 0 && NSMaxRange(clause) == (h.document.text as NSString).length - 1)
+        h.press(Keys.escape) // all as it was
         #expect(h.document.text == "hello world ")
+        #expect(h.document.composition == nil)
+        h.document.cursor = 2
+        #expect(h.tap(Keys.rightAlt, Keys.rightAltUp))
+        h.press(Keys.enter)
+        #expect(h.document.text == "ㅗ디ㅣㅐ world ")
+        #expect(h.document.composition == nil)
+        #expect(h.document.cursor == (h.document.text as NSString).length)
     }
 
     /// Where the composition is only at the caret and can't be moved (a word Windows keeps for a

@@ -348,9 +348,7 @@ A word earlier in the line can be fixed too. Put the caret anywhere in it (click
 right ⌥ (or ⇧Esc, or ⌥Space if chosen): that word alone is underlined again, read the next way,
 the caret at its end; the words after it stay as they are. The field's first word too: macOS text
 views put marked text at the caret, so the caret is moved to the word's start, and at the field's
-start a zero-width space stands in for the character before it until the fix ends. On Linux the
-field's first word is underlined only with the caret before it, and switched in place, without an
-underline, from anywhere else in it. Tapping again keeps cycling, and as in
+start a zero-width space stands in for the character before it until the fix ends. Tapping again keeps cycling, and as in
 Japanese conversion the thick underline is the part being fixed: → makes it a key longer, taking in
 the next word past the end of one (`dkssud gktpdy` → `안녕 하세요`, the underline growing with it); ← makes it shorter, and a cut
 inside a word leaves the rest of its keys to be read on their own (`hellofmf` → `hello` + `를`). A word ← gives
