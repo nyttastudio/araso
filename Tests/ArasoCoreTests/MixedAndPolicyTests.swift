@@ -75,6 +75,88 @@ let splitting = SplittingEngine(base: sharedEngine, english: sharedEngine.englis
         #expect(d.output == expected)
     }
 
+    // Shift held on from ㄲ through two syllables (깔끔 of 깔끔하다 as RKFRMA) isn't an acronym
+    // before 하다, nor a name when it starts mid-word (것뿐 as rjtQNS): no split.
+    @Test(arguments: [("RKFRMAgkek", "깔끔하다"), ("RKFRMAgo", "깔끔해"), ("RKFRMAgks", "깔끔한"),
+                      ("TMFTMFgkek", "쓸쓸하다"), ("rjtQNSdldpdy", "것뿐이에요"), ("dkwjTLGKSxp", "아저씨한테")])
+    func heldShiftIsNotAnAcronym(keys: String, expected: String) {
+        let d = splitting.decide(keys, context: DecisionContext())
+        #expect(d.language == .korean, "\(keys) → \(d.output) \(d.explanation)")
+        #expect(d.output == expected)
+    }
+
+    // One syllable held is still an acronym (RNA, not 꿈), and so are capitals whose syllables
+    // nobody writes (TOEIC, not 썌땿).
+    @Test(arguments: [("RNAfmf", "RNA를"), ("RNArk", "RNA가"), ("TOEICdms", "TOEIC은")])
+    func acronymsShapedLikeHeldShiftSplit(keys: String, expected: String) {
+        let d = splitting.decide(keys, context: DecisionContext())
+        #expect(d.language == .mixed, "\(keys) → \(d.output) \(d.explanation)")
+        #expect(d.output == expected)
+    }
+
+    // An acronym people write (RNA, WYSIWYG) before a particle, in keys Shift held on would also
+    // make Korean (꿈까지), stays an acronym when the particle is the form it takes (RNA를, not
+    // RNA을: that is 꿈을). Keys spelling no acronym (EKF, RMX) are still held Shift (딸한테).
+    @Test(arguments: [("RNARkwl", "RNA까지"), ("RNAaks", "RNA만"), ("RNAsms", "RNA는"), ("RNAfmf", "RNA를"),
+                      ("WYSIWYGfmf", "WYSIWYG를"), ("WYSIWYGdl", "WYSIWYG이"), ("WYSIWYGeh", "WYSIWYG도")])
+    func acronymBeforeParticleOverHeldShift(keys: String, expected: String) {
+        let d = splitting.decide(keys, context: DecisionContext())
+        #expect(d.language == .mixed, "\(keys) → \(d.output) \(d.explanation)")
+        #expect(d.output == expected)
+    }
+
+    /// Developer acronyms SCOWL lacks, so not in `EnglishModel.acronyms`: keys from outside the
+    /// list the held-Shift guard was built and measured on.
+    static let techAcronyms = """
+    ACL AGI AKS ALB APT ARM ASR AWS BDD BOM CDN CI CICD CLI CLR COO CORS CRLF CRM CRUD CSP CSR CSRF CSS
+    CSV CTO DB DDD DDL DDOS DL DML DNS DOM DPI ECR ECS EKS ELB ELT EOF EOL ERP ETL FPS GAN GCP GIL GKE
+    GPT GRPC HDR HTTPS IAM IDS IOPS IOT IPS JDK JPG JRE JSON JVM JWT KPI KVM LLM LLVM LSTM LTE LTS MIME
+    ML MR MTTR MVC MVVM NAT NLB NLP NPM NPU OKR OLAP OLED OLTP OOP ORM OTP PIP PKI PL PNG POC PWA QPS
+    RAG RBAC RDB RDBMS RDS REPL REST RFID RHEL RLHF RNN ROI RPC RPO RPS RTO SCM SDK SEO SFT SFTP SLA SLI
+    SLO SNS SOAP SPA SQS SSD SSG SSH SSL SSO STT SVG TCP TLS TPS TPU TSV TTS UDP UEFI UI URI UTF UX VM
+    VPC VPN WAF WAN WASM WSL WWDC XSS YAML YUM
+    """.split(whereSeparator: \.isWhitespace).map(String.init)
+
+    // Those acronyms before particles, on every layout: where held Shift could make them Korean,
+    // the particle splitter still splits them as acronym + particle, though the list doesn't name them (their
+    // keys spell Hangul nobody writes, or one syllable before a particle: RAG를, ETL에).
+    @Test(arguments: LatinLayout.allCases)
+    func techAcronymsBeforeParticlesOverHeldShift(layout: LatinLayout) {
+        LatinLayout.$override.withValue(layout) {
+            var held = 0
+            for acronym in Self.techAcronyms {
+                for (particle, hangul) in [("fmf", "를"), ("dp", "에"), ("aks", "만"), ("Rkwl", "까지"), ("dptj", "에서"),
+                                           ("fh", "로"), ("eh", "도"), ("dml", "의")] {
+                    let keys = acronym + String(particle.map(layout.character(onSeat:)))
+                    guard keys.allSatisfy(\.isLetter), DubeolsikLayout.hasHeldOverCapital(keys) else { continue }
+                    held += 1
+                    let d = splitting.decide(keys, context: DecisionContext())
+                    #expect(d.language == .mixed && d.output == acronym + hangul, "\(layout) \(keys) → \(d.output) \(d.explanation)")
+                }
+            }
+            #expect(held > 0, "no key reached held Shift on \(layout)")
+        }
+    }
+
+    @Test(arguments: [("RNAdmf", "꿈을"), ("RNAdms", "꿈은"), ("EKFgksxp", "딸한테"), ("RMXdldi", "끝이야"),
+                      ("QNSdldi", "뿐이야"), ("EKDdmf", "땅을"), ("EHSms", "또는"), ("TMdl", "쓰이")])
+    func heldShiftWithoutAnAcronymStaysKorean(keys: String, expected: String) {
+        let d = splitting.decide(keys, context: DecisionContext())
+        #expect(d.language == .korean, "\(keys) → \(d.output) \(d.explanation)")
+        #expect(d.output == expected)
+    }
+
+    // On Colemak other acronyms sit on the Korean shift keys' seats (G on T's: ㅆ): GMT까지, GED는,
+    // but GED + 은 (쌓은) is the form GED doesn't take.
+    @Test(arguments: [("GMTPewi", "GMT까지", Language.mixed), ("GEDrmr", "GED는", .mixed), ("GEDsmr", "쌓은", .korean)])
+    func acronymBeforeParticleOverHeldShiftOnColemak(keys: String, expected: String, language: Language) {
+        LatinLayout.$override.withValue(.colemak) {
+            let d = splitting.decide(keys, context: DecisionContext())
+            #expect(d.language == language, "\(keys) → \(d.output) \(d.explanation)")
+            #expect(d.output == expected)
+        }
+    }
+
     // Fast-typed Korean whose first two keys spell an acronym stays Korean: it reads as Korean
     // throughout (따라서 as EKfktj); its first syllable is rare but has been seen (삐졌어 as QLwuTdj,
     // 쭈그리고 as WNrmflrh, from the word lists); or no known Korean word follows (뾰족한 as QYwhrgks).

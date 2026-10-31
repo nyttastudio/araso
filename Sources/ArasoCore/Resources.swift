@@ -39,6 +39,11 @@ public enum Resources {
         url("english_words.txt", development: packageRoot.appendingPathComponent("Sources/ArasoCore/Data/english_words.txt"))
     }
 
+    /// English acronyms of SCOWL up to size 70 (build_english_acronyms.py).
+    public static var englishAcronyms: URL? {
+        url("english_acronyms.txt", development: packageRoot.appendingPathComponent("Sources/ArasoCore/Data/english_acronyms.txt"))
+    }
+
     /// Webster's Second International (web2, public domain): the letter trigrams' spellings where
     /// the system has no /usr/share/dict/words (Windows, Linux).
     public static var englishSpelling: URL? {
