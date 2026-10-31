@@ -204,8 +204,9 @@ public final class InputSession {
         let boundary: String
         let location: Int
         let previous: Language?
-        /// A segment of a URL or path: a switch there isn't a correction to learn.
-        var learns = true
+        /// Why the word went in as typed (`AsTyped`): a switch there isn't a correction to learn.
+        var asTyped: AsTyped?
+        var learns: Bool { asTyped == nil }
         /// The key as typed when `boundary` is 3-set's symbol for it (B for ?): what the boundary
         /// goes back to when the word is switched out of Korean (지냈어? → ldhr2jtB).
         var typedBoundary: String?
@@ -219,7 +220,7 @@ public final class InputSession {
         var beforeSwitching: Committed {
             Committed(keys: keys, decided: decided, committedAs: committedAs, language: committedAs,
                       text: firstText ?? text, boundary: boundary, location: location, previous: previous,
-                      learns: learns, typedBoundary: typedBoundary)
+                      asTyped: asTyped, typedBoundary: typedBoundary)
         }
 
         /// The same word after Delete took back its boundary's last character (all of it but a
@@ -227,7 +228,7 @@ public final class InputSession {
         var withoutBoundary: Committed {
             var word = Committed(keys: keys, decided: decided, committedAs: committedAs, language: language,
                                  text: String(text.dropLast()), boundary: String(boundary.dropLast()), location: location,
-                                 previous: previous, learns: learns,
+                                 previous: previous, asTyped: asTyped == .ending && boundary.count == 1 ? nil : asTyped,
                                  typedBoundary: boundary.count > 1 ? typedBoundary.map { String($0.dropLast()) } : nil)
             word.firstText = firstText.map { String($0.dropLast()) }
             return word
@@ -237,7 +238,7 @@ public final class InputSession {
         func followed(by ch: Character) -> Committed {
             var word = Committed(keys: keys, decided: decided, committedAs: committedAs, language: language,
                                  text: text + String(ch), boundary: boundary + String(ch), location: location,
-                                 previous: previous, learns: learns, typedBoundary: typedBoundary.map { $0 + String(ch) })
+                                 previous: previous, asTyped: asTyped, typedBoundary: typedBoundary.map { $0 + String(ch) })
             word.firstText = firstText.map { $0 + String(ch) }
             return word
         }
@@ -250,7 +251,7 @@ public final class InputSession {
         /// The same word where text before it grew or shrank by `delta` UTF-16 units.
         func moved(by delta: Int) -> Committed {
             Committed(keys: keys, decided: decided, committedAs: committedAs, language: language, text: text,
-                      boundary: boundary, location: location + delta, previous: previous, learns: learns,
+                      boundary: boundary, location: location + delta, previous: previous, asTyped: asTyped,
                       typedBoundary: typedBoundary)
         }
     }
@@ -359,6 +360,27 @@ public final class InputSession {
     private var runKnown = false
     /// The word being typed is a segment of a URL or path (`hasURLMarker`): it goes in as typed.
     private var inURLRun = false
+    /// The run before the word being typed is an identifier (`hasIdentifierMarker`: the s2c of
+    /// en_s2c): the word goes in as typed unless it spells a Korean word (보고서_최종).
+    private var inIdentifierRun = false
+    /// The word being typed started right after a number, which makes it a counter (3개, 2020년3월),
+    /// not a name ended by a digit.
+    private var afterNumber = false
+    /// The key ending the word being typed: the boundary held after it, or the symbol or digit
+    /// committing it. Delete taking a held one back clears it.
+    private var ending: Character?
+    /// The word being typed is a segment of an identifier: after an `_` in the run, or before one
+    /// (the en of en_s2c).
+    private var inIdentifier: Bool { inIdentifierRun || ending == "_" }
+    /// The word being typed ends on a digit (cmd0, v2, rst3): a name in code too, unless it spells a
+    /// Korean word or one written before a number (제1장, 주3회).
+    private var beforeNumber: Bool { ending.map { $0.isASCII && $0.isNumber } == true && !afterNumber }
+    /// Why a word goes in as typed: the run it is in (a URL or path, an identifier), or the key
+    /// ending it (an `_` or a digit), which Delete can take back and make it a word again.
+    enum AsTyped { case run, ending }
+    /// Set by the last `decide`: the word goes in as typed, and a switch there isn't learned.
+    /// Otherwise it is a word, also one spelling Korean inside an identifier (보고서_최종, 옵션1).
+    private var asTyped: AsTyped?
     /// Live conversion: a Japanese phrase is shown as its top kanji candidate while it is typed,
     /// and committed that way.
     public let liveConversion: Bool
@@ -618,6 +640,9 @@ public final class InputSession {
                 let before = run(client)
                 inURLRun = Self.hasURLMarker(before)
                 startsAfterHangul = before.last.map(Self.isHangul) ?? true
+                inIdentifierRun = Self.hasIdentifierMarker(before)
+                ending = nil
+                afterNumber = before.last.map { $0.isASCII && $0.isNumber } ?? false
             }
             addedNMarker = false
             pinned = nil
@@ -629,6 +654,7 @@ public final class InputSession {
             if heldBoundary != nil {
                 // Only the boundary comes back; the word is still there to be changed.
                 heldBoundary = nil
+                ending = nil
                 updatePreview(client)
                 return true
             }
@@ -748,6 +774,10 @@ public final class InputSession {
                 updatePreview(client)
                 return true
             }
+            // An `_` or a digit ending the word makes it a name in code (gk_s, cmd0: a word shown as
+            // Korean; one shown as English kept them above, en_s2c); in a Japanese phrase they stayed
+            // in it above too (きょうは＿).
+            ending = ch
             if ch == " ", currentLanguage() == .japanese, converter != nil {
                 startConversion(client)
                 return true
@@ -783,7 +813,7 @@ public final class InputSession {
             client.insertText(word.text, replacing: nil)
             lastCommit = Committed(keys: word.keys, decided: word.decided, committedAs: word.language,
                                    language: word.language, text: word.text + String(ch), boundary: String(ch),
-                                   location: location, previous: previous, learns: !inURLRun)
+                                   location: location, previous: previous, asTyped: word.asTyped)
             noteRun(word.text + String(ch))
             afterKoreanSymbol = KoreanLayout.current.isSebeolsik && word.language.sentenceLanguage == .korean
                 && ch != " " && !inURLRun
@@ -809,7 +839,7 @@ public final class InputSession {
                 noteRun(word.text)
                 lastCommit = Committed(keys: word.keys, decided: word.decided, committedAs: word.language,
                                        language: word.language, text: word.text, boundary: "",
-                                       location: location, previous: previous, learns: !inURLRun)
+                                       location: location, previous: previous, asTyped: word.asTyped)
                 return true
             }
             commit(client: client)
@@ -975,6 +1005,35 @@ public final class InputSession {
             || run.dropFirst().contains("@")
     }
 
+    /// Whether a run of text without spaces is an identifier from here on: it has an underscore
+    /// (en_s2c, src_dir, __init__). Korean doesn't use one except to join the parts of a file
+    /// name (보고서_최종, 회의록_1023), which `spellsKoreanWord` keeps.
+    static func hasIdentifierMarker(_ run: String) -> Bool {
+        run.contains("_")
+    }
+
+    /// Keys that spell a Korean word of two syllables or more, as a whole: one of the word lists,
+    /// or one the engine is sure of (회의록). One syllable never is: short segments (en, dir, fn)
+    /// make one easily (두, 약, 루).
+    private func spellsKoreanWord(_ keys: String) -> Bool {
+        guard let composed = HangulComposer.compose(keys: keys), composed.strayJamo.isEmpty,
+              composed.syllables.count >= 2 else { return false }
+        if Self.koreanModel.isVocabularyWord(composed.text) { return true }
+        let decision = engine.decide(keys, context: DecisionContext(app: app))
+        return decision.language == .korean && decision.confidence >= AppPolicy.strictThreshold
+    }
+
+    /// Before a number, Korean is a word of two syllables or more (옵션1, 버전2), or one of the few
+    /// single syllables written straight before one: 제 most of all in Tatoeba, 주 (주3회), and what
+    /// numbers a document's parts (표1, 제3조).
+    private func spellsKoreanWordBeforeNumber(_ keys: String) -> Bool {
+        if spellsKoreanWord(keys) { return true }
+        guard let composed = HangulComposer.compose(keys: keys), composed.strayJamo.isEmpty else { return false }
+        return Self.beforeNumberSyllables.contains(composed.text)
+    }
+
+    private static let beforeNumberSyllables: Set<String> = ["제", "주", "표", "장", "절", "항", "조", "호"]
+
     /// The run of text before the word being typed: what went in since the last space, with
     /// what the field had before the caret when that isn't known (a pasted URL, a click).
     private func run(_ client: TextClient) -> String {
@@ -1040,7 +1099,10 @@ public final class InputSession {
             let text: String
             let boundary: String
             let typedBoundary: String?
-            let learns: Bool
+            /// Why the piece went in as typed (`AsTyped`): a fix there isn't learned, and an `.ending`
+            /// stays one, so Delete taking that key back still makes it a word.
+            let asTyped: AsTyped?
+            var learns: Bool { asTyped == nil }
             /// The word that was being typed (`startFixingTyped`): learned as a word finished with Space
             /// is, by whether a reading was chosen (`Fixing.chosen`), not by how it went in.
             var typed = false
@@ -1115,7 +1177,7 @@ public final class InputSession {
         func piece(_ entry: Committed) -> Fixing.Piece {
             Fixing.Piece(keys: entry.keys, decided: entry.decided, language: entry.language,
                          text: String(entry.text.dropLast(entry.boundary.count)), boundary: entry.boundary,
-                         typedBoundary: entry.typedBoundary, learns: entry.learns)
+                         typedBoundary: entry.typedBoundary, asTyped: entry.asTyped)
         }
         func intact(_ entry: Committed) -> Bool {
             client.text(in: NSRange(location: entry.location, length: utf16(entry.text))) == entry.text
@@ -1238,7 +1300,7 @@ public final class InputSession {
         }
         var pending = Committed(keys: entry.keys, decided: entry.decided, committedAs: entry.language,
                                 language: entry.language, text: text, boundary: "", location: entry.location,
-                                previous: entry.previous, learns: entry.learns)
+                                previous: entry.previous, asTyped: entry.asTyped)
         pending.inLine = (index, utf16(text))
         guard let changed = cycle(pending, client: client) else { return false }
         lastCommit = changed
@@ -1283,7 +1345,7 @@ public final class InputSession {
         guard marked.location != NSNotFound, marked.length > 0,
               let original = client.text(in: marked) else { return false }
         let piece = Fixing.Piece(keys: keys, decided: committedLanguage(), language: shown, text: original,
-                                 boundary: "", typedBoundary: nil, learns: !inURLRun, typed: true)
+                                 boundary: "", typedBoundary: nil, asTyped: asTyped, typed: true)
         fixing = Fixing(start: marked.location, original: original, end: NSMaxRange(marked), markOriginal: original,
                         shown: original, firstEntry: recent.count, pieces: [piece], trailing: "", language: shown)
         fixing?.chosen = forced != nil && forcedByUser
@@ -1321,7 +1383,7 @@ public final class InputSession {
         else { return false }
         let piece = Fixing.Piece(keys: commit.keys, decided: commit.decided, language: commit.language,
                                  text: String(commit.text.dropLast(commit.boundary.count)), boundary: commit.boundary,
-                                 typedBoundary: commit.typedBoundary, learns: commit.learns, typed: true)
+                                 typedBoundary: commit.typedBoundary, asTyped: commit.asTyped, typed: true)
         forgetRecent(from: commit.location)
         // The boundary is marked only where a switch changes it (3-set's symbol) or where what is taken
         // away has to end at the caret (`marksFromCaret`).
@@ -1365,7 +1427,7 @@ public final class InputSession {
         else { return false }
         finalize(Committed(keys: commit.keys, decided: commit.decided, committedAs: commit.language,
                            language: commit.language, text: commit.text, boundary: commit.boundary,
-                           location: commit.location, previous: commit.previous, learns: commit.learns,
+                           location: commit.location, previous: commit.previous, asTyped: commit.asTyped,
                            typedBoundary: commit.typedBoundary))
         fixAfterArrow = commit
         return true
@@ -1534,7 +1596,7 @@ public final class InputSession {
             fixing.settled += committedReading(head, as: fixing.language)
             fixing.pieces[0] = Fixing.Piece(keys: rest, decided: language, language: language,
                                             text: committedReading(rest, as: language), boundary: piece.boundary,
-                                            typedBoundary: piece.typedBoundary, learns: false)
+                                            typedBoundary: piece.typedBoundary, asTyped: .run)
             fixing.cut = nil
             fixing.count = 1
             fixing.restLanguage = nil
@@ -1843,7 +1905,7 @@ public final class InputSession {
                 if i < fixing.count { lastBoundary = boundary }
                 let entry = Committed(keys: piece.keys, decided: piece.decided, committedAs: language, language: language,
                                       text: word + boundary, boundary: piece.boundary,
-                                      location: location, previous: nil, learns: piece.learns,
+                                      location: location, previous: nil, asTyped: piece.asTyped,
                                       typedBoundary: piece.typedBoundary)
                 updated.append(entry)
                 location += utf16(entry.text)
@@ -1984,7 +2046,10 @@ public final class InputSession {
     /// does a single letter shown as a jamo (h2o, l10n: not ㅗ2お). Not on 3-set, whose digit keys are jamo.
     private func keepsInEnglishWord(_ ch: Character) -> Bool {
         guard SplittingEngine.joinsWord(ch), !KoreanLayout.current.isSebeolsik, keys.first?.isLetter == true else { return false }
-        return (forced ?? pinned ?? previewLanguage) == .english || (keys.count == 1 && forced == nil)
+        // In an identifier run the English shown is the segment typed as is, not a reading: the `_`
+        // or digit ends it, so a Korean word there still comes out (보고서_제1장).
+        return (forced ?? pinned ?? (inIdentifierRun ? nil : previewLanguage)) == .english
+            || (keys.count == 1 && forced == nil && !inIdentifierRun)
     }
 
     private func belongsToJapanesePhrase(_ ch: Character) -> Bool {
@@ -2516,15 +2581,20 @@ public final class InputSession {
 
     // MARK: - Private
 
+    /// The keys as typed, English, as sure as can be: a segment of a URL, path or identifier.
+    private func typedAsIs(_ reason: AsTyped, _ explanation: String, partial: Bool) -> Decision {
+        keptEnglishByStrict = false
+        asTyped = reason
+        let decision = Decision(language: .english, confidence: 1, output: keys, explanation: explanation)
+        lastTrace = Trace(keys: keys, previous: previousLanguage, decision: decision, partial: partial)
+        return decision
+    }
+
     private func decide(partial: Bool) -> Decision {
         // A segment of a URL or path goes in as typed, before the dictionary is asked (so in a
         // URL is so even where it was taught to be 내).
-        if inURLRun {
-            keptEnglishByStrict = false
-            let decision = Decision(language: .english, confidence: 1, output: keys, explanation: "inside a URL or path")
-            lastTrace = Trace(keys: keys, previous: previousLanguage, decision: decision, partial: partial)
-            return decision
-        }
+        asTyped = nil
+        if inURLRun { return typedAsIs(.run, "inside a URL or path", partial: partial) }
         if let shortcut = shortcutReading(partial: partial) {
             // As sure as a split word, so a Strict app shows it too.
             keptEnglishByStrict = false
@@ -2532,6 +2602,16 @@ public final class InputSession {
                                     output: shortcut.text, explanation: "text replacement shortcut")
             lastTrace = Trace(keys: keys, previous: previousLanguage, decision: decision, partial: partial)
             return decision
+        }
+        // A segment of an identifier (en_s2c, src_dir) goes in as typed too, unless it spells a
+        // Korean word of two syllables or more: file names join Korean with underscores (보고서_최종).
+        // So does a word ended by a digit (cmd0), unless it is Korean written before a number (제1장).
+        // Next to a number, inside an identifier too, Korean is also a syllable written there (보고서_제1장).
+        // Not a word the user taught (corrected twice or added): the dictionary decides it (so1 is 내1).
+        if inIdentifier || beforeNumber, engine.rememberedLanguage(keys, app: app) == nil,
+           !(beforeNumber || afterNumber ? spellsKoreanWordBeforeNumber(keys) : spellsKoreanWord(keys)) {
+            return inIdentifierRun ? typedAsIs(.run, "inside an identifier", partial: partial)
+                 : typedAsIs(.ending, ending == "_" ? "before an underscore" : "before a number", partial: partial)
         }
         // A word typed straight after a number in Japanese text is a counter when it is romaji
         // (3ji, 5fun, 3hon); a unit like km or pm has letters that aren't (5km stays English).
@@ -2614,11 +2694,15 @@ public final class InputSession {
         // word. A short word reads as the start of a longer Japanese one while typed and as
         // English once it ends (zi showed 地 and zio じお, then went in as "zi", "zio"), and a
         // Strict app's short token kept English would go in as letters under its kana (ka under か).
+        // The word goes in as shown, not as typed: a word again (kyouha before a digit stays きょうは).
         if shown == .japanese, d.language == .english,
            !EnglishModel.shared.isKnownWord(keys), RomajiComposer.compose(keys).isClean {
+            asTyped = nil
             return shown
         }
-        return isWeakFlipAllowed(to: d, from: shown) ? d.language : shown
+        if isWeakFlipAllowed(to: d, from: shown) { return d.language }
+        asTyped = nil
+        return shown
     }
 
     /// Whether `decision` may replace the reading on screen: when it's confident, when it's
@@ -2641,7 +2725,7 @@ public final class InputSession {
             previewLanguage = forced
             show(rendering(as: forced), client)
         } else {
-            if !inURLRun {
+            if !inURLRun, !inIdentifier {
                 splitOffKoreanBeforeOther(client)
                 splitOffJapaneseBeforeKorean(client)
             }
@@ -2824,9 +2908,9 @@ public final class InputSession {
     /// The word being typed ends as `language`: it goes in, or its conversion, kana forms or a
     /// shortcut's phrases start. A correction the user made to it is learned; otherwise it was
     /// typed again (a weak entry saying so stays) and, when its dictionary entry decided it, it
-    /// is listed. Inside a URL or path it isn't a word: neither.
+    /// is listed. A word that went in as typed (`asTyped`) isn't a word: neither.
     private func wordEnds(as language: Language, engineChoice: Language) {
-        guard !inURLRun else { return }
+        guard asTyped == nil else { return }
         if forced != nil, forcedByUser {
             record(keys, as: language, engineChoice: engineChoice)
         } else {
@@ -2836,8 +2920,9 @@ public final class InputSession {
     }
 
     /// Decides the current word, learns an Esc override, and resets the buffer.
-    private func finishWord() -> (keys: String, text: String, language: Language, decided: Language) {
+    private func finishWord() -> (keys: String, text: String, language: Language, decided: Language, asTyped: AsTyped?) {
         let engineChoice = committedLanguage()
+        let asTyped = asTyped // later decides (the remembered word's note) don't change it
         let language = forced ?? pinned ?? engineChoice
         if language != .japanese { dropNMarker() }
         // "Back to kana" without the user's Esc, or a reading kept while deleting, isn't a
@@ -2849,9 +2934,10 @@ public final class InputSession {
         liveSuppressed = false
         liveKept = nil
         noteBrackets(in: text)
-        let word = (keys, text, language, decided)
+        let word = (keys, text, language, decided, asTyped)
         previousLanguage = language.sentenceLanguage
         keys = ""
+        ending = nil
         forced = nil
         forcedByUser = false
         pinned = nil
@@ -2970,7 +3056,7 @@ public final class InputSession {
         if commit.inLine == nil { previousLanguage = language.sentenceLanguage }
         var changed = Committed(keys: commit.keys, decided: commit.decided, committedAs: commit.committedAs,
                                 language: language, text: text, boundary: commit.boundary, location: commit.location,
-                                previous: commit.previous, learns: commit.learns, typedBoundary: commit.typedBoundary)
+                                previous: commit.previous, asTyped: commit.asTyped, typedBoundary: commit.typedBoundary)
         changed.inLine = commit.inLine
         changed.firstText = commit.firstText ?? commit.text
         return changed
@@ -2996,7 +3082,7 @@ public final class InputSession {
             recent[line.index] = Committed(keys: old.keys, decided: old.decided, committedAs: commit.language,
                                            language: commit.language, text: commit.text + old.boundary,
                                            boundary: old.boundary, location: old.location, previous: old.previous,
-                                           learns: old.learns, typedBoundary: old.typedBoundary)
+                                           asTyped: old.asTyped, typedBoundary: old.typedBoundary)
             for i in recent.indices where i > line.index { recent[i] = recent[i].moved(by: delta) }
             return
         }
