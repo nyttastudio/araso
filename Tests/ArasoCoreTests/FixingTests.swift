@@ -313,6 +313,28 @@ import Testing
         #expect(field.cursor == (field.text as NSString).length)
     }
 
+    /// The word being typed, switched to Japanese (hello: へっぉ, Korean on stray jamo skipped), is
+    /// fixed as the others are: ← cuts it, → makes it whole again, Esc goes back to typing it.
+    @Test func arrowsAfterASwitchToJapaneseOnTheWordBeingTyped() throws {
+        let session = InputSession(engine: self.session.engine, japaneseEnabled: true)
+        for ch in "hello" { _ = session.handle(.letter(ch), client: field) }
+        let kana = session.engine.render("hello", as: .japanese)
+        for _ in 0..<3 where field.text != kana { _ = session.handle(.cycle, client: field) }
+        #expect(field.text == kana)
+        #expect(session.handle(.left, client: field))
+        let fixing = try #require(session.fixing)
+        #expect(fixing.cut == 4)
+        #expect(fixing.language == .japanese)
+        #expect(field.marked == NSRange(location: 0, length: (field.text as NSString).length))
+        session.handle(.right, client: field)
+        #expect(session.fixing?.cut == nil)
+        #expect(field.text == kana)
+        session.handle(.escape, client: field)
+        #expect(session.fixing == nil)
+        #expect(field.text == "hello")
+        #expect(field.marked == NSRange(location: 0, length: 5))
+    }
+
     /// ⇧← on the word being typed cuts it, as on a word fixed later; ← alone still puts it in.
     @Test func shiftLeftCutsTheWordBeingTyped() throws {
         type("helloab")
@@ -603,9 +625,10 @@ import Testing
         #expect(field.marked.location == NSNotFound)
     }
 
-    /// The field's first word where nothing can take its place (no zero-width space): the app's ←
-    /// inside its `, ` stays where it put the caret, the boundary not put back over itself.
-    @Test func leftInsideTheBoundaryOfTheFirstWordStaysWhereNoFixCanStart() {
+    /// The field's first word where an empty insert reaches the field (fcitx5): the app's ← inside
+    /// its `, ` puts the rest back over itself, and the word and its boundary are taken away with an
+    /// empty insert and marked at the field's start.
+    @Test func leftInsideTheBoundaryOfTheFirstWordWithAnEmptyInsert() throws {
         field.marksFromCaret = true
         field.insertsFromCaret = true
         field.insertsRightAfterAnInsert = false
@@ -614,11 +637,16 @@ import Testing
         let switched = field.text
         #expect(!session.handle(.left, client: field))
         field.cursor -= 1 // the app's ←: inside ", "
-        let caret = field.cursor
         #expect(session.caretMoved(client: field) == nil)
-        #expect(session.fixing == nil)
+        let fixing = try #require(session.fixing)
+        #expect(fixing.cut == 4)
+        #expect(field.marked.location == 0)
+        #expect(!field.text.hasPrefix("\u{200B}"))
+        session.handle(.escape, client: field) // back as it went in
+        #expect(field.text == "world, ")
+        #expect(field.cursor == (field.text as NSString).length)
+        session.handle(.cycle, client: field)
         #expect(field.text == switched)
-        #expect(field.cursor == caret)
     }
 
     /// A 3-set symbol left out of the marked text stays as it is in the field (`?`, not its key, B)

@@ -1266,14 +1266,15 @@ public final class InputSession {
     private static let trailingLimit = 4096
 
     /// The word being typed, for ⇧← or an arrow after a switch: it becomes the fix, marked as
-    /// it is, and stops being typed (Return or a key puts it in, as a fix). Not a held word, Japanese
-    /// (its kana and conversion are the candidate window's), or one typed with Caps Lock (the fix
-    /// writes to the field as it is).
+    /// it is, and stops being typed (Return or a key puts it in, as a fix). Japanese too, as kana (a
+    /// live candidate goes back to its kana): Space on it whole converts, as on the word just
+    /// committed. Not a word in kanji conversion (the candidate window's), a held word, or one typed
+    /// with Caps Lock (the fix writes to the field as it is).
     private func startFixingTyped(_ client: TextClient) -> Bool {
         guard keys.count > 1, conversion == nil, heldBoundary == nil, !capsWord, client.marksAnywhere else { return false }
         let shown = forced ?? pinned ?? previewLanguage ?? decide(partial: true).language
         let marked = client.markedRange()
-        guard shown != .japanese, marked.location != NSNotFound, marked.length > 0,
+        guard marked.location != NSNotFound, marked.length > 0,
               let original = client.text(in: marked) else { return false }
         let piece = Fixing.Piece(keys: keys, decided: committedLanguage(), language: shown, text: original,
                                  boundary: "", typedBoundary: nil, learns: !inURLRun, typed: true)
