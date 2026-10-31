@@ -313,6 +313,28 @@ import Testing
         #expect(field.cursor == (field.text as NSString).length)
     }
 
+    /// The word being typed, switched to Japanese (hello: へっぉ, Korean on stray jamo skipped), is
+    /// fixed as the others are: ← cuts it, → makes it whole again, Esc goes back to typing it.
+    @Test func arrowsAfterASwitchToJapaneseOnTheWordBeingTyped() throws {
+        let session = InputSession(engine: self.session.engine, japaneseEnabled: true)
+        for ch in "hello" { _ = session.handle(.letter(ch), client: field) }
+        let kana = session.engine.render("hello", as: .japanese)
+        for _ in 0..<3 where field.text != kana { _ = session.handle(.cycle, client: field) }
+        #expect(field.text == kana)
+        #expect(session.handle(.left, client: field))
+        let fixing = try #require(session.fixing)
+        #expect(fixing.cut == 4)
+        #expect(fixing.language == .japanese)
+        #expect(field.marked == NSRange(location: 0, length: (field.text as NSString).length))
+        session.handle(.right, client: field)
+        #expect(session.fixing?.cut == nil)
+        #expect(field.text == kana)
+        session.handle(.escape, client: field)
+        #expect(session.fixing == nil)
+        #expect(field.text == "hello")
+        #expect(field.marked == NSRange(location: 0, length: 5))
+    }
+
     /// ⇧← on the word being typed cuts it, as on a word fixed later; ← alone still puts it in.
     @Test func shiftLeftCutsTheWordBeingTyped() throws {
         type("helloab")
@@ -392,16 +414,20 @@ import Testing
 
     /// Where marked text goes at the caret, the word just committed is taken away up to the caret,
     /// the character before it put back, and marked there; at the field's start, with no character
-    /// before it, the arrow goes to the app as before.
+    /// before it, taken away with an empty insert.
     @Test func arrowsAfterASwitchOnTheWordJustCommittedFromTheCaret() {
         field.marksFromCaret = true
         field.insertsFromCaret = true
         type("hello ")
         session.handle(.cycle, client: field)
-        #expect(!session.handle(.left, client: field))
-        #expect(session.fixing == nil)
+        #expect(session.handle(.left, client: field))
+        #expect(session.fixing?.cut == 4)
+        #expect(field.marked.location == 0)
+        session.handle(.right, client: field)
+        session.handle(.enter, client: field)
+        #expect(field.text == "\(korean("hello")) ")
+        #expect(field.cursor == (field.text as NSString).length)
 
-        caret(at: (field.text as NSString).length)
         type("world ")
         session.handle(.cycle, client: field)
         #expect(field.text == "\(korean("hello")) \(korean("world")) ")
@@ -599,9 +625,10 @@ import Testing
         #expect(field.marked.location == NSNotFound)
     }
 
-    /// The field's first word where nothing can take its place (no zero-width space): the app's ←
-    /// inside its `, ` stays where it put the caret, the boundary not put back over itself.
-    @Test func leftInsideTheBoundaryOfTheFirstWordStaysWhereNoFixCanStart() {
+    /// The field's first word where an empty insert reaches the field (fcitx5): the app's ← inside
+    /// its `, ` puts the rest back over itself, and the word and its boundary are taken away with an
+    /// empty insert and marked at the field's start.
+    @Test func leftInsideTheBoundaryOfTheFirstWordWithAnEmptyInsert() throws {
         field.marksFromCaret = true
         field.insertsFromCaret = true
         field.insertsRightAfterAnInsert = false
@@ -610,11 +637,16 @@ import Testing
         let switched = field.text
         #expect(!session.handle(.left, client: field))
         field.cursor -= 1 // the app's ←: inside ", "
-        let caret = field.cursor
         #expect(session.caretMoved(client: field) == nil)
-        #expect(session.fixing == nil)
+        let fixing = try #require(session.fixing)
+        #expect(fixing.cut == 4)
+        #expect(field.marked.location == 0)
+        #expect(!field.text.hasPrefix("\u{200B}"))
+        session.handle(.escape, client: field) // back as it went in
+        #expect(field.text == "world, ")
+        #expect(field.cursor == (field.text as NSString).length)
+        session.handle(.cycle, client: field)
         #expect(field.text == switched)
-        #expect(field.cursor == caret)
     }
 
     /// A 3-set symbol left out of the marked text stays as it is in the field (`?`, not its key, B)
@@ -854,23 +886,50 @@ import Testing
         #expect(session.fixing == nil)
     }
 
-    /// The field's first word has no character before it to move the caret with: there it is
-    /// switched where it is, the caret at its end, and the switch key goes on cycling it.
-    @Test func switchInPlaceFromAnywhereInTheFirstWord() {
+    /// The field's first word has no character before it to move the caret with: where an empty
+    /// insert reaches the field (fcitx5), it takes the word away, the caret at the field's start, and
+    /// the word is marked there from anywhere in it, cut with ← and grown with → as any word.
+    @Test func fixingTheFirstWordFromAnywhereInIt() {
         field.marksFromCaret = true
+        field.insertsFromCaret = true
         type("hello world ")
         caret(at: 2) // he|llo
         #expect(session.handle(.cycle, client: field))
         let hello = korean("hello")
         #expect(field.text == "\(hello) world ")
-        #expect(field.cursor == (hello as NSString).length)
+        #expect(field.marked == NSRange(location: 0, length: (hello as NSString).length))
+        session.handle(.left, client: field) // hell|o
+        #expect(session.fixing?.cut == 4)
+        session.handle(.right, client: field) // the whole word
+        session.handle(.right, client: field) // and world
+        #expect(session.fixing?.count == 2)
+        let clause = "\(hello) \(korean("world"))"
+        #expect(field.text == "\(clause) ")
+        #expect(field.marked == NSRange(location: 0, length: (clause as NSString).length))
+        session.handle(.enter, client: field)
+        #expect(field.text == "\(clause) ")
         #expect(field.marked.location == NSNotFound)
-        #expect(session.readings?.texts == ["hello", hello])
-        session.handle(.cycle, client: field)
-        #expect(field.text == "hello world ")
-        session.handle(.cycle, client: field)
-        session.handle(.other, client: field) // closes it: learned
+        #expect(field.cursor == (field.text as NSString).length)
         #expect(session.engine.correctedOnce("hello", app: nil) == .korean)
+    }
+
+    /// The same in a macOS text view, the zero-width space before it: → takes in the next word.
+    @Test func longerClauseFromTheFirstWordWithAPlaceholder() {
+        field.marksFromCaret = true
+        field.insertsFromCaret = true
+        field.dropsEmptyInserts = true
+        type("hello world ")
+        caret(at: 2) // he|llo
+        #expect(session.handle(.cycle, client: field))
+        #expect(session.handle(.right, client: field))
+        #expect(session.fixing?.count == 2)
+        let clause = "\(korean("hello")) \(korean("world"))"
+        #expect(field.text == "\u{200B}\(clause) ")
+        #expect(field.marked == NSRange(location: 1, length: (clause as NSString).length))
+        session.handle(.enter, client: field)
+        #expect(field.text == "\(clause) ")
+        #expect(field.marked.location == NSNotFound)
+        #expect(field.cursor == (field.text as NSString).length)
     }
 
     /// Right after a switch key changed the word just committed, the strip is numbered and a digit
@@ -920,8 +979,7 @@ import Testing
     }
 
     /// A line going on past what is read of it, with no line break: its end isn't known, so no fix
-    /// starts there (the caret couldn't go back to it); the word is switched where it is instead, as
-    /// the field's first word is.
+    /// starts there (the caret couldn't go back to it); the word is switched where it is instead.
     @Test func noFixWhereTheLineEndIsntKnown() {
         type("hello world ")
         let rest = String(repeating: "x", count: 5000)

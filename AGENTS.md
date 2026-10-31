@@ -156,9 +156,10 @@ tests use `FakeTextField`). It owns the preview and hysteresis, commits, Esc rea
   reaches a macOS text view (`TextClient.dropsEmptyInserts`; Notes kept the word and the marked text
   went in after it): there a zero-width space takes its place (`takeAway`, `Fixing.placeholder`,
   counted in `start` and `end`) and goes when the fix is in, reverted or dropped (`removePlaceholder`,
-  an insert from it to the caret; Notes, real keys, 2026-10-30). Elsewhere (fcitx5), from
-  inside it, `switchInPlace` switches it as the word just committed is (no mark; `Committed.inLine`
-  updates its `recent` entry when the window closes). ⇧← on the word being typed,
+  an insert from it to the caret; Notes, real keys, 2026-10-30). Elsewhere (fcitx5) an empty insert
+  takes the word away, a deletion, and the caret is at the field's start. Where the line's end isn't
+  known (`readTrailing`), `switchInPlace` switches the word as the word just committed is (no mark;
+  `Committed.inLine` updates its `recent` entry when the window closes). ⇧← on the word being typed,
   or ←/→ right after a switch key changed it, makes it a fix (`startFixingTyped`; `Key.shiftLeft`/
   `.shiftRight`, elsewhere ←/→). So does ←/→ right after a switch key changed the word just
   committed (`startFixingCommitted`: marked as it reads; its boundary too only where what is taken
