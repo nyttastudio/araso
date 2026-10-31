@@ -75,7 +75,8 @@ guards; an entry limited to apps applies to the keys as a whole, by `DecisionCon
   using `Data/korean_vocabulary.txt` plus `KoreanModel.loanwords` (developer and product words the
   2018 subtitles lack: 깃허브, 노션), which `HeuristicEngine` also uses for its Korean word floor;
   its words seen under 10 times, `isRareVocabularyWord`, count for that floor only) and English + Japanese particle
-  (`githubで`). Its decisions have confidence 0.98 (`SplittingEngine.confidence`), above Strict
+  (`githubで`), and an English word that kept digits, `-` or `_` (`decideJoined`: k8s, utf-8, mp3 + 를; `InputSession`
+  keeps them in a word shown as English, or a single letter, instead of committing; not on 3-set). Its decisions have confidence 0.98 (`SplittingEngine.confidence`), above Strict
   (0.97), so they split in a strict app too.
 - English + particle, Korean or Japanese, and English + Korean word are decided by
   `ParticleSplitter`: the split is one more reading, scored per keystroke against the whole token
@@ -103,8 +104,8 @@ guards; an entry limited to apps applies to the keys as a whole, by `DecisionCon
 **`InputSession`** is one state machine per text client, behind the `TextClient` protocol (the
 tests use `FakeTextField`). It owns the preview and hysteresis, commits, Esc reading cycling, the
 "flip the word just committed" window, kana-kanji conversion and live conversion.
-- The flip window (`lastCommit`) stays open over symbols and a space typed after a word a symbol
-  ended (`world. `, `world?! `: `Committed.followed(by:)`), not over the input method's own symbols
+- The flip window (`lastCommit`) stays open over symbols, digits and a space typed after a word a
+  symbol or digit ended (`world. `, `world?! `, `utf-8`, `안녕12`: `Committed.followed(by:)`), not over the input method's own symbols
   (Japanese ones after Japanese, a closing bracket, a URL); Delete then takes back one character.
   The macOS ← after a switch there leaves the caret inside the boundary: `caretMoved` puts the rest
   over itself, back at the end, and marks from there (`startFixingCommitted(afterCaretMove:)`).

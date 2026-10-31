@@ -527,6 +527,18 @@ import Testing
         #expect(field.text == "hello \(world)?! ")
     }
 
+    /// Digits after a word a digit or symbol ended keep it too: `dkssud12`, `utf-8`.
+    @Test func digitsAfterTheWordJustCommitted() {
+        type("dkssud12")
+        #expect(field.text == "\(korean("dkssud"))12")
+        #expect(session.handle(.cycle, client: field))
+        #expect(field.text == "dkssud12")
+
+        type(" utf-8")
+        #expect(session.handle(.cycle, client: field))
+        #expect(field.text == "dkssud12 \(korean("utf"))-8")
+    }
+
     @Test func fixingAfterASymbolAndASpace() {
         field.marksFromCaret = true
         field.insertsFromCaret = true

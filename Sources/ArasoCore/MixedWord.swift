@@ -139,6 +139,7 @@ public final class SplittingEngine: DecisionEngine, @unchecked Sendable {
     }
 
     public func decide(_ keys: String, context: DecisionContext) -> Decision {
+        if let decision = decideJoined(keys, context: context) { return decision }
         // English word + particle, Korean (github에) or with Japanese on Japanese (githubで),
         // when that reading beats the whole token in one language. Before English + Korean
         // word: beautywo is beauty + を, not beau + 쇼재.
@@ -156,6 +157,42 @@ public final class SplittingEngine: DecisionEngine, @unchecked Sendable {
                             explanation: "split \(mixed.english)+\(mixed.korean)")
         }
         return base.decide(keys, context: context)
+    }
+
+    /// An English word that kept the digits and `-`/`_` typed into it (`InputSession`: k8s, mp3,
+    /// utf-8) stays English, with a Korean particle after the last of them split off
+    /// (mp3를, k8s에); not a Japanese phrase, clean romaji throughout (ra-men, kyou3ji). Short of a
+    /// particle the letters after a digit are the English word's (gpt-4o, h2o, snake_case: no kana).
+    func decideJoined(_ keys: String, context: DecisionContext) -> Decision? {
+        guard !KoreanLayout.current.isSebeolsik, keys.first?.isLetter == true,
+              let last = keys.lastIndex(where: Self.joinsWord) else { return nil }
+        let base = base.decide(keys, context: context)
+        // An English word before the mark keeps it English, as it did before the mark joined it
+        // (five-o, woo-hoo), and so do English words throughout (to-do, co-op); a two-letter
+        // front that is also romaji (pa-tigakita, ra-men) doesn't.
+        let segments = keys.split(whereSeparator: Self.joinsWord).map(String.init)
+        if base.language == .japanese, RomajiComposer.compose(keys).strayLetters == 0,
+           !(segments.first.map { $0.count >= 3 && english.isKnownWord($0) } ?? false),
+           !segments.allSatisfy(english.isKnownWord) { return base }
+        // The longest particle at the end, right after the last digit or mark or one letter on
+        // (k8s + 에: sdp), mp3 + 를; not an English word there (merry-go: not 해, heh-heh: not 도),
+        // nor more of one (mani-pedi: not mani-pe야).
+        let tail = Array(keys[keys.index(after: last)...])
+        for start in tail.indices.prefix(2) where !english.isKnownWord(String(tail)) {
+            let suffix = String(tail[start...])
+            guard suffix.first.map(DubeolsikLayout.startsSyllable) == true,
+                  let composed = HangulComposer.compose(keys: suffix), composed.strayJamo.isEmpty,
+                  MixedWord.suffixes.contains(composed.text) else { continue }
+            let front = String(keys[...last]) + String(tail[..<start])
+            return Decision(language: .mixed, confidence: Self.confidence, output: front + composed.text,
+                            explanation: "split \(front)+\(composed.text)")
+        }
+        return Decision(language: .english, confidence: Self.confidence, output: keys, explanation: "English with digits")
+    }
+
+    /// What an English word keeps while it is typed: digits, `-` and `_`.
+    public static func joinsWord(_ ch: Character) -> Bool {
+        ch.isASCII && (ch.isNumber || ch == "-" || ch == "_")
     }
 
     /// A capital no lingering Shift explains (RNl, 꿀 typed fast, isn't a name).

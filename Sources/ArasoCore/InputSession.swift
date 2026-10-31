@@ -573,17 +573,18 @@ public final class InputSession {
             if startFixingCommitted(pending, client) { return handleFixing(key, client: client) }
             if key == .left, deferFixing(pending, client) { return false } // the app moves the caret first
         }
-        // More symbols or a space right after a word a symbol ended (`world. `, `world?! `): the window
-        // stays open over them, so a switch key still changes the word, as after `world `. Up to the
-        // first space. Not where the key is the input method's own (Japanese symbols and full-width
-        // space after Japanese, a closing bracket, a URL), which goes on as after any word.
-        if case .printable(let ch) = key, ch == " " || Self.isBoundarySymbol(ch), keys.isEmpty, let pending,
+        // More symbols, digits or a space right after a word a symbol or digit ended (`world. `,
+        // `world?! `, `utf-8`, `dkssud12`): the window stays open over them, so a switch key still
+        // changes the word, as after `world `. Up to the first space. Not where the key is the input
+        // method's own (Japanese symbols, digits and full-width space after Japanese, a closing
+        // bracket, a URL), which goes on as after any word.
+        if case .printable(let ch) = key, ch == " " || ch.isNumber || Self.isBoundarySymbol(ch), keys.isEmpty, let pending,
            pending.inLine == nil, let end = pending.boundary.last, !end.isWhitespace,
            !Self.hasURLMarker(run(client) + String(ch)), !closesFullWidth(ch),
            previousLanguage != .japanese || (ch == " " && !(fullWidthSpace && japaneseEnabled && policy.fullWidth)) {
             lastCommit = pending.followed(by: ch)
             passedRun = nil
-            afterDigit = false
+            afterDigit = ch.isNumber
             afterKoreanSymbol = inKoreanSymbols && ch != " "
             noteRun(String(ch))
             return false // the app types it
@@ -739,6 +740,11 @@ public final class InputSession {
                 keys.append(ch)
                 // Digits don't read as anything: the phrase stays Japanese, as it was shown.
                 if ch.isNumber, forced == nil { forced = .japanese; forcedByUser = false }
+                updatePreview(client)
+                return true
+            }
+            if !endsInURL, keepsInEnglishWord(ch) {
+                keys.append(ch) // k8s, mp3, utf-8: one word, read on as English (`SplittingEngine.decideJoined`)
                 updatePreview(client)
                 return true
             }
@@ -1973,6 +1979,14 @@ public final class InputSession {
     /// word already read as Japanese ("hello." and "dho?" = 왜? stay what they were).
     /// The in-word marks ー and ' may also turn an English-looking start into Japanese
     /// ("ra" → "ra-" → らー), but never take a word away from Korean.
+    /// A digit, `-` or `_` typed into a word shown as English stays in it rather than committing it,
+    /// so k8s and utf-8 are one word to the switch key; a Korean word still ends there (안녕1). So
+    /// does a single letter shown as a jamo (h2o, l10n: not ㅗ2お). Not on 3-set, whose digit keys are jamo.
+    private func keepsInEnglishWord(_ ch: Character) -> Bool {
+        guard SplittingEngine.joinsWord(ch), !KoreanLayout.current.isSebeolsik, keys.first?.isLetter == true else { return false }
+        return (forced ?? pinned ?? previewLanguage) == .english || (keys.count == 1 && forced == nil)
+    }
+
     private func belongsToJapanesePhrase(_ ch: Character) -> Bool {
         if ch.isASCII, ch.isNumber {
             guard digitsFullWidth else { return false }
@@ -2648,7 +2662,7 @@ public final class InputSession {
     private func rendering(as language: Language) -> String {
         switch language {
         case .japanese: return japaneseDisplay()
-        case .korean: return hangul() ?? keys
+        case .korean: return hangul() ?? HangulComposer.composeRuns(keys)
         default: return engine.render(keys, as: language)
         }
     }
