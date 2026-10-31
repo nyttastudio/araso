@@ -24,7 +24,7 @@ cp Resources/Info.plist "$app/Contents/Info.plist"
 # The input source's name in System Settings comes from these, not Info.plist.
 cp -R Resources/*.lproj "$app/Contents/Resources/"
 data=Sources/ArasoCore/Data
-cp $data/kana_trigrams.txt $data/text_trigrams.txt $data/korean_syllables.txt $data/korean_words.txt $data/korean_vocabulary.txt $data/english_words.txt $data/english_acronyms.txt "$app/Contents/Resources/"
+cp "$data/kana_trigrams.txt" "$data/text_trigrams.txt" "$data/korean_syllables.txt" "$data/korean_words.txt" "$data/korean_vocabulary.txt" "$data/english_words.txt" "$data/english_acronyms.txt" "$app/Contents/Resources/"
 dictionary=.build/checkouts/AzooKeyKanaKanjiConverter/Sources/KanaKanjiConverterModuleWithDefaultDictionary/azooKey_dictionary_storage/Dictionary
 [[ -d "$dictionary" ]] || { echo "missing $dictionary (swift package resolve)"; exit 1; }
 cp -R "$dictionary" "$app/Contents/Resources/Dictionary"
