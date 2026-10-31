@@ -113,7 +113,7 @@ pkg, not both.
 The same input method on Windows 10 (1809) or later. Deciding words, the dictionary and learning are
 the same code as on macOS; kanji conversion is AzooKey's.
 
-1. Download `Araso-Setup.exe` from the [Windows beta](https://github.com/nyttastudio/araso/releases/tag/windows-beta-2)
+1. Download `Araso-Setup.exe` from the [Windows beta](https://github.com/nyttastudio/araso/releases/tag/windows-beta-3)
    and install it. It registers Araso and adds it to Korean's input methods, on x64 and ARM64 PCs
    alike. It isn't code-signed yet: when "Windows protected your PC" shows, choose **More info → Run anyway**.
 2. Pick **Araso** in the taskbar's input indicator. Its menu is the macOS input menu.
@@ -149,7 +149,7 @@ and distributions like it (glibc 2.35 or later).
    The settings window runs on Qt 5, which the package doesn't carry: on Arch install `qt5-base`, on
    Fedora `qt5-qtbase-gui`. When it's missing, `install.sh` says which command installs it.
 2. Download `Araso-linux-<arch>.tar.gz` for your architecture (`uname -m`) from the
-   [Linux beta](https://github.com/nyttastudio/araso/releases/tag/linux-beta-3), unpack it and run
+   [Linux beta](https://github.com/nyttastudio/araso/releases/tag/linux-beta-4), unpack it and run
    its `./install.sh`; it asks for your password. To install from source instead (Swift 6.2, CMake,
    fcitx5's development files and Qt 6; the list is in [docs/linux-port.md](docs/linux-port.md)):
 
@@ -339,8 +339,8 @@ phrase live conversion leaves as kana (`たけ`), a switch key switches at once.
 ### Undo after commit, and learning
 
 Right after a word is committed with Space or punctuation (or only confirmed with Return), a language switch key switches it to its
-next reading, and pressing it again keeps cycling. More symbols and a space after the punctuation
-(`world. `, `world?! `) or deleting the space or punctuation first keep that chance; any other key ends it. This needs the caret still right after the word, and an app that
+next reading, and pressing it again keeps cycling. More symbols, digits and a space after the punctuation
+or a digit (`world. `, `world?! `, `utf-8`, `안녕12`) or deleting the space or punctuation first keep that chance; any other key ends it. This needs the caret still right after the word, and an app that
 lets Araso read the text there. Right after such a switch the strip is numbered, and a digit picks that
 reading (a digit typed without a switch goes in as usual).
 
@@ -348,9 +348,7 @@ A word earlier in the line can be fixed too. Put the caret anywhere in it (click
 right ⌥ (or ⇧Esc, or ⌥Space if chosen): that word alone is underlined again, read the next way,
 the caret at its end; the words after it stay as they are. The field's first word too: macOS text
 views put marked text at the caret, so the caret is moved to the word's start, and at the field's
-start a zero-width space stands in for the character before it until the fix ends. On Linux the
-field's first word is underlined only with the caret before it, and switched in place, without an
-underline, from anywhere else in it. Tapping again keeps cycling, and as in
+start a zero-width space stands in for the character before it until the fix ends. Tapping again keeps cycling, and as in
 Japanese conversion the thick underline is the part being fixed: → makes it a key longer, taking in
 the next word past the end of one (`dkssud gktpdy` → `안녕 하세요`, the underline growing with it); ← makes it shorter, and a cut
 inside a word leaves the rest of its keys to be read on their own (`hellofmf` → `hello` + `를`). A word ← gives
@@ -531,6 +529,7 @@ restart the input method: `pkill -x Araso`.
 | `koreanLayout` | `"dubeolsik"` | The Korean layout; `"sebeolsikFinal"` is 3-set final (세벌식 최종), `"sebeolsik390"` 3-set 390 (세벌식 390). Jamo on digit and symbol keys (ㅆ of 갔 on 2, ㅂ of 밥 on ;) read as jamo inside a word where they fit, and as the symbol where they don't (the ! of 안녕!). Digits alone stay a number, except 00 after Korean, which is ㅋㅋ (other ㅋㅋ and ㅠㅠ (55) take a switch key). Keys that type a digit or symbol on 3-set (on 최종 ⇧B ?, ⇧/ !, ⇧H 0, [ (; on 390 ⇧B !, ⇧M 1) type 3-set's straight after a Korean word and in the symbols that follow it, and QWERTY's anywhere else (Bob); a switch key right after takes them back to the keys as typed (지냈어? → ldhr2jtB). |
 | `japaneseEngine` | `"apple"` | Kanji conversion: `"apple"` uses the engine of macOS's Japanese input, `"azooKey"` the AzooKey converter in the app. |
 | `checkForUpdates` | on | Once a day, ask GitHub for the latest release's version (nothing else is sent), and say so in the input menu and About when it is newer. |
+| `displayLanguage` | none | The language of the settings window and the input menu (`"en"`, `"ko"`); without it, the system's. macOS only for now. |
 
 With live conversion:
 
@@ -579,7 +578,9 @@ Locally, in this order. A keystroke's preview takes at most ~3 ms and a word's f
    win (`dictionary.json`; 0.1.16's `lexicon.json` moves into it when first read). A word corrected
    once only nudges the scores.
 2. **Mixed words**: two languages run together, like `github에`, `PDF파일` or `githubで`, are split,
-   in an app set to Strict too.
+   in an app set to Strict too. Digits, `-` and `_` typed into a word shown as English don't end it:
+   `k8s`, `mp3` and `utf-8` stay under one underline and a switch key changes them whole (`ㅏ8ㄴ`),
+   with only a particle after them split off (`mp3fmf` → `mp3를`). A Korean word still ends at a digit (`안녕1`).
 3. **Rules**: what the keys alone settle, like a capital typed with Shift.
 4. **Heuristic**: the keys are scored per keystroke in all three languages, plus a nudge toward the
    previous word's language.
@@ -642,6 +643,11 @@ replacement, still apply there (`so` remembered as `내` gives `내1`).
 - Shift on a letter with no shifted jamo (`Hello`, `API`) is English.
 - The exception is a Shift that lingers from a double consonant or ㅒ/ㅖ onto the one key right after
   (`djEJs` → `어떤`, `dlTDj` → `있어`, `dPFmf` → `예를`): those go by the scores.
+- So does Shift held down from a double consonant or ㅒ/ㅖ over keys it doesn't change and let go
+  before the word ends (`RKFRMAgkek` → `깔끔하다`, `QKFfl` → `빨리`), when the keys spell whole Hangul.
+  But when the held part before a particle is an English acronym people write, it is that acronym
+  (`RNARkwl` → `RNA까지`, `RNAfmf` → `RNA를`). A particle in the form the acronym doesn't take reads
+  as Korean (`RNAdmf` → `꿈을`).
 - An acronym typed in capitals throughout (`TM`, `RN`) or a word starting on O or P (`PDFvkdlf` →
   `PDF파일`, `OAuth`) stays English.
 - A word with a capital in it is never read as Japanese: as in macOS's Japanese input method, a
@@ -765,7 +771,7 @@ or copied into it in `Contents/Resources/ThirdPartyNotices.txt`, collected by
 - AzooKey Kana-Kanji Converter (the stand-in): MIT; its dictionary: Apache-2.0.
 - Tatoeba sentences (kana and written-Japanese models, Korean syllable and word counts;
   evaluation): CC-BY 2.0 FR, https://tatoeba.org.
-- English words and how common they are: [SCOWL](http://wordlist.aspell.net) (permissive,
+- English words, how common they are, and acronyms: [SCOWL](http://wordlist.aspell.net) (permissive,
   notice in the app). macOS's `/usr/share/dict/words` trains the letter trigrams at runtime.
 - English/Korean frequency lists:
   [hermitdave/FrequencyWords](https://github.com/hermitdave/FrequencyWords), CC-BY-SA 4.0. Used

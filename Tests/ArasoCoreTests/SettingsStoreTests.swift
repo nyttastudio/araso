@@ -164,6 +164,17 @@ import Testing
         #expect(Settings.load(from: url) == Settings(japanese: true, liveConversion: true))
     }
 
+    @Test func displayLanguageFollowsTheSystemAgainWhenCleared() throws {
+        let url = dir.appendingPathComponent("settings.json")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        #expect(Settings.load(from: url).displayLanguage == nil)
+        try Settings(displayLanguage: "en").save(to: url)
+        #expect(Settings.load(from: url).displayLanguage == "en")
+        try Settings().save(to: url)
+        let object = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
+        #expect(object["displayLanguage"] == nil)
+    }
+
     @Test func appEntryNamesOnlyWhatDiffersFromTheDefault() throws {
         var policies = AppPolicies()
         policies.setDefault(AppPolicy(switchKeys: [.escape]))

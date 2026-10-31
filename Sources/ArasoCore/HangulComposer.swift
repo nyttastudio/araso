@@ -46,6 +46,36 @@ public enum HangulComposer {
         return compose(jamos: jamos)
     }
 
+    /// The keys composed, or where digits or symbols are inside (k8s, utf-8) each run of letters
+    /// composed on its own; nil when a run doesn't compose (or there are no letters).
+    public static func composeEachRun(_ keys: String) -> [Result]? {
+        if let whole = compose(keys: keys) { return [whole] }
+        guard !KoreanLayout.current.isSebeolsik else { return nil }
+        let runs = keys.split(whereSeparator: { !$0.isLetter })
+        guard !runs.isEmpty else { return nil }
+        var results: [Result] = []
+        for run in runs {
+            guard let result = compose(keys: String(run)) else { return nil }
+            results.append(result)
+        }
+        return results
+    }
+
+    /// Keys with digits or symbols inside (k8s, utf-8, an English word that kept them): each run of
+    /// letters composed on its own, the rest as typed (ㅏ8ㄴ, ㅕㅅㄹ-8).
+    public static func composeRuns(_ keys: String) -> String {
+        var text = "", run = ""
+        func flush() {
+            if !run.isEmpty { text += compose(keys: run)?.text ?? run }
+            run = ""
+        }
+        for key in keys {
+            if key.isLetter { run.append(key) } else { flush(); text.append(key) }
+        }
+        flush()
+        return text
+    }
+
     public static func compose(jamos: [Character]) -> Result {
         var units: [Unit] = []
         var cho: Character?

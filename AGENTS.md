@@ -75,7 +75,8 @@ guards; an entry limited to apps applies to the keys as a whole, by `DecisionCon
   using `Data/korean_vocabulary.txt` plus `KoreanModel.loanwords` (developer and product words the
   2018 subtitles lack: 깃허브, 노션), which `HeuristicEngine` also uses for its Korean word floor;
   its words seen under 10 times, `isRareVocabularyWord`, count for that floor only) and English + Japanese particle
-  (`githubで`). Its decisions have confidence 0.98 (`SplittingEngine.confidence`), above Strict
+  (`githubで`), and an English word that kept digits, `-` or `_` (`decideJoined`: k8s, utf-8, mp3 + 를; `InputSession`
+  keeps them in a word shown as English, or a single letter, instead of committing; not on 3-set). Its decisions have confidence 0.98 (`SplittingEngine.confidence`), above Strict
   (0.97), so they split in a strict app too.
 - English + particle, Korean or Japanese, and English + Korean word are decided by
   `ParticleSplitter`: the split is one more reading, scored per keystroke against the whole token
@@ -103,8 +104,8 @@ guards; an entry limited to apps applies to the keys as a whole, by `DecisionCon
 **`InputSession`** is one state machine per text client, behind the `TextClient` protocol (the
 tests use `FakeTextField`). It owns the preview and hysteresis, commits, Esc reading cycling, the
 "flip the word just committed" window, kana-kanji conversion and live conversion.
-- The flip window (`lastCommit`) stays open over symbols and a space typed after a word a symbol
-  ended (`world. `, `world?! `: `Committed.followed(by:)`), not over the input method's own symbols
+- The flip window (`lastCommit`) stays open over symbols, digits and a space typed after a word a
+  symbol or digit ended (`world. `, `world?! `, `utf-8`, `안녕12`: `Committed.followed(by:)`), not over the input method's own symbols
   (Japanese ones after Japanese, a closing bracket, a URL); Delete then takes back one character.
   The macOS ← after a switch there leaves the caret inside the boundary: `caretMoved` puts the rest
   over itself, back at the end, and marks from there (`startFixingCommitted(afterCaretMove:)`).
@@ -128,7 +129,9 @@ tests use `FakeTextField`). It owns the preview and hysteresis, commits, Esc rea
   보고서_제1장), and not when the word started right after a number (`afterNumber`: 3개, 3월5일). A remembered word or a text replacement wins over both (so1 is
   내1 once so is 내), and an `_` or digit in a Japanese phrase stays in it (きょうは＿). `decide` notes
   what went in as typed (`asTyped`), and only that isn't learned; when it was the `_` or digit
-  ending the word (`ending`), Delete taking it back makes it a word again. `IdentifierRunTests`.
+  ending the word (`ending`), Delete taking it back makes it a word again. All this is for a word
+  shown as Korean: one shown as English keeps the `_` or digit (`keepsInEnglishWord`, en_s2c), but
+  not a segment inside the run, whose English is only the typed-as-is reading. `IdentifierRunTests`.
 - In a Strict app, a token of 3 keys or fewer kept English by the threshold wins over a Korean
   preview shown along the way (`gst` stays `gst`); longer words keep the preview's hysteresis.
 - The keys that switch a word's reading are per app (`AppPolicy.switchKeys`; default right ⌥ tap
@@ -166,9 +169,10 @@ tests use `FakeTextField`). It owns the preview and hysteresis, commits, Esc rea
   reaches a macOS text view (`TextClient.dropsEmptyInserts`; Notes kept the word and the marked text
   went in after it): there a zero-width space takes its place (`takeAway`, `Fixing.placeholder`,
   counted in `start` and `end`) and goes when the fix is in, reverted or dropped (`removePlaceholder`,
-  an insert from it to the caret; Notes, real keys, 2026-10-30). Elsewhere (fcitx5), from
-  inside it, `switchInPlace` switches it as the word just committed is (no mark; `Committed.inLine`
-  updates its `recent` entry when the window closes). ⇧← on the word being typed,
+  an insert from it to the caret; Notes, real keys, 2026-10-30). Elsewhere (fcitx5) an empty insert
+  takes the word away, a deletion, and the caret is at the field's start. Where the line's end isn't
+  known (`readTrailing`), `switchInPlace` switches the word as the word just committed is (no mark;
+  `Committed.inLine` updates its `recent` entry when the window closes). ⇧← on the word being typed,
   or ←/→ right after a switch key changed it, makes it a fix (`startFixingTyped`; `Key.shiftLeft`/
   `.shiftRight`, elsewhere ←/→). So does ←/→ right after a switch key changed the word just
   committed (`startFixingCommitted`: marked as it reads; its boundary too only where what is taken

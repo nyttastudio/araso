@@ -49,6 +49,30 @@ let sharedEngine = HeuristicEngine()
         #expect(d.output == expected)
     }
 
+    // Shift held down on purpose from a double consonant over the keys after it, which it doesn't
+    // change, and let go before the word ends (빨리 as QKFfl, 깔끔하다 as RKFRmagkek).
+    @Test(arguments: [
+        ("QKFfl", "빨리"), ("RKFRmagkek", "깔끔하다"), ("wkaRKSaks", "잠깐만"), ("QNSDLdi", "뿐이야"),
+        ("dlTDJdy", "있어요"), ("goTSMSep", "했는데"),
+    ])
+    func heldShiftAfterKoreanShiftKeyStaysKorean(keys: String, expected: String) {
+        let d = sharedEngine.decide(keys, context: DecisionContext())
+        #expect(d.language == .korean, "\(keys) → \(d.output) \(d.explanation)")
+        #expect(d.output == expected)
+    }
+
+    // A consonant left over after held Shift is the next syllable on its way while typing (빨ㄹ of
+    // 빨리), but the word ends English when it ends there (Colemak's GMTs, not 쓸ㅇ).
+    @Test func heldShiftOverAStrayConsonantIsKoreanOnlyWhileTyping() {
+        #expect(sharedEngine.decide("QKFf", context: DecisionContext(partial: true)).output == "빨ㄹ")
+        #expect(sharedEngine.decide("QKFf", context: DecisionContext()).output == "QKFf")
+        LatinLayout.$override.withValue(.colemak) {
+            #expect(sharedEngine.decide("GMTs", context: DecisionContext(partial: true)).output == "쓸ㅇ")
+            #expect(sharedEngine.decide("GMTs", context: DecisionContext()).output == "GMTs")
+            #expect(sharedEngine.decide("WYSIWYGs", context: DecisionContext()).output == "WYSIWYGs")
+        }
+    }
+
     // A capital that no lingering Shift explains is still only ever English, after a Korean
     // word too. A Shift lingers between lowercase keys, so an acronym typed in capitals
     // throughout (TM, RN, TL) keeps the rule even when it starts on a Korean shift key, and so

@@ -43,6 +43,7 @@ if [[ "${1:-}" == "--models" ]]; then
   python3 build_korean_syllables.py data/kor_sentences.tsv ../Sources/ArasoCore/Data/korean_syllables.txt
   python3 build_korean_words.py data/kor_sentences.tsv ../Sources/ArasoCore/Data/korean_words.txt
   python3 build_english_words.py data/scowl/final ../Sources/ArasoCore/Data/english_words.txt
+  python3 build_english_acronyms.py data/scowl/final ../Sources/ArasoCore/Data/english_acronyms.txt
   (cd .. && swift build -c release --product araso-cli)
 fi
 

@@ -48,7 +48,7 @@ import Testing
     }
 
     @Test(arguments: [("qhrhtj_chlwhd ", "보고서_최종 "), ("ghldmlfhr_1023 ", "회의록_1023 "),
-                      ("vkdlf_rjatk ", "파일_검사 "), ("user_db_dkssud ", "user_db_안녕 "),
+                      ("vkdlf_rjatk ", "파일_검사 "), ("dkssud_db_dkssud ", "안녕_db_안녕 "),
                       ("qhrhtj_wp1wkd ", "보고서_제1장 ")])
     func koreanWordsAroundAnUnderscore(_ keys: String, _ text: String) {
         type(keys)
@@ -74,8 +74,9 @@ import Testing
     }
 
     @Test func aSwitchedSegmentIsNotLearned() {
-        type("src_dir⎋ ")
-        type("src_dir⎋ ")
+        type("qhrhtj_dir⎋ ")
+        type("qhrhtj_dir⎋ ")
+        #expect(field.text == "보고서_약 보고서_약 ")
         #expect(learning.learned["dir"] == nil)
         #expect(learning.pending["dir"] == nil)
     }
@@ -93,8 +94,9 @@ import Testing
         #expect(learning.learned["cmd"] == .korean)
     }
 
-    /// A Korean word around an `_` or a number is a word: a switch there is learned.
-    @Test(arguments: ["dhqtus⎋1 ", "qhrhtj⎋_x "])
+    /// A Korean word around an `_` or a number is a word: a switch there is learned (after a digit
+    /// when the window closes, at the next word).
+    @Test(arguments: ["dhqtus1⎋ x ", "qhrhtj_⎋x "])
     func aKoreanWordThereIsLearned(_ keys: String) {
         let word = String(keys.prefix(6))
         type(keys)
