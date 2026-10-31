@@ -125,12 +125,13 @@ let splitting = SplittingEngine(base: sharedEngine, english: sharedEngine.englis
         LatinLayout.$override.withValue(layout) {
             var held = 0
             for acronym in Self.techAcronyms {
-                for particle in ["fmf", "dp", "aks", "Rkwl", "dptj", "fh", "eh", "dml"] {
+                for (particle, hangul) in [("fmf", "를"), ("dp", "에"), ("aks", "만"), ("Rkwl", "까지"), ("dptj", "에서"),
+                                           ("fh", "로"), ("eh", "도"), ("dml", "의")] {
                     let keys = acronym + String(particle.map(layout.character(onSeat:)))
                     guard keys.allSatisfy(\.isLetter), DubeolsikLayout.hasHeldOverCapital(keys) else { continue }
                     held += 1
                     let d = splitting.decide(keys, context: DecisionContext())
-                    #expect(d.language == .mixed && d.output.hasPrefix(acronym), "\(layout) \(keys) → \(d.output) \(d.explanation)")
+                    #expect(d.language == .mixed && d.output == acronym + hangul, "\(layout) \(keys) → \(d.output) \(d.explanation)")
                 }
             }
             #expect(held > 0, "no key reached held Shift on \(layout)")
