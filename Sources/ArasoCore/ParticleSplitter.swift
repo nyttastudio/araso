@@ -236,7 +236,8 @@ public struct ParticleSplitter: Sendable {
             && readsAsKorean(front)
         let korean = (held || front.allSatisfy { !$0.isUppercase || DubeolsikLayout.isKoreanShiftKey($0) })
             && composed.map { $0.strayJamo.isEmpty } == true
-        if !korean, Self.isAcronym(front) { return (weights.acronym, true) }
+        // A listed acronym is one at any length (WYSIWYG, FORTRAN), not only of 2 to 6 capitals.
+        if !korean, Self.isAcronym(front) || EnglishModel.acronyms.contains(front) { return (weights.acronym, true) }
         // A name scores lower the rarer its last part: macOS + 문서에서, not macOSans (Sans) + 서에서.
         if !korean, let level = nameLevel(front) {
             return (weights.name - weights.perLevel * Double(max(0, level - 10)), true)

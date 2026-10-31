@@ -98,7 +98,7 @@ let splitting = SplittingEngine(base: sharedEngine, english: sharedEngine.englis
     // make Korean (꿈까지), stays an acronym when the particle is the form it takes (RNA를, not
     // RNA을: that is 꿈을). Keys spelling no acronym (EKF, RMX) are still held Shift (딸한테).
     @Test(arguments: [("RNARkwl", "RNA까지"), ("RNAaks", "RNA만"), ("RNAsms", "RNA는"), ("RNAfmf", "RNA를"),
-                      ("WYSIWYGfmf", "WYSIWYG를")])
+                      ("WYSIWYGfmf", "WYSIWYG를"), ("WYSIWYGdl", "WYSIWYG이"), ("WYSIWYGeh", "WYSIWYG도")])
     func acronymBeforeParticleOverHeldShift(keys: String, expected: String) {
         let d = splitting.decide(keys, context: DecisionContext())
         #expect(d.language == .mixed, "\(keys) → \(d.output) \(d.explanation)")
