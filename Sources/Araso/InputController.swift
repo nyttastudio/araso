@@ -21,6 +21,9 @@ final class InputController: IMKInputController {
     /// A terminal was waiting for a password at the last key (`PasswordPrompt`): its keys went to
     /// the app as typed, and what was being typed went in before the first of them.
     private var passingPassword = false
+    /// A masked password field had the focus at the last key (`MaskedField`): its keys went to
+    /// the app as typed.
+    private var passingMasked = false
     /// The underlined word's place on screen, as last asked while it was still underlined: where
     /// a learned word's mark goes once the word went in (apps place the caret unreliably then;
     /// TextEdit answered with the same column two lines up).
@@ -73,6 +76,8 @@ final class InputController: IMKInputController {
         let app = client?.bundleIdentifier()
         MainActor.assumeIsolated {
             Runtime.shared.active = self
+            AccessibleField.watch(app: app)
+            passingMasked = false
             session.activate(app: app)
             session.replacements = Runtime.shared.textReplacements
             if let last = Runtime.shared.lastVim { vimChanged(to: last.signal, from: last.app) }
@@ -152,7 +157,7 @@ final class InputController: IMKInputController {
         }
         pauseTapDown = nil // a modifier with a key is a shortcut, not a tap
         switchTapDown = nil // ⌥ or ⇧ with a key types a character, not a tap
-        if maskedField(input) {
+        if MainActor.assumeIsolated({ maskedField(input) }) {
             // A masked password field: the keys go to the app as typed, as when paused.
             log.debug("handle masked passed app=\(input.bundleIdentifier() ?? "?", privacy: .public)")
             return false
@@ -223,14 +228,41 @@ final class InputController: IMKInputController {
         return true
     }
 
-    /// A masked password field has the focus (`MaskedField`). The system is asked only while
-    /// Secure Event Input is on.
-    private func maskedField(_ client: IMKTextInput) -> Bool {
-        guard IsSecureEventInputEnabled() else { return false }
-        let owner = (CGSessionCopyCurrentDictionary() as? [String: Any])?["kCGSSessionSecureInputPID"] as? NSNumber
-        return MaskedField.passesKeys(secureInput: true, owner: owner?.int32Value,
-                                      frontmost: NSWorkspace.shared.frontmostApplication?.processIdentifier,
-                                      caret: client.selectedRange())
+    /// A masked password field has the focus (`MaskedField`): its keys go to the app as typed.
+    /// Asked by a key, or a switch tap, before it is handled.
+    /// - Where Secure Event Input is on, the system says whose it is and the field its caret.
+    /// - Else, where the user gave Araso Accessibility, the focused element's role, as looked at
+    ///   when it got the focus (`AccessibleField`; LINE's login, which takes Secure Event Input
+    ///   never and answers as its email field does).
+    /// A field that becomes one without a new text field (Qt: one view per window, so LINE's
+    /// email → password brings no `activate`) starts a new context: the app put away what was
+    /// marked in the field left (as it went in), so nothing is written, and nothing after is
+    /// decided against it. Marked text still there was typed into this field before the focus
+    /// change was seen (Tab, then a key at once): it is replaced by the keys as typed.
+    @MainActor private func maskedField(_ client: IMKTextInput) -> Bool {
+        let masked: Bool
+        if IsSecureEventInputEnabled() {
+            let owner = (CGSessionCopyCurrentDictionary() as? [String: Any])?["kCGSSessionSecureInputPID"] as? NSNumber
+            masked = MaskedField.passesKeys(secureInput: true, owner: owner?.int32Value,
+                                            frontmost: NSWorkspace.shared.frontmostApplication?.processIdentifier,
+                                            caret: client.selectedRange())
+        } else {
+            masked = AccessibleField.isSecure
+        }
+        if masked != passingMasked {
+            passingMasked = masked
+            log.info("masked field \(masked ? "focused: keys pass as typed" : "left", privacy: .public) app=\(client.bundleIdentifier() ?? "?", privacy: .public)")
+            if masked {
+                let marked = client.markedRange()
+                if marked.location != NSNotFound, marked.length > 0, !session.keys.isEmpty {
+                    client.insertText(session.keys, replacementRange: marked)
+                }
+                // As the system's commitComposition on a field change, with no client to write to.
+                session.commitForNewContext(client: nil)
+                StripHUD.hide(force: true)
+            }
+        }
+        return masked
     }
 
     /// The pause key, a right modifier, pressed and released on its own within a moment: pause
@@ -289,6 +321,7 @@ final class InputController: IMKInputController {
         // them would change the word, or the one just committed, in front of the prompt. It starts
         // the prompt as a key does: the word goes in, the strip goes away.
         guard !passwordPrompt(client) else { return }
+        guard !maskedField(client) else { return } // the word left in the field before it isn't there
         noteWordRect(client)
         let handled = session.handle(key, client: textClient(client))
         syncStrip(client)
