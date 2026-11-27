@@ -37,4 +37,50 @@ import Testing
         #expect(!MaskedField.passesKeys(secureInput: true, owner: nil, frontmost: kakao, caret: noCaret))
         #expect(!MaskedField.passesKeys(secureInput: true, owner: kakao, frontmost: nil, caret: noCaret))
     }
+
+    // MARK: Accessibility: fields that never turn Secure Event Input on (LINE's login, Qt 6)
+
+    let secure: Set<String> = ["secure text field", "보안 텍스트 필드"]
+
+    /// LINE's password field: no subrole, the secure role description in the app's language.
+    @Test func linesPasswordFieldIsSecure() {
+        #expect(MaskedField.isSecure(role: "AXTextField", subrole: nil, roleDescription: "secure text field", secureDescriptions: secure))
+        #expect(MaskedField.isSecure(role: "AXTextField", subrole: nil, roleDescription: "보안 텍스트 필드", secureDescriptions: secure))
+    }
+
+    /// Its email field, beside it in the same view.
+    @Test func linesEmailFieldIsNot() {
+        #expect(!MaskedField.isSecure(role: "AXTextField", subrole: nil, roleDescription: "text field", secureDescriptions: secure))
+    }
+
+    /// A native secure field says so in its subrole, whatever its description.
+    @Test func theSecureSubroleIsEnough() {
+        #expect(MaskedField.isSecure(role: "AXTextField", subrole: "AXSecureTextField", roleDescription: nil, secureDescriptions: []))
+    }
+
+    /// The description counts only on a text field, and an empty one never.
+    @Test func otherRolesAndEmptyDescriptionsAreNot() {
+        #expect(!MaskedField.isSecure(role: "AXTextArea", subrole: nil, roleDescription: "secure text field", secureDescriptions: secure))
+        #expect(!MaskedField.isSecure(role: "AXTextField", subrole: nil, roleDescription: "", secureDescriptions: ["" ]))
+        #expect(!MaskedField.isSecure(role: nil, subrole: nil, roleDescription: nil, secureDescriptions: secure))
+    }
+
+    @Test func descriptionsComeFromEveryLanguage() {
+        let table: [String: Any] = [
+            "English": ["AXSecureTextField": "secure text field", "AXTextField": "text field"],
+            "ko": ["AXTextField:AXSecureTextField": "보안 텍스트 필드"],
+            "LocProvenance": "x",
+        ]
+        #expect(MaskedField.secureDescriptions(loctable: table) == ["secure text field", "보안 텍스트 필드"])
+    }
+
+    /// This Mac's table, where there is one: English, Korean and Japanese are in it.
+    @Test func thisMacsTableHasTheLanguages() throws {
+        let url = URL(fileURLWithPath: "/System/Library/Frameworks/ApplicationServices.framework/Frameworks/HIServices.framework/Resources/RoleDescriptions.loctable")
+        guard let table = NSDictionary(contentsOf: url) as? [String: Any] else { return }
+        let descriptions = MaskedField.secureDescriptions(loctable: table)
+        #expect(descriptions.contains("secure text field"))
+        #expect(descriptions.contains("보안 텍스트 필드"))
+        #expect(descriptions.contains("セキュリティ保護されたテキストフィールド"))
+    }
 }

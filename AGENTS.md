@@ -253,7 +253,16 @@ tests use `FakeTextField`). It owns the preview and hysteresis, commits, Esc rea
   Asked to show marked text while handling a key, that field types the key itself (lowercase when
   ⇧ was already down) and drops whatever the input method inserts; deciding each key there lost
   letters (`PASSWORD` came out `pASSwrD`). A terminal with Secure Keyboard Entry reports its
-  caret, so it isn't affected.
+  caret, so it isn't affected. LINE's login (Qt 6) never turns Secure Event Input on and answers IMK
+  as its email field does, real text and caret included; only Accessibility tells them apart, so
+  only where the user gave Araso Accessibility (never asked for): `AccessibleField` watches the
+  active app's `AXFocusedUIElementChanged` and looks at each newly focused element on its own queue
+  (`MaskedField.isSecure`: subrole `AXSecureTextField`, or Qt's role description of one, in every
+  language of HIServices' `RoleDescriptions.loctable`). Never asked while a key is handled: the app
+  waits for the key's answer and can't answer Accessibility (LINE timed out on every key, real keys,
+  2026-11-25). Qt's one view per window brings no `activate` between the fields, so the first
+  masked key starts a new context with no client (`commitForNewContext(client: nil)`; Qt put away
+  the marked text itself).
 - A terminal waiting for a password (sudo, ssh) gets the keys passed straight too, though nothing
   tells the input method so where the terminal doesn't turn Secure Event Input on (Orca, Claude's):
   `PasswordPrompt.isWaiting` (asked by `InputController` after `MaskedField`, every key, 1–2 ms)
